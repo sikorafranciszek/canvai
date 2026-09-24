@@ -19,6 +19,9 @@ export default class BoardScene extends BaseModel {
   @column()
   declare version: number
 
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+
   @column.dateTime({ autoCreate: false, autoUpdate: true })
   declare updatedAt: DateTime | null
 
