@@ -6,3 +6,4 @@ storage/
 *.sqlite3
 .adonisjs/
 .claude/
+public/assets/
