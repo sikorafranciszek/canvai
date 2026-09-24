@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/home/fsikora/.paperclip/instances/default/projects/03360ca6-b3c0-4587-aff9-58c4ca088bd3/d2bd6d66-cd24-4702-975d-e2c269c9cb27/_default/scripts/paperclip-issue-update.sh:*)",
+      "Bash(/home/fsikora/.paperclip/instances/default/projects/03360ca6-b3c0-4587-aff9-58c4ca088bd3/d2bd6d66-cd24-4702-975d-e2c269c9cb27/_default/scripts/paperclip:*)",
+      "Bash(curl:*)",
+      "Bash(env)",
+      "Bash(env:*)"
+    ],
+    "additionalDirectories": [
+      "/home/fsikora/.paperclip/instances/default/companies/03360ca6-b3c0-4587-aff9-58c4ca088bd3",
+      "/home/fsikora/.paperclip/instances/default/companies/03360ca6-b3c0-4587-aff9-58c4ca088bd3/acp-engine/agents/6496bf44-e741-48a5-99b9-210aa0d75887",
+      "/home/fsikora/.paperclip/instances/default/workspaces/6496bf44-e741-48a5-99b9-210aa0d75887"
+    ],
+    "defaultMode": "default"
+  }
+}

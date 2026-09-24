@@ -1,0 +1,7 @@
+node_modules/
+build/
+tmp/
+storage/
+.env
+*.sqlite3
+.adonisjs/
