@@ -1,13 +1,10 @@
 import { test } from '@japa/runner'
+import testUtils from '@adonisjs/core/services/test_utils'
 import User from '#models/user'
 import Board from '#models/board'
-import db from '@adonisjs/lucid/services/db'
 
 test.group('Boards CRUD', (group) => {
-  group.each.setup(async () => {
-    await db.from('boards').delete()
-    await db.from('users').delete()
-  })
+  group.each.setup(() => testUtils.db().withGlobalTransaction())
 
   async function login(client: any) {
     const user = await User.create({
@@ -110,9 +107,12 @@ test.group('Boards CRUD', (group) => {
     response.assertStatus(302)
   })
 
-  test('title is required when creating a board', async ({ client }) => {
+  test('title is required when creating a board', async ({ client, assert }) => {
     const { cookies } = await login(client)
-    const response = await client.post('/boards').json({}).headers({ cookie: cookies })
-    response.assertStatus(200)
+    const response = await client.post('/boards').json({}).headers({ cookie: cookies }).redirects(0)
+    response.assertStatus(302)
+
+    const boards = await Board.all()
+    assert.lengthOf(boards, 0)
   })
 })

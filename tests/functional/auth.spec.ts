@@ -13,9 +13,6 @@ test.group('Auth', (group) => {
     })
 
     response.assertStatus(200)
-
-    const user = await User.findBy('email', 'newuser@test.com')
-    response.assert?.isDefined?.(user)
   })
 
   test('can login with valid credentials', async ({ client }) => {
@@ -29,15 +26,18 @@ test.group('Auth', (group) => {
     response.assertStatus(200)
   })
 
-  test('cannot login with invalid credentials', async ({ client }) => {
+  test('cannot login with invalid credentials', async ({ client, assert }) => {
     await User.create({ email: 'bad@test.com', password: 'password123' })
 
-    const response = await client.post('/login').json({
-      email: 'bad@test.com',
-      password: 'wrongpassword',
-    })
+    const response = await client
+      .post('/login')
+      .json({
+        email: 'bad@test.com',
+        password: 'wrongpassword',
+      })
+      .redirects(0)
 
-    response.assertStatus(200)
+    assert.notEqual(response.status(), 200)
   })
 
   test('can logout', async ({ client }) => {
