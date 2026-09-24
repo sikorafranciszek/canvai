@@ -1,0 +1,118 @@
+{
+  "metadata": {
+    "name": "Design Canvas — fixture"
+  },
+  "elements": [
+    {
+      "id": "f6b0c1a0-0001-4000-8000-000000000001",
+      "type": "rectangle",
+      "x": 40,
+      "y": 40,
+      "rotation": 0,
+      "opacity": 1,
+      "width": 200,
+      "height": 120,
+      "fill": "#e0f2fe",
+      "stroke": "#0284c7",
+      "strokeWidth": 2,
+      "cornerRadius": 8
+    },
+    {
+      "id": "f6b0c1a0-0001-4000-8000-000000000002",
+      "type": "ellipse",
+      "x": 280,
+      "y": 40,
+      "rotation": 0,
+      "opacity": 1,
+      "width": 160,
+      "height": 120,
+      "fill": "#dcfce7",
+      "stroke": "#16a34a",
+      "strokeWidth": 2
+    },
+    {
+      "id": "f6b0c1a0-0001-4000-8000-000000000003",
+      "type": "line",
+      "x": 40,
+      "y": 220,
+      "rotation": 0,
+      "opacity": 1,
+      "points": [
+        { "x": 0, "y": 0 },
+        { "x": 160, "y": 0 }
+      ],
+      "stroke": "#334155",
+      "strokeWidth": 2
+    },
+    {
+      "id": "f6b0c1a0-0001-4000-8000-000000000004",
+      "type": "arrow",
+      "x": 40,
+      "y": 260,
+      "rotation": 0,
+      "opacity": 1,
+      "points": [
+        { "x": 0, "y": 0 },
+        { "x": 160, "y": 0 }
+      ],
+      "stroke": "#b91c1c",
+      "strokeWidth": 2,
+      "arrowHeadSize": 10
+    },
+    {
+      "id": "f6b0c1a0-0001-4000-8000-000000000005",
+      "type": "freehand",
+      "x": 280,
+      "y": 220,
+      "rotation": 0,
+      "opacity": 1,
+      "points": [
+        { "x": 0, "y": 0 },
+        { "x": 12, "y": 18 },
+        { "x": 28, "y": 6 },
+        { "x": 44, "y": 30 },
+        { "x": 60, "y": 12 }
+      ],
+      "stroke": "#7c3aed",
+      "strokeWidth": 3
+    },
+    {
+      "id": "f6b0c1a0-0001-4000-8000-000000000006",
+      "type": "text",
+      "x": 40,
+      "y": 320,
+      "rotation": 0,
+      "opacity": 1,
+      "text": "Nagłówek sekcji",
+      "fontSize": 24,
+      "fontFamily": "Inter, sans-serif",
+      "fill": "#0f172a",
+      "width": 240,
+      "align": "left"
+    },
+    {
+      "id": "f6b0c1a0-0001-4000-8000-000000000007",
+      "type": "sticky",
+      "x": 280,
+      "y": 320,
+      "rotation": 0,
+      "opacity": 1,
+      "width": 180,
+      "height": 140,
+      "text": "Notatka: zweryfikować kontrast",
+      "fill": "#fef08a",
+      "fontSize": 14
+    },
+    {
+      "id": "f6b0c1a0-0001-4000-8000-000000000008",
+      "type": "image",
+      "x": 520,
+      "y": 40,
+      "rotation": 0,
+      "opacity": 1,
+      "assetId": "a1b2c3d4-0001-4000-8000-000000000009",
+      "width": 320,
+      "height": 200
+    }
+  ]
+}
