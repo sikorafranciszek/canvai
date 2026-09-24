@@ -5,3 +5,4 @@ storage/
 .env
 *.sqlite3
 .adonisjs/
+.claude/
