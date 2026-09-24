@@ -8,7 +8,7 @@ import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
 export class AssetAnalysisSchema extends BaseModel {
-  static $columns = ['assetId', 'createdAt', 'id', 'model', 'ocrText', 'palette', 'raw', 'status', 'summary', 'tags', 'tokensIn', 'tokensOut'] as const
+  static $columns = ['assetId', 'createdAt', 'id', 'model', 'ocrText', 'palette', 'promptVersion', 'raw', 'status', 'summary', 'tags', 'tokensIn', 'tokensOut'] as const
   $columns = AssetAnalysisSchema.$columns
   @column()
   declare assetId: number
@@ -22,6 +22,8 @@ export class AssetAnalysisSchema extends BaseModel {
   declare ocrText: string | null
   @column()
   declare palette: any | null
+  @column()
+  declare promptVersion: string | null
   @column()
   declare raw: any | null
   @column()
@@ -74,12 +76,14 @@ export class AssetSchema extends BaseModel {
 }
 
 export class BoardSceneSchema extends BaseModel {
-  static $columns = ['appState', 'boardId', 'document', 'id', 'updatedAt', 'version'] as const
+  static $columns = ['appState', 'boardId', 'createdAt', 'document', 'id', 'updatedAt', 'version'] as const
   $columns = BoardSceneSchema.$columns
   @column()
   declare appState: any
   @column()
   declare boardId: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
   @column()
   declare document: any
   @column({ isPrimary: true })

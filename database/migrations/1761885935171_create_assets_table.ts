@@ -27,6 +27,9 @@ export default class extends BaseSchema {
       table.text('user_note').nullable()
       table.jsonb('position').nullable()
       table.timestamp('created_at').notNullable()
+
+      table.index(['board_id'])
+      table.index(['sha256'])
     })
   }
 

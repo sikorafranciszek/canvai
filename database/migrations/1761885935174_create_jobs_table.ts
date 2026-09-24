@@ -13,6 +13,8 @@ export default class extends BaseSchema {
       table.timestamp('run_at').nullable()
       table.timestamp('locked_at').nullable()
       table.text('last_error').nullable()
+
+      table.index(['status'])
     })
   }
 

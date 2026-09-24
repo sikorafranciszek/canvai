@@ -22,7 +22,10 @@ export default class extends BaseSchema {
       table.jsonb('raw').nullable()
       table.integer('tokens_in').nullable()
       table.integer('tokens_out').nullable()
+      table.string('prompt_version').nullable()
       table.timestamp('created_at').notNullable()
+
+      table.index(['asset_id'])
     })
   }
 

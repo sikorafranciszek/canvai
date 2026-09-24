@@ -16,7 +16,10 @@ export default class extends BaseSchema {
       table.jsonb('document').notNullable().defaultTo('{}')
       table.jsonb('app_state').notNullable().defaultTo('{}')
       table.integer('version').notNullable().defaultTo(1)
+      table.timestamp('created_at').notNullable()
       table.timestamp('updated_at').nullable()
+
+      table.index(['board_id'])
     })
   }
 

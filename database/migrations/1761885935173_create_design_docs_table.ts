@@ -21,6 +21,8 @@ export default class extends BaseSchema {
       table.string('input_fingerprint').nullable()
       table.text('error').nullable()
       table.timestamp('generated_at').nullable()
+
+      table.index(['board_id'])
     })
   }
 
