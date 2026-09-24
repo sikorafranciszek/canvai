@@ -25,6 +25,7 @@ export function Canvas() {
   const [draft, setDraft] = useState<{ kind: Tool; start: ScenePoint; points: ScenePoint[] } | null>(null)
   const [marquee, setMarquee] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [isMiddlePan, setIsMiddlePan] = useState(false)
 
   const registerNode = useCallback((id: string, node: Konva.Node | null) => {
     if (node) nodeRefs.current.set(id, node)
@@ -310,6 +311,7 @@ export function Canvas() {
       e.evt.preventDefault()
       const stage = stageRef.current
       if (!stage) return
+      setIsMiddlePan(true)
       stage.draggable(true)
       stage.startDrag(e)
     }
@@ -324,7 +326,9 @@ export function Canvas() {
   const handleDragEnd = () => {
     const stage = stageRef.current
     if (!stage) return
-    stage.draggable(useSceneStore.getState().tool === 'pan')
+    const stillPan = useSceneStore.getState().tool === 'pan'
+    stage.draggable(stillPan)
+    setIsMiddlePan(false)
     useSceneStore.getState().setCamera({ x: stage.x(), y: stage.y(), scale: stage.scaleX() })
   }
 
@@ -396,7 +400,7 @@ export function Canvas() {
         y={camera.y}
         scaleX={camera.scale}
         scaleY={camera.scale}
-        draggable={tool === 'pan'}
+        draggable={tool === 'pan' || isMiddlePan}
         onMouseDown={(e) => {
           handleStageMouseDown(e)
           handleMouseDown(e)
