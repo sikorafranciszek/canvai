@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import { BaseModel, belongsTo, column } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Board from '#models/board'
+import { jsonConsume, jsonPrepare } from '#models/json_columns'
 
 export default class BoardScene extends BaseModel {
   @column({ isPrimary: true })
@@ -10,10 +11,10 @@ export default class BoardScene extends BaseModel {
   @column()
   declare boardId: number
 
-  @column()
+  @column({ prepare: jsonPrepare, consume: jsonConsume })
   declare document: Record<string, unknown>
 
-  @column()
+  @column({ prepare: jsonPrepare, consume: jsonConsume })
   declare appState: Record<string, unknown>
 
   @column()

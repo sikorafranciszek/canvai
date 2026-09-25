@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import { BaseModel, belongsTo, column } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Board from '#models/board'
+import { jsonConsume, jsonPrepare } from '#models/json_columns'
 
 export default class Asset extends BaseModel {
   @column({ isPrimary: true })
@@ -22,7 +23,7 @@ export default class Asset extends BaseModel {
   @column()
   declare size: number | null
 
-  @column()
+  @column({ columnName: 'sha256' })
   declare sha256: string | null
 
   @column()
@@ -46,7 +47,7 @@ export default class Asset extends BaseModel {
   @column()
   declare userNote: string | null
 
-  @column()
+  @column({ prepare: jsonPrepare, consume: jsonConsume })
   declare position: Record<string, unknown> | null
 
   @column.dateTime({ autoCreate: true })
