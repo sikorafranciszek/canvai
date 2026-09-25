@@ -35,3 +35,35 @@ router
     router.post('logout', [controllers.Session, 'destroy']).as('session.destroy')
   })
   .use(middleware.auth())
+
+/**
+ * API assetów i sceny (M2b). Wszystko pod autoryzacją właściciela tablicy.
+ */
+router
+  .group(() => {
+    // Scena
+    router.get('/boards/:id/scene', [controllers.Scenes, 'show'])
+    router.put('/boards/:id/scene', [controllers.Scenes, 'update'])
+
+    // Asset
+    router.get('/boards/:id/assets', [controllers.Assets, 'index'])
+    router.post('/boards/:id/assets', [controllers.Assets, 'store'])
+    router.patch('/assets/:id', [controllers.Assets, 'update'])
+    router.delete('/assets/:id', [controllers.Assets, 'destroy'])
+    router.get('/assets/:id/raw', [controllers.Assets, 'raw']).as('api.assets.raw')
+    router.get('/assets/:id/thumb', [controllers.Assets, 'thumb']).as('api.assets.thumb')
+    router.get('/assets/:id/content', [controllers.Assets, 'content']).as('api.assets.content')
+  })
+  .prefix('/api')
+  .use(middleware.auth())
+
+/**
+ * Aliasy bez prefiksu `/api` — Bramka 2 sprawdza serwowanie pod
+ * `/assets/:id/raw` i `/assets/:id/thumb`.
+ */
+router
+  .group(() => {
+    router.get('/assets/:id/raw', [controllers.Assets, 'raw']).as('assets.raw')
+    router.get('/assets/:id/thumb', [controllers.Assets, 'thumb']).as('assets.thumb')
+  })
+  .use(middleware.auth())
