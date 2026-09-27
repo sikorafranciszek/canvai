@@ -38,6 +38,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   AI_PROVIDER: Env.schema.enum.optional(['mock', 'deepseek'] as const),
   DEEPSEEK_API_KEY: Env.schema.string.optional(),
   DEEPSEEK_BASE_URL: Env.schema.string.optional({ format: 'url', tld: false }),
+  DEEPSEEK_VISION_MODEL: Env.schema.string.optional(),
   DEEPSEEK_TEXT_MODEL: Env.schema.string.optional(),
   DEEPSEEK_REASONING_MODEL: Env.schema.string.optional(),
 })

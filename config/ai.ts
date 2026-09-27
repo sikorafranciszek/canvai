@@ -11,11 +11,11 @@ import env from '#start/env'
  * projektu (patrz `.env.example`). Klucz NIE trafia do repozytorium i NIE jest
  * nigdy przekazywany do przeglądarki — cały ruch do modelu idzie z serwera.
  *
- * WAŻNE OGRANICZENIE: `api.deepseek.com` udostępnia wyłącznie modele tekstowe
- * (`deepseek-chat`, `deepseek-reasoner`) — nie przyjmuje obrazów na wejściu.
- * Dlatego `capabilities.vision` to `false`, a pipeline M3 musi sprawdzić tę
- * flagę przed wysłaniem assetu typu `image` i nie może zakładać, że opis
- * obrazu powstanie w tym samym wywołaniu co synteza dokumentu.
+ * MULTIMODALNOŚĆ: `deepseek-flash` przyjmuje obrazy na wejściu (bloki
+ * `image_url` w formacie OpenAI), `deepseek-v4-pro` jest tekstowy. Dlatego
+ * modelem analizy assetów jest `deepseek-flash`, a `capabilities.vision` to
+ * `true`. Pipeline M3 nadal czyta tę flagę zamiast zakładać multimodalność —
+ * dostawca `mock` ma ją na `false`, a testy muszą przechodzić oba warianty.
  */
 
 export const aiProviders = ['mock', 'deepseek'] as const
@@ -31,7 +31,12 @@ export interface AiProviderCapabilities {
 
 export interface AiProviderConfig {
   baseUrl: string
-  /** Model do syntezy tekstu (generowanie DESIGN.md). */
+  /**
+   * Model analizy pojedynczego assetu — MUSI być multimodalny, jeśli
+   * `capabilities.vision` jest `true`.
+   */
+  visionModel: string
+  /** Model do syntezy tekstu (składanie DESIGN.md z ustrukturyzowanych opisów). */
   textModel: string
   /** Model do rozumowania nad strukturą dokumentu; może być ten sam. */
   reasoningModel: string
@@ -48,6 +53,7 @@ const deepseekKey = env.get('DEEPSEEK_API_KEY')
 export const providers: Record<AiProvider, AiProviderConfig> = {
   mock: {
     baseUrl: 'http://localhost/mock',
+    visionModel: 'mock-text',
     textModel: 'mock-text',
     reasoningModel: 'mock-text',
     capabilities: { vision: false, jsonMode: true },
@@ -55,9 +61,10 @@ export const providers: Record<AiProvider, AiProviderConfig> = {
   },
   deepseek: {
     baseUrl: env.get('DEEPSEEK_BASE_URL', 'https://api.deepseek.com'),
-    textModel: env.get('DEEPSEEK_TEXT_MODEL', 'deepseek-chat'),
-    reasoningModel: env.get('DEEPSEEK_REASONING_MODEL', 'deepseek-reasoner'),
-    capabilities: { vision: false, jsonMode: true },
+    visionModel: env.get('DEEPSEEK_VISION_MODEL', 'deepseek-flash'),
+    textModel: env.get('DEEPSEEK_TEXT_MODEL', 'deepseek-flash'),
+    reasoningModel: env.get('DEEPSEEK_REASONING_MODEL', 'deepseek-v4-pro'),
+    capabilities: { vision: true, jsonMode: true },
     apiKey: deepseekKey ?? null,
   },
 }
@@ -73,6 +80,33 @@ export const active = providers[provider]
 export function isReady(): boolean {
   return provider === 'mock' || Boolean(active.apiKey)
 }
+
+/**
+ * Ograniczenia wejścia obrazowego wymuszane przez `api.deepseek.com`. Trzymane
+ * w konfiguracji, bo pipeline musi je egzekwować PRZED wysłaniem zapytania —
+ * przekroczenie kończy się 400, nie miękkim obcięciem.
+ */
+export const vision = {
+  /** Maksymalna liczba obrazów w jednym zapytaniu (limit dostawcy: 600). */
+  maxImagesPerRequest: 24,
+  /** Maksymalny rozmiar jednego obrazu w bajtach (limit dostawcy: 32 MiB dla base64/URL). */
+  maxImageBytes: 32 * 1024 * 1024,
+  /**
+   * Dłuższa krawędź wariantu `analysis` wysyłanego do modelu. Dostawca sam
+   * skaluje do ~1300x1300 px sumarycznie, więc wysyłanie więcej to czysty
+   * transfer bez zysku jakości.
+   */
+  maxEdgePx: 1300,
+  /** `detail` dla bloku `image_url`: 'low' skaluje do 512x512, 'original' zachowuje wymiary. */
+  detail: 'original' as 'low' | 'high' | 'original' | 'auto',
+  /** Formaty przyjmowane przez dostawcę (rozpoznawane po zawartości, nie po nazwie). */
+  acceptedFormats: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const,
+  /**
+   * Obrazy wolno wysyłać WYŁĄCZNIE w wiadomościach roli `user`; obraz w
+   * `system` albo `assistant` kończy się błędem 400.
+   */
+  imagesAllowedInRoles: ['user'] as const,
+} as const
 
 /**
  * Limity jednego zadania generowania — trzymane tutaj, żeby dały się zmienić
