@@ -38,6 +38,31 @@ function sha256(buffer: Buffer): string {
   return createHash('sha256').update(buffer).digest('hex')
 }
 
+/**
+ * Normalizuje MIME przed klasyfikacją. Fallback na `Content-Type` klienta
+ * przychodzi w surowej formie nagłówka — może mieć parametry (`; charset=utf-8`),
+ * wielkie litery i spacje. Bez tego `image/PNG` albo `image/svg+xml; charset=utf-8`
+ * nie trafiłoby do `imageMimes` ani do `dangerousMimes`.
+ */
+function normalizeMime(mime: string): string {
+  const bare = mime.split(';')[0].trim().toLowerCase()
+  return MIME_ALIASES[bare] ?? bare
+}
+
+/**
+ * Kanonikalizacja MIME gubionych przez `file.type/subtype` Adonisa.
+ *
+ * Adonis składa MIME z dwóch pól i dla SVG daje `type: 'image'`,
+ * `subtype: 'svg'` — sufiks `+xml` przepada. Powstałe `image/svg` nie ma
+ * żadnego dopasowania w `imageMimes`, więc SVG lądowało jako `kind: 'file'`
+ * i WSZYSTKIE gałęzie SVG w kodzie były martwe: brak miniatury, brak
+ * renderowania na płótnie, brak wejścia do pipeline'u AI, a w `/raw`
+ * nie odpalał się ani `attachment`, ani `CSP` (assets_controller.ts:108).
+ */
+const MIME_ALIASES: Record<string, string> = {
+  'image/svg': 'image/svg+xml',
+}
+
 /** Klasyfikuje MIME na rodzaj assetu. Rzuca 422 dla typów zakazanych. */
 export function classifyMime(mime: string): 'image' | 'pdf' | 'file' {
   if (imageMimes.includes(mime)) return 'image'
@@ -61,6 +86,58 @@ function extForFile(mime: string, clientExtname?: string): string {
     .replace(/[^a-z0-9]/g, '')
     .slice(0, 10)
   return ext || 'bin'
+}
+
+/**
+ * Format raportowany przez `sharp` dla każdego rastrowego MIME, który
+ * klasyfikujemy jako `kind: image`.
+ */
+const SHARP_FORMAT_BY_MIME: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpeg',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+}
+
+/**
+ * Weryfikacja „deklaracja MIME vs. zawartość pliku" (hardening z Bramki 2).
+ *
+ * MIME assetu pochodzi z `file.type/subtype` Adonisa, a ten — gdy magic number
+ * nie rozpozna pliku — spada na `Content-Type` przysłany przez klienta.
+ * Dało się więc zapisać asset z `mime: image/png`, którego bajty są czymkolwiek
+ * (np. HTML-em). Serwowanie takiego pliku jest obecnie zablokowane po stronie
+ * nagłówków (`nosniff`, CSP, attachment dla SVG), ale sam wiersz `kind: image`
+ * z niedziałającą ścieżką renderowania to śmieć w bazie i mylący stan UI.
+ *
+ * Dlatego dla typów rastrowych potwierdzamy zawartość przez `sharp.metadata()`,
+ * a dla SVG wymagamy, żeby dokument faktycznie zawierał element `<svg>`.
+ * Rozjazd deklaracja↔zawartość kończy się czytelnym 422.
+ */
+async function assertContentMatchesMime(buffer: Buffer, mime: string, filename: string) {
+  const reject = (detail: string): never => {
+    throw new Exception(
+      `Zawartość pliku „${filename}” nie zgadza się z zadeklarowanym typem ${mime} (${detail})`,
+      { status: 422, code: 'E_ASSET_CONTENT_MISMATCH' }
+    )
+  }
+
+  if (mime === 'image/svg+xml') {
+    // SVG nie ma magic number — sprawdzamy, czy to w ogóle dokument SVG.
+    const head = buffer.subarray(0, 4096).toString('utf8')
+    if (!/<svg[\s/>]/i.test(head)) reject('brak elementu <svg>')
+    return
+  }
+
+  const expected = SHARP_FORMAT_BY_MIME[mime]
+  if (!expected) return
+
+  let format: string | undefined
+  try {
+    format = (await sharp(buffer).metadata()).format
+  } catch {
+    reject('nie udało się odczytać pliku jako obrazu')
+  }
+  if (format !== expected) reject(`wykryty format: ${format ?? 'nieznany'}`)
 }
 
 /**
@@ -159,16 +236,23 @@ export async function storeUploadedFile(
     })
   }
 
-  const mime =
+  const mime = normalizeMime(
     file.type && file.subtype
       ? `${file.type}/${file.subtype}`
       : (file.headers?.['content-type'] ?? 'application/octet-stream')
+  )
 
   // Rzuca 422 dla typów zakazanych (HTML/JS).
   const kind = classifyMime(mime)
   const ext = extForFile(mime, file.extname)
 
   const buffer = await readFile(file.tmpPath)
+
+  // Rzuca 422, gdy bajty nie odpowiadają zadeklarowanemu MIME (tylko obrazy).
+  if (kind === 'image') {
+    await assertContentMatchesMime(buffer, mime, file.clientName)
+  }
+
   const hash = sha256(buffer)
 
   // Deduplikacja w obrębie tablicy — ten sam sha256 nie dubluje binariów.

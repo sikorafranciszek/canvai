@@ -4,6 +4,7 @@ import {
   commitHistory,
   createElementId,
   duplicateElements,
+  HISTORY_LIMIT,
   moveElements,
   redoHistory,
   removeElements,
@@ -13,6 +14,7 @@ import {
   type SceneHistoryState,
 } from '#shared/scene-ops'
 import { emptySceneDocument, type SceneDocument, type SceneElement } from '#shared/scene'
+import { sceneFixture } from '#shared/scene.fixture'
 
 function rect(id: string, x = 0, y = 0): SceneElement {
   return { id, type: 'rectangle', x, y, rotation: 0, opacity: 1, width: 100, height: 60, fill: '#fff', stroke: '#000', strokeWidth: 1 }
@@ -138,5 +140,72 @@ test.group('SceneDocument reducer (scene-ops)', () => {
     const b = createElementId()
     assert.notEqual(a, b)
     assert.isString(a)
+  })
+
+  /**
+   * Inwariant historii wymagany przez Bramkę 2 (BLA-11, punkt 6):
+   * 20 mieszanych operacji -> 20x undo -> scena IDENTYCZNA z początkową
+   * (porównanie głębokie), -> 20x redo -> scena identyczna ze stanem po 20 operacjach.
+   */
+  test('inwariant undo/redo na serii 20 mieszanych operacji', ({ assert }) => {
+    // Scena startowa: pełny fixture kontraktu (po jednym elemencie każdego typu).
+    const initial = structuredClone(sceneFixture) as SceneDocument
+    const initialSnapshot = structuredClone(initial)
+
+    let state = initialState(initial)
+    const ids = initial.elements.map((e) => e.id)
+
+    // 20 operacji, każda z 6 kategorii wymaganych przez bramkę:
+    // add, remove, move, reorder (warstwa), update (edycja pola), duplicate.
+    const operations: Array<(doc: SceneDocument) => SceneDocument> = [
+      (d) => addElement(d, rect('op-add-1', 900, 10)), // 1 add
+      (d) => moveElements(d, [ids[0]], 5, 7), // 2 move
+      (d) => updateElement(d, ids[5], { opacity: 0.5 }), // 3 update
+      (d) => reorderElement(d, ids[1], 'forward'), // 4 reorder
+      (d) => duplicateElements(d, [ids[2]]), // 5 duplicate
+      (d) => removeElements(d, [ids[3]]), // 6 remove
+      (d) => addElement(d, rect('op-add-2', 900, 80)), // 7 add
+      (d) => moveElements(d, [ids[4], ids[6]], -12, 3), // 8 move (wiele)
+      (d) => updateElement(d, ids[6], { rotation: 15 }), // 9 update
+      (d) => reorderElement(d, ids[7], 'backward'), // 10 reorder
+      (d) => duplicateElements(d, ['op-add-1']), // 11 duplicate
+      (d) => removeElements(d, [ids[2]]), // 12 remove
+      (d) => addElement(d, rect('op-add-3', 900, 150)), // 13 add
+      (d) => moveElements(d, ['op-add-2'], 1.5, -2.25), // 14 move (ułamki)
+      (d) => updateElement(d, ids[0], { x: 1234, opacity: 0.25 }), // 15 update (wiele pól)
+      (d) => reorderElement(d, 'op-add-3', 'backward'), // 16 reorder
+      (d) => duplicateElements(d, [ids[5], ids[6]]), // 17 duplicate (wiele)
+      (d) => removeElements(d, ['op-add-2']), // 18 remove
+      (d) => moveElements(d, ['op-add-3'], 40, 40), // 19 move
+      (d) => updateElement(d, ids[7], { width: 640, height: 400 }), // 20 update
+    ]
+    assert.lengthOf(operations, 20)
+
+    for (const apply of operations) {
+      state = commitHistory(state, apply(state.document))
+    }
+
+    const afterAll = structuredClone(state.document)
+    // Sanity: seria faktycznie zmieniła scenę (inaczej test nic nie dowodzi).
+    assert.notDeepEqual(afterAll, initialSnapshot)
+    assert.lengthOf(state.past, 20)
+    // 20 kroków mieści się w limicie historii — nic nie zostało przycięte.
+    assert.isBelow(20, HISTORY_LIMIT)
+
+    for (let i = 0; i < 20; i++) state = undoHistory(state)
+
+    assert.lengthOf(state.past, 0)
+    assert.lengthOf(state.future, 20)
+    // Porównanie GŁĘBOKIE całego dokumentu, nie długości tablicy.
+    assert.deepEqual(state.document, initialSnapshot)
+
+    for (let i = 0; i < 20; i++) state = redoHistory(state)
+
+    assert.lengthOf(state.past, 20)
+    assert.lengthOf(state.future, 0)
+    assert.deepEqual(state.document, afterAll)
+
+    // Wejściowy dokument nie został zmutowany po drodze.
+    assert.deepEqual(initial, initialSnapshot)
   })
 })
