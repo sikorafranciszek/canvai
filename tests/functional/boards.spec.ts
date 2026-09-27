@@ -108,11 +108,14 @@ test.group('Boards CRUD', (group) => {
   })
 
   test('title is required when creating a board', async ({ client, assert }) => {
-    const { cookies } = await login(client)
+    const { user, cookies } = await login(client)
     const response = await client.post('/boards').json({}).headers({ cookie: cookies }).redirects(0)
     response.assertStatus(302)
 
-    const boards = await Board.all()
+    // Zakres na zalogowanego użytkownika, nie `Board.all()`: testy dzielą plik
+    // `tmp/db.sqlite3` ze środowiskiem dev, więc globalna asercja przewraca się
+    // na tablicach zostawionych przez ręczne klikanie w aplikacji.
+    const boards = await Board.query().where('user_id', user.id)
     assert.lengthOf(boards, 0)
   })
 })
