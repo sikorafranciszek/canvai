@@ -140,8 +140,13 @@ export function Canvas({ boardId }: { boardId: number }) {
         return
       }
       if (mod && e.key.toLowerCase() === 'v') {
-        e.preventDefault()
-        pasteClipboard()
+        // Wewnętrzny schowek elementów ma pierwszeństwo (Ctrl+C/Ctrl+V sceny).
+        // Gdy jest pusty — NIE wywołuj preventDefault, żeby natywny event `paste`
+        // (schowek systemowy: zrzut ekranu / tekst / URL) mógł się odpalić.
+        if (hasInternalClipboard()) {
+          e.preventDefault()
+          pasteClipboard()
+        }
         return
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -775,6 +780,10 @@ function clamp(v: number, min: number, max: number) {
 
 // Schowek (w pamięci) na Ctrl+C / Ctrl+X / Ctrl+V.
 let clipboard: SceneElement[] = []
+
+function hasInternalClipboard() {
+  return clipboard.length > 0
+}
 
 function copySelection(doc: SceneDocument, selection: string[]) {
   clipboard = doc.elements.filter((el) => selection.includes(el.id))
