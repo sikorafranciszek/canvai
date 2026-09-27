@@ -5,6 +5,8 @@ import type { SceneDocument, SceneElement, ScenePoint } from '@shared/scene'
 import { useSceneStore, createElementForTool, type Tool } from '~/lib/scene/store'
 import { getElementBounds, screenToWorld } from '~/lib/scene/geometry'
 import { isHttpUrl } from '@shared/asset-utils'
+import { createElementId } from '@shared/scene-ops'
+import { parseClipboardElements, prepareElementsForPaste, serializeElements } from '@shared/clipboard'
 import { useBoardStore } from '~/lib/board/session'
 import { SceneElementNode } from './SceneElementNode'
 import { TextEditor } from './TextEditor'
@@ -128,27 +130,6 @@ export function Canvas({ boardId }: { boardId: number }) {
         store.duplicateSelection()
         return
       }
-      if (mod && e.key.toLowerCase() === 'c') {
-        e.preventDefault()
-        copySelection(document, selection)
-        return
-      }
-      if (mod && e.key.toLowerCase() === 'x') {
-        e.preventDefault()
-        copySelection(document, selection)
-        store.deleteSelection()
-        return
-      }
-      if (mod && e.key.toLowerCase() === 'v') {
-        // Wewnętrzny schowek elementów ma pierwszeństwo (Ctrl+C/Ctrl+V sceny).
-        // Gdy jest pusty — NIE wywołuj preventDefault, żeby natywny event `paste`
-        // (schowek systemowy: zrzut ekranu / tekst / URL) mógł się odpalić.
-        if (hasInternalClipboard()) {
-          e.preventDefault()
-          pasteClipboard()
-        }
-        return
-      }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault()
         store.deleteSelection()
@@ -184,7 +165,7 @@ export function Canvas({ boardId }: { boardId: number }) {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
     }
-  }, [document, selection])
+  }, [])
 
   const getWorldPointer = useCallback(() => {
     const stage = stageRef.current
@@ -234,20 +215,66 @@ export function Canvas({ boardId }: { boardId: number }) {
       }
 
       const text = e.clipboardData?.getData('text/plain')
-      if (text && text.trim()) {
+      if (!text) return
+
+      // Elementy sceny (kopia z Ctrl+C) — payload w schowku systemowym.
+      const elements = parseClipboardElements(text)
+      if (elements) {
         e.preventDefault()
-        const trimmed = text.trim()
-        if (isHttpUrl(trimmed)) {
-          void useBoardStore.getState().addLink(trimmed, point)
-        } else {
-          useBoardStore.getState().addTextNote(text, point)
-        }
+        const clones = prepareElementsForPaste(elements, createElementId)
+        const store = useSceneStore.getState()
+        for (const clone of clones) store.addElement(clone)
+        return
+      }
+
+      const trimmed = text.trim()
+      if (!trimmed) return
+      e.preventDefault()
+      if (isHttpUrl(trimmed)) {
+        void useBoardStore.getState().addLink(trimmed, point)
+      } else {
+        useBoardStore.getState().addTextNote(text, point)
       }
     }
 
     window.addEventListener('paste', onPaste)
     return () => window.removeEventListener('paste', onPaste)
   }, [getWorldPointer])
+
+  // Kopiowanie/wycinanie elementów sceny przez schowek SYSTEMOWY (zdarzenia
+  // `copy`/`cut`), żeby Ctrl+V obsługiwał JEDEN punkt wejścia — event `paste`.
+  useEffect(() => {
+    const isEditable = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false
+      return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
+    }
+
+    const onCopy = (e: ClipboardEvent) => {
+      if (isEditable(e.target)) return
+      const { document, selection } = useSceneStore.getState()
+      if (selection.length === 0) return
+      const elements = document.elements.filter((el) => selection.includes(el.id))
+      e.preventDefault()
+      e.clipboardData?.setData('text/plain', serializeElements(elements))
+    }
+
+    const onCut = (e: ClipboardEvent) => {
+      if (isEditable(e.target)) return
+      const { document, selection } = useSceneStore.getState()
+      if (selection.length === 0) return
+      const elements = document.elements.filter((el) => selection.includes(el.id))
+      e.preventDefault()
+      e.clipboardData?.setData('text/plain', serializeElements(elements))
+      useSceneStore.getState().deleteSelection()
+    }
+
+    window.addEventListener('copy', onCopy)
+    window.addEventListener('cut', onCut)
+    return () => {
+      window.removeEventListener('copy', onCopy)
+      window.removeEventListener('cut', onCut)
+    }
+  }, [])
 
   const handleStageMouseDown = (e: any) => {
     if (e.evt.button === 1) return // środkowy przycisk = pan (obsłużone niżej)
@@ -776,24 +803,4 @@ function DraftShape({ draft }: { draft: { kind: Tool; start: ScenePoint; points:
 
 function clamp(v: number, min: number, max: number) {
   return Math.min(max, Math.max(min, v))
-}
-
-// Schowek (w pamięci) na Ctrl+C / Ctrl+X / Ctrl+V.
-let clipboard: SceneElement[] = []
-
-function hasInternalClipboard() {
-  return clipboard.length > 0
-}
-
-function copySelection(doc: SceneDocument, selection: string[]) {
-  clipboard = doc.elements.filter((el) => selection.includes(el.id))
-}
-
-function pasteClipboard() {
-  const store = useSceneStore.getState()
-  if (clipboard.length === 0) return
-  const clones = clipboard.map(
-    (el) => ({ ...el, id: crypto.randomUUID(), x: el.x + 20, y: el.y + 20 }) as SceneElement
-  )
-  for (const clone of clones) store.addElement(clone)
 }
