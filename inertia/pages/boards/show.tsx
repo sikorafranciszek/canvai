@@ -1,6 +1,8 @@
 import { Link } from '@adonisjs/inertia/react'
 import { useEffect, useState } from 'react'
 import type React from 'react'
+import { AssetPanel } from '~/components/canvas/AssetPanel'
+import { SaveStatus } from '~/components/canvas/SaveStatus'
 
 interface Board {
   id: number
@@ -16,7 +18,7 @@ const BoardsShow: React.FC<{ board: Board }> = ({ board }) => {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 
-  const [Canvas, setCanvas] = useState<React.ComponentType | null>(null)
+  const [Canvas, setCanvas] = useState<React.ComponentType<{ boardId: number }> | null>(null)
   const [Toolbar, setToolbar] = useState<React.ComponentType | null>(null)
 
   useEffect(() => {
@@ -51,6 +53,7 @@ const BoardsShow: React.FC<{ board: Board }> = ({ board }) => {
           <h1 style={{ margin: 0, fontSize: 16 }} data-testid="board-title">
             {board.title}
           </h1>
+          <SaveStatus />
         </div>
         <Link route="boards.index" className="button" style={{ fontSize: 13 }}>
           Back to Boards
@@ -59,17 +62,27 @@ const BoardsShow: React.FC<{ board: Board }> = ({ board }) => {
 
       {Toolbar ? <Toolbar /> : null}
 
-      <div style={{ flex: 1, position: 'relative', background: '#f8fafc' }}>
-        {Canvas ? (
-          <Canvas />
-        ) : (
-          <div
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#64748b' }}
-            data-testid="canvas-loading"
-          >
-            Ładowanie edytora…
-          </div>
-        )}
+      <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+        <div style={{ flex: 1, position: 'relative', background: '#f8fafc', minWidth: 0 }}>
+          {Canvas ? (
+            <Canvas key={board.id} boardId={board.id} />
+          ) : (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                color: '#64748b',
+              }}
+              data-testid="canvas-loading"
+            >
+              Ładowanie edytora…
+            </div>
+          )}
+        </div>
+
+        <AssetPanel />
       </div>
     </div>
   )

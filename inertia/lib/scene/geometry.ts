@@ -11,6 +11,28 @@ export function resolveAssetUrl(assetId: string): string {
   return `/api/assets/${assetId}/content`
 }
 
+export interface CameraLike {
+  x: number
+  y: number
+  scale: number
+}
+
+/** Zamienia współrzędne ekranowe (względem kontenera płótna) na światowe. */
+export function screenToWorld(screenX: number, screenY: number, camera: CameraLike): { x: number; y: number } {
+  return {
+    x: (screenX - camera.x) / camera.scale,
+    y: (screenY - camera.y) / camera.scale,
+  }
+}
+
+/** Punkt świata widoczny w środku viewportu (dla uploadu z przycisku). */
+export function viewportCenterWorld(camera: CameraLike, viewportWidth: number, viewportHeight: number): {
+  x: number
+  y: number
+} {
+  return screenToWorld(viewportWidth / 2, viewportHeight / 2, camera)
+}
+
 export interface Bounds {
   x: number
   y: number

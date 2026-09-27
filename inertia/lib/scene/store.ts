@@ -68,6 +68,10 @@ interface SceneStore {
 
   undo: () => void
   redo: () => void
+  /** Ładuje dokument z serwera (bez historii) — używa BLA-9 przy GET sceny. */
+  loadDocument: (document: SceneDocument) => void
+  /** Usuwa elementy o podanych id (używane przy kasowaniu assetu). */
+  deleteElements: (ids: string[]) => void
   reset: () => void
 }
 
@@ -214,6 +218,34 @@ export const useSceneStore = create<SceneStore>()((set, get) => ({
       selection: withSelection(hist.document, state.selection),
       canUndo: hist.past.length > 0,
       canRedo: hist.future.length > 0,
+    })
+  },
+
+  loadDocument: (document) =>
+    set({
+      document,
+      selection: [],
+      past: [],
+      future: [],
+      canUndo: false,
+      canRedo: false,
+    }),
+
+  deleteElements: (ids) => {
+    const state = get()
+    if (ids.length === 0) return
+    const next = removeElements(state.document, ids)
+    const hist = commitHistory(
+      { document: state.document, past: state.past, future: state.future },
+      next
+    )
+    set({
+      document: hist.document,
+      selection: withSelection(next, state.selection),
+      past: hist.past,
+      future: hist.future,
+      canUndo: hist.past.length > 0,
+      canRedo: false,
     })
   },
 

@@ -88,6 +88,30 @@ The app will be available at `http://localhost:3333`.
 npm run test
 ```
 
+## Board editor
+
+The board editor (`/boards/:id`) is an infinite canvas (react-konva). Content
+reaches the board through three paths, all persisted server-side:
+
+- **Paste (`Ctrl+V`)** — an image from the clipboard becomes an `image` element
+  (uploaded to `POST /api/boards/:id/assets`), a URL becomes a link card, plain
+  text becomes a sticky note. Works when the canvas or the page is focused,
+  but not inside text fields.
+- **Drag & drop** — multiple files at once, positioned where they were dropped.
+- **Upload button** — a fallback file picker.
+
+Scene autosave uses `PUT /api/boards/:id/scene` with optimistic locking
+(`version`); a `409` conflict reloads the fresh state and shows a message
+instead of silently overwriting. The right-hand **asset panel** lists
+thumbnails, size, type, an editable AI note (`PATCH /api/assets/:id`), and
+deletion — clicking an item centers and selects its element on the canvas.
+
+### `data-testid` contract (for BLA-8 e2e)
+
+`canvas-root`, `canvas-empty-state`, `drop-overlay`, `upload-button`,
+`upload-input`, `save-status`, `asset-panel`, `asset-item-<id>`,
+`asset-thumb-<id>`, `asset-note-<id>`, `asset-delete-<id>`.
+
 ## Linting & Type Checking
 
 ```bash

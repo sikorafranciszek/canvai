@@ -89,6 +89,12 @@ export interface SceneStickyElement extends SceneShapeBase {
   text: string
   fill: string
   fontSize?: number
+  /**
+   * Opcjonalna referencja do assetu (karta linku). Dla elementów `image`
+   * `assetId` jest wymagane — dla sticky jest opcjonalne i używane wyłącznie
+   * do powiązania karty linku z wpisem assetu w panelu bocznym.
+   */
+  assetId?: string
 }
 
 /** Elementy liniowe: punkty w układzie LOKALNYM elementu (względem x/y). */

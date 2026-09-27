@@ -85,12 +85,12 @@ function ImageNode({
     return <KonvaImage {...common} image={image} width={el.width} height={el.height} />
   }
 
-  // Placeholder, gdy asset nie istnieje (BLA-9 dopiero podepnie upload).
+  // Placeholder, gdy asset nie istnieje lub nie ma podglądu (np. PDF/plik).
   return (
     <Group {...common}>
       <Rect width={el.width} height={el.height} fill="#e2e8f0" stroke="#64748b" strokeWidth={1} dash={[4, 4]} />
       <Text
-        text="brak assetu"
+        text="podgląd niedostępny"
         x={8}
         y={el.height / 2 - 8}
         width={el.width - 16}
