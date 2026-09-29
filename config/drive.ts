@@ -1,4 +1,5 @@
 import app from '@adonisjs/core/services/app'
+import env from '#start/env'
 import { defineConfig, services } from '@adonisjs/drive'
 
 /**
@@ -19,7 +20,9 @@ const driveConfig = defineConfig({
   default: 'assets',
   services: {
     assets: services.fs({
-      location: app.inTest ? app.tmpPath('test-storage') : app.makePath('storage'),
+      location: app.inTest
+        ? app.tmpPath('test-storage')
+        : env.get('STORAGE_PATH', app.makePath('storage')),
       visibility: 'private',
     }),
   },

@@ -19,7 +19,8 @@ const dbConfig = defineConfig({
         /**
          * Database file location.
          */
-        filename: app.tmpPath('db.sqlite3'),
+        // W produkcji plik bazy leży na trwałym wolumenie (SQLITE_PATH).
+        filename: env.get('SQLITE_PATH', app.tmpPath('db.sqlite3')),
       },
 
       /**

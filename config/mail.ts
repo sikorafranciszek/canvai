@@ -3,8 +3,8 @@ import { defineConfig, transports } from '@adonisjs/mail'
 import { OutboxTransport } from '#services/mail_outbox'
 
 /**
- * Poczta: `smtp` w produkcji, `outbox` (domyślnie) lokalnie — maile trafiają
- * do `tmp/mail-outbox/` i podglądu `/dev/mailbox`, bez serwera pocztowego.
+ * Poczta: `smtp` albo `resend` (API) w produkcji, `outbox` (domyślnie) lokalnie —
+ * maile trafiają do `tmp/mail-outbox/` i podglądu `/dev/mailbox`.
  */
 const smtpUser = env.get('SMTP_USERNAME')
 
@@ -22,6 +22,10 @@ const mailConfig = defineConfig({
 
   mailers: {
     outbox: () => new OutboxTransport(),
+    resend: transports.resend({
+      key: env.get('RESEND_API_KEY', ''),
+      baseUrl: 'https://api.resend.com',
+    }),
     smtp: transports.smtp({
       host: env.get('SMTP_HOST', 'localhost'),
       port: env.get('SMTP_PORT', 587),

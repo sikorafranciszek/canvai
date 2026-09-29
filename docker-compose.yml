@@ -1,0 +1,44 @@
+# canvai — wdrożenie przez Coolify (build pack: Docker Compose).
+# Domenę (https://app.canvai.dev) ustawia się w Coolify na usłudze `app`;
+# SERVICE_FQDN_APP_3333 mówi Coolify, że aplikacja słucha na porcie 3333.
+# Zmienne z ${...} są edytowalne w Coolify → Environment Variables.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - SERVICE_FQDN_APP_3333
+      - NODE_ENV=production
+      - HOST=0.0.0.0
+      - PORT=3333
+      - TZ=UTC
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      # Losowy sekret generowany przez Coolify przy pierwszym wdrożeniu.
+      - APP_KEY=${SERVICE_PASSWORD_64_APPKEY}
+      - APP_URL=${APP_URL:-https://app.canvai.dev}
+      - SESSION_DRIVER=cookie
+      - DB_CONNECTION=sqlite
+      - SQLITE_PATH=/app/data/db.sqlite3
+      - STORAGE_PATH=/app/data/storage
+      - TRUST_PROXY=true
+      # AI: mock (bez klucza) albo deepseek + DEEPSEEK_API_KEY.
+      - AI_PROVIDER=${AI_PROVIDER:-mock}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      # Poczta (weryfikacja kont, reset hasła): resend + RESEND_API_KEY albo smtp + SMTP_*.
+      - MAIL_MAILER=${MAIL_MAILER:-resend}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME:-canvai}
+      - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS:-no-reply@canvai.dev}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+    volumes:
+      - canvai-data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3333/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  canvai-data:

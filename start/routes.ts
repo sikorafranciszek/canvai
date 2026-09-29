@@ -11,6 +11,13 @@ import { middleware } from '#start/kernel'
 import { controllers } from '#generated/controllers'
 import router from '@adonisjs/core/services/router'
 
+/** Healthcheck dla Coolify / load balancera: proces żyje i baza odpowiada. */
+router.get('/health', async ({ response }) => {
+  const { default: db } = await import('@adonisjs/lucid/services/db')
+  await db.rawQuery('select 1')
+  return response.json({ status: 'ok' })
+})
+
 router.get('/', [controllers.Board, 'index']).as('home').use([middleware.auth(), middleware.verified()])
 
 router

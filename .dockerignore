@@ -1,0 +1,13 @@
+node_modules
+build
+tmp
+storage
+.adonisjs
+.env
+.env.*
+!.env.example
+.git
+.claude
+landing
+public/assets
+*.log

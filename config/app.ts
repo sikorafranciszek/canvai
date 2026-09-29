@@ -20,6 +20,13 @@ export const http = defineConfig({
   generateRequestId: true,
 
   /**
+   * Za reverse proxy (Traefik w Coolify) ufamy nagłówkom X-Forwarded-*,
+   * żeby `request.protocol()`, `request.ip()` i ciasteczka `secure` widziały
+   * rzeczywiste HTTPS. Aplikacja nie jest wystawiona bezpośrednio.
+   */
+  trustProxy: () => env.get('TRUST_PROXY', app.inProduction),
+
+  /**
    * Allow HTTP method spoofing via the "_method" form/query parameter.
    * This lets HTML forms target PUT/PATCH/DELETE routes while still
    * submitting with POST.
