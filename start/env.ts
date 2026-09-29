@@ -41,4 +41,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   DEEPSEEK_VISION_MODEL: Env.schema.string.optional(),
   DEEPSEEK_TEXT_MODEL: Env.schema.string.optional(),
   DEEPSEEK_REASONING_MODEL: Env.schema.string.optional(),
+
+  // Kolejka: worker in-process w `node ace serve` (domyślnie włączony).
+  QUEUE_INLINE_WORKER: Env.schema.boolean.optional(),
 })

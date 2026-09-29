@@ -1,5 +1,8 @@
 import { DateTime } from 'luxon'
 import { BaseModel, column } from '@adonisjs/lucid/orm'
+import { jsonConsume, jsonPrepare } from '#models/json_columns'
+
+export type JobStatus = 'queued' | 'running' | 'done' | 'failed'
 
 export default class Job extends BaseModel {
   @column({ isPrimary: true })
@@ -8,11 +11,11 @@ export default class Job extends BaseModel {
   @column()
   declare type: string
 
-  @column()
+  @column({ prepare: jsonPrepare, consume: jsonConsume })
   declare payload: Record<string, unknown>
 
   @column()
-  declare status: string
+  declare status: JobStatus
 
   @column()
   declare attempts: number
@@ -25,4 +28,10 @@ export default class Job extends BaseModel {
 
   @column()
   declare lastError: string | null
+
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
 }

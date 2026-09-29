@@ -8,10 +8,12 @@ import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
 export class AssetAnalysisSchema extends BaseModel {
-  static $columns = ['assetId', 'createdAt', 'id', 'model', 'ocrText', 'palette', 'promptVersion', 'raw', 'status', 'summary', 'tags', 'tokensIn', 'tokensOut'] as const
+  static $columns = ['assetId', 'cacheKey', 'createdAt', 'id', 'model', 'ocrText', 'palette', 'promptVersion', 'raw', 'status', 'summary', 'tags', 'tokensIn', 'tokensOut'] as const
   $columns = AssetAnalysisSchema.$columns
   @column()
   declare assetId: number
+  @column()
+  declare cacheKey: string | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column({ isPrimary: true })
@@ -112,12 +114,14 @@ export class BoardSchema extends BaseModel {
 }
 
 export class DesignDocSchema extends BaseModel {
-  static $columns = ['boardId', 'contentMd', 'error', 'generatedAt', 'id', 'inputFingerprint', 'model', 'promptVersion', 'status', 'version'] as const
+  static $columns = ['boardId', 'contentMd', 'createdAt', 'error', 'generatedAt', 'id', 'inputFingerprint', 'jobId', 'model', 'promptVersion', 'sources', 'status', 'usage', 'version'] as const
   $columns = DesignDocSchema.$columns
   @column()
   declare boardId: number
   @column()
   declare contentMd: string | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
   @column()
   declare error: string | null
   @column.dateTime()
@@ -127,20 +131,28 @@ export class DesignDocSchema extends BaseModel {
   @column()
   declare inputFingerprint: string | null
   @column()
+  declare jobId: number | null
+  @column()
   declare model: string | null
   @column()
   declare promptVersion: string | null
   @column()
+  declare sources: any | null
+  @column()
   declare status: string
+  @column()
+  declare usage: any | null
   @column()
   declare version: number
 }
 
 export class JobSchema extends BaseModel {
-  static $columns = ['attempts', 'id', 'lastError', 'lockedAt', 'payload', 'runAt', 'status', 'type'] as const
+  static $columns = ['attempts', 'createdAt', 'id', 'lastError', 'lockedAt', 'payload', 'runAt', 'status', 'type', 'updatedAt'] as const
   $columns = JobSchema.$columns
   @column()
   declare attempts: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
   @column({ isPrimary: true })
   declare id: number
   @column()
@@ -155,6 +167,8 @@ export class JobSchema extends BaseModel {
   declare status: string
   @column()
   declare type: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
 }
 
 export class UserSchema extends BaseModel {

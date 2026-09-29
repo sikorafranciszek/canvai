@@ -53,6 +53,13 @@ router
     router.get('/assets/:id/raw', [controllers.Assets, 'raw']).as('api.assets.raw')
     router.get('/assets/:id/thumb', [controllers.Assets, 'thumb']).as('api.assets.thumb')
     router.get('/assets/:id/content', [controllers.Assets, 'content']).as('api.assets.content')
+
+    // DESIGN.md (M3)
+    router.post('/boards/:id/design-doc', [controllers.DesignDocs, 'store'])
+    router.get('/boards/:id/design-doc', [controllers.DesignDocs, 'show'])
+    router.get('/boards/:id/design-doc/download', [controllers.DesignDocs, 'download'])
+    router.get('/boards/:id/design-docs', [controllers.DesignDocs, 'index'])
+    router.get('/jobs/:id', [controllers.DesignDocs, 'job'])
   })
   .prefix('/api')
   .use(middleware.auth())

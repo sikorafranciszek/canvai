@@ -121,4 +121,13 @@ export const limits = {
   maxRetries: 3,
   /** Maksymalna liczba assetów wysyłanych w jednym zadaniu analizy. */
   maxAssetsPerJob: 40,
+  /**
+   * Twardy sufit tokenów (wejście + wyjście) na jedną generację. Przekroczenie
+   * przerywa generację z czytelnym błędem — nigdy cichym obcięciem.
+   */
+  maxTokensPerGeneration: 400_000,
+  /** Ile analiz assetów leci równolegle do dostawcy. */
+  analysisConcurrency: 4,
+  /** Po jakim czasie zadanie `running` bez postępu uznajemy za porzucone (ms). */
+  jobLockTimeoutMs: 10 * 60_000,
 } as const
