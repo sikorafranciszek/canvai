@@ -109,7 +109,7 @@ const BoardsShow: React.FC<{ board: Board; user?: SharedUser }> = ({ board, user
           {Toolbar ? <Toolbar /> : null}
         </div>
 
-        {sidePanelOpen ? <SidePanel /> : null}
+        <SidePanel open={sidePanelOpen} />
       </div>
     </div>
   )

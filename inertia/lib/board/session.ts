@@ -140,7 +140,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
         }
       })
 
-      set({ initialized: true, version })
+      set({ initialized: true, version, saveStatus: 'idle' })
       await get().refreshAssets()
     } catch (error) {
       set({ saveStatus: 'error' })

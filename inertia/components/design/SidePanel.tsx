@@ -10,19 +10,30 @@ import { useBoardStore } from '~/lib/board/session'
 
 const WIDTH: Record<SidePanelTab, number> = { assets: 320, design: 480 }
 
-export function SidePanel() {
+export function SidePanel({ open = true }: { open?: boolean }) {
   const tab = useDesignStore((s) => s.tab)
   const setTab = useDesignStore((s) => s.setTab)
   const pending = useDesignStore((s) => Boolean(s.active))
   const latest = useDesignStore((s) => s.versions.find((v) => v.status === 'ready'))
   const assetCount = useBoardStore((s) => s.assets.length)
+  const width = WIDTH[tab]
 
   return (
+    // Zewnętrzna „szuflada” animuje szerokość; treść ma stałą szerokość i jest
+    // zakotwiczona do lewej krawędzi szuflady, więc wjeżdża z prawej krawędzi
+    // ekranu. Po zamknięciu panel zostaje zamontowany (inert) — zachowuje stan.
+    <div
+      className="side-drawer"
+      data-open={open}
+      style={{ width: open ? width : 0 }}
+      inert={!open}
+      aria-hidden={!open}
+    >
     <aside
       className="side-panel"
       data-testid="side-panel"
       aria-label="Panel boczny"
-      style={{ width: WIDTH[tab], minWidth: WIDTH[tab] }}
+      style={{ width, minWidth: width }}
     >
       <div className="side-panel__tabs" role="tablist" aria-label="Widok panelu">
         <button
@@ -60,6 +71,7 @@ export function SidePanel() {
         {tab === 'assets' ? <AssetPanel /> : <DesignDocPanel />}
       </div>
     </aside>
+    </div>
   )
 }
 

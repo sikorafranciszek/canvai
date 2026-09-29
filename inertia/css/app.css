@@ -1489,14 +1489,41 @@ input.title-edit {
   font-weight: var(--weight-medium);
 }
 
-/* Panel boczny */
+/* Panel boczny — szuflada wysuwana z prawej krawędzi */
+.side-drawer {
+  position: relative;
+  flex-shrink: 0;
+  height: 100%;
+  overflow: hidden;
+  border-left: 1px solid var(--color-hairline);
+  transition:
+    width 320ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 320ms var(--ease);
+  will-change: width;
+}
+
+.side-drawer[data-open='false'] {
+  border-left-color: transparent;
+}
+
+.side-drawer > .side-panel {
+  height: 100%;
+  transition:
+    opacity 220ms var(--ease),
+    transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Lekkie przesunięcie + wygaszenie treści — ruch czyta się jak wysuwanie, nie cięcie. */
+.side-drawer[data-open='false'] > .side-panel {
+  opacity: 0;
+  transform: translateX(24px);
+}
+
 .side-panel {
   display: flex;
   flex-direction: column;
   min-height: 0;
   background: var(--color-parchment);
-  border-left: 1px solid var(--color-hairline);
-  transition: width 180ms var(--ease);
 }
 
 .side-panel__tabs {
