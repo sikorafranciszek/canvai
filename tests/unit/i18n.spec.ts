@@ -9,12 +9,17 @@ import { en as serverEn, pl as serverPl } from '#services/i18n_messages'
 import { currentLocale, runWithLocale, t } from '#services/i18n'
 
 test.group('i18n', () => {
-  test('język: cookie > Accept-Language (z wagami q) > polski', ({ assert }) => {
+  test('język: cookie > Accept-Language (polski → PL, inny → EN)', ({ assert }) => {
     assert.equal(resolveLocale('en', 'pl-PL'), 'en')
     assert.equal(resolveLocale('de', 'en-US,en;q=0.9'), 'en')
     assert.equal(resolveLocale(undefined, 'de-DE,pl;q=0.5,en;q=0.8'), 'en')
-    assert.equal(resolveLocale(undefined, 'de-DE,fr'), 'pl')
+    // Przeglądarka po polsku → PL, w innym języku → EN, bez nagłówka → PL.
+    assert.equal(resolveLocale(undefined, 'pl-PL,pl;q=0.9,en;q=0.8'), 'pl')
+    assert.equal(resolveLocale(undefined, 'de-DE,fr'), 'en')
+    assert.equal(resolveLocale(undefined, 'uk-UA'), 'en')
     assert.equal(resolveLocale(undefined, null), 'pl')
+    // Obca wartość cookie (np. z innej aplikacji na localhost) jest ignorowana.
+    assert.equal(resolveLocale('pl-PL', 'en-US'), 'en')
     assert.isNull(localeFromAcceptLanguage(''))
   })
 

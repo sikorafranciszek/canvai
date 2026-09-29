@@ -51,6 +51,9 @@ router
   .get('/verify-email/:token', [controllers.EmailVerification, 'verify'])
   .as('verification.verify')
 
+/** Wybór języka (cookie + konto zalogowanego). */
+router.post('/locale', [controllers.Locale, 'update']).as('locale.update')
+
 /** Podgląd lokalnej skrzynki (transport `outbox`) — kontroler zwraca 404 w produkcji. */
 router.get('/dev/mailbox', [controllers.DevMailbox, 'index'])
 

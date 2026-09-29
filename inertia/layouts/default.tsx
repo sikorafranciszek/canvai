@@ -27,7 +27,10 @@ export default function Layout({ children }: { children: ReactElement<Data.Share
 
   // Język z serwera (cookie / Accept-Language) jest źródłem prawdy przy wejściu na stronę.
   useEffect(() => {
-    if (isLocale(serverLocale) && useLocaleStore.getState().locale !== serverLocale) {
+    if (!isLocale(serverLocale)) return
+    // Nawigacja Inertii nie przeładowuje dokumentu — `lang` aktualizujemy ręcznie.
+    document.documentElement.lang = serverLocale
+    if (useLocaleStore.getState().locale !== serverLocale) {
       useLocaleStore.setState({ locale: serverLocale })
     }
   }, [serverLocale])

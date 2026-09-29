@@ -121,8 +121,14 @@ calls, deterministic output.
 ## Languages (i18n)
 
 The app is available in **Polish and English**. The language is resolved per
-request: the `locale` cookie (set by the PL/EN switcher on the login screen, in
-the sidebar and in the editor top bar) → the `Accept-Language` header → Polish.
+request: the language saved in the user's account → the `dc_locale` cookie →
+the browser's `Accept-Language` (Polish browser → PL, **any other language →
+EN**; no header → PL). The PL/EN switcher (login screen, sidebar, editor top bar,
+settings) calls `POST /locale`, which sets the cookie and — for logged-in users —
+saves the choice in `users.locale`, so it survives reloads, new sessions and
+other devices, and is also used for that user's emails (e.g. password reset).
+The cookie name is app-specific because cookies on `localhost` are shared
+across ports with other local apps.
 
 - UI strings: `inertia/i18n/messages.ts` (`pl` + `en`, TypeScript enforces the
   same keys); components use `useT()`, non-React code uses `translate()`.

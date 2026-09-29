@@ -4,9 +4,10 @@ import { LOCALE_COOKIE, resolveLocale } from '#shared/i18n'
 import { runWithLocale } from '#services/i18n'
 
 /**
- * Ustala język żądania: cookie `locale` (wybór użytkownika w UI) →
- * `Accept-Language` → polski. Cookie jest zwykłe (nie podpisane), bo ustawia
- * je przełącznik języka w przeglądarce — wartość jest i tak walidowana.
+ * Ustala język żądania: cookie `dc_locale` (wybór w UI) → `Accept-Language`
+ * (polski → PL, inny → EN). Preferencję zapisaną w koncie nakłada później
+ * `UserLocaleMiddleware` (po uwierzytelnieniu). Cookie jest zwykłe
+ * (niepodpisane) — wartość i tak jest walidowana.
  */
 export default class LocaleMiddleware {
   async handle(ctx: HttpContext, next: NextFn) {

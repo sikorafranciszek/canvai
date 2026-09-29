@@ -261,4 +261,40 @@ test.group('Account', (group) => {
       restore()
     }
   })
+
+  test('język: POST /locale ustawia cookie i zapisuje wybór w koncie (ma pierwszeństwo)', async ({ client, assert }) => {
+    const email = unique('locale')
+    await User.create({ email, password: 'password123', emailVerifiedAt: DateTime.utc() })
+    const login = await client.post('/login').json({ email, password: 'password123' }).redirects(0)
+    const cookies = login.headers()['set-cookie']
+
+    const res = await client
+      .post('/locale')
+      .headers({ cookie: cookies })
+      .json({ locale: 'en' })
+    res.assertStatus(200)
+    assert.match(String(res.headers()['set-cookie']), /dc_locale=en/)
+    const user = await User.findByOrFail('email', email)
+    assert.equal(user.locale, 'en')
+
+    // Preferencja konta wygrywa z przeglądarką po polsku (bez cookie dc_locale).
+    const page = await client
+      .get('/settings')
+      .headers({ 'cookie': cookies, 'accept-language': 'pl-PL' })
+    assert.include(page.text(), 'lang="en"')
+
+    ;(
+      await client
+        .post('/locale')
+        .headers({ cookie: cookies, accept: 'application/json' })
+        .json({ locale: 'de' })
+    ).assertStatus(422)
+  })
+
+  test('język: przeglądarka w innym języku niż polski dostaje angielski', async ({ client, assert }) => {
+    const de = await client.get('/login').header('accept-language', 'de-DE,de;q=0.9')
+    assert.include(de.text(), 'lang="en"')
+    const pl = await client.get('/login').header('accept-language', 'pl-PL,pl;q=0.9,en;q=0.8')
+    assert.include(pl.text(), 'lang="pl"')
+  })
 })

@@ -1,15 +1,19 @@
 /**
  * Wspólna podstawa i18n (serwer + klient). Czysty moduł.
  *
- * Język: cookie `locale` (wybór użytkownika) → nagłówek `Accept-Language`
- * → domyślnie polski. Słowniki żyją osobno: `app/i18n/messages.ts` (serwer)
+ * Język: preferencja zapisana w koncie → cookie `dc_locale` (wybór w UI) →
+ * nagłówek `Accept-Language` (polski → PL, każdy inny język → EN) → polski,
+ * gdy przeglądarka nie podała żadnego języka. Słowniki żyją osobno: `app/i18n/messages.ts` (serwer)
  * i `inertia/i18n/messages.ts` (UI).
  */
 
 export const LOCALES = ['pl', 'en'] as const
 export type Locale = (typeof LOCALES)[number]
 export const DEFAULT_LOCALE: Locale = 'pl'
-export const LOCALE_COOKIE = 'locale'
+/** Nazwa unikalna dla aplikacji — cookies są wspólne dla hosta `localhost` niezależnie od portu. */
+export const LOCALE_COOKIE = 'dc_locale'
+/** Język dla przeglądarek, które nie preferują żadnego z obsługiwanych języków. */
+export const FALLBACK_LOCALE: Locale = 'en'
 
 export const LOCALE_LABELS: Record<Locale, string> = { pl: 'Polski', en: 'English' }
 
@@ -38,7 +42,9 @@ export function localeFromAcceptLanguage(header: string | null | undefined): Loc
 
 export function resolveLocale(cookie: unknown, acceptLanguage?: string | null): Locale {
   if (isLocale(cookie)) return cookie
-  return localeFromAcceptLanguage(acceptLanguage) ?? DEFAULT_LOCALE
+  if (!acceptLanguage?.trim()) return DEFAULT_LOCALE
+  // Przeglądarka po polsku → PL; w każdym innym języku → EN.
+  return localeFromAcceptLanguage(acceptLanguage) ?? FALLBACK_LOCALE
 }
 
 export type Params = Record<string, string | number>

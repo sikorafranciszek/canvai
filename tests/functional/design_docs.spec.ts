@@ -514,7 +514,7 @@ test.group('Design doc API', (group) => {
     // Cookie `locale` ma pierwszeństwo przed nagłówkiem.
     const cookieEn = await client
       .post(`/api/boards/${board.id}/design-doc`)
-      .headers({ 'cookie': [...[cookies].flat(), 'locale=en'].join('; '), 'accept-language': 'pl' })
+      .headers({ 'cookie': [...[cookies].flat(), 'dc_locale=en'].join('; '), 'accept-language': 'pl' })
       .json({})
     assert.match(cookieEn.body().message, /^The board is empty/)
 

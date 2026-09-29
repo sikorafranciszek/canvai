@@ -31,12 +31,23 @@ function initialLocale(): Locale {
 export const useLocaleStore = create<LocaleState>()((set) => ({
   locale: initialLocale(),
   setLocale(locale) {
-    if (typeof document !== 'undefined') {
-      // Cookie czyta serwer (walidacja, błędy API, generacja w tle).
-      document.cookie = `${LOCALE_COOKIE}=${locale}; path=/; max-age=31536000; samesite=lax`
-      document.documentElement.lang = locale
-    }
     set({ locale })
+    if (typeof document === 'undefined') return
+    document.documentElement.lang = locale
+    // Natychmiast (cookie dla kolejnych żądań) + trwale po stronie serwera:
+    // serwer ustawia to samo cookie i zapisuje wybór w koncie zalogowanego.
+    document.cookie = `${LOCALE_COOKIE}=${locale}; path=/; max-age=31536000; samesite=lax`
+    const xsrf = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/)?.[1]
+    void fetch('/locale', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        ...(xsrf ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrf) } : {}),
+      },
+      body: JSON.stringify({ locale }),
+    }).catch(() => {})
   },
 }))
 

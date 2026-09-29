@@ -5,7 +5,8 @@ import User from '#models/user'
 import { consumeToken, findValidToken, issuedRecently, issueToken } from '#services/account_tokens'
 import { sendPasswordChangedEmail, sendPasswordResetEmail } from '#services/account_mail'
 import { absoluteUrl } from '#services/app_url'
-import { t } from '#services/i18n'
+import { currentLocale, runWithLocale, t } from '#services/i18n'
+import { isLocale } from '#shared/i18n'
 import { forgotPasswordValidator, resetPasswordValidator } from '#validators/user'
 
 /**
@@ -25,7 +26,10 @@ export default class PasswordResetController {
     if (user && !(await issuedRecently(user, 'password_reset'))) {
       const token = await issueToken(user, 'password_reset')
       try {
-        await sendPasswordResetEmail(user, absoluteUrl(ctx, `/reset-password/${token}`))
+        // Mail w języku konta odbiorcy (jeśli wybrał), inaczej w języku żądania.
+        await runWithLocale(isLocale(user.locale) ? user.locale : currentLocale(), () =>
+          sendPasswordResetEmail(user, absoluteUrl(ctx, `/reset-password/${token}`))
+        )
       } catch (error) {
         logger.error({ err: error, userId: user.id }, 'password reset email failed')
       }
@@ -57,7 +61,9 @@ export default class PasswordResetController {
     await user.save()
 
     try {
-      await sendPasswordChangedEmail(user, absoluteUrl(ctx, '/login'))
+      await runWithLocale(isLocale(user.locale) ? user.locale : currentLocale(), () =>
+        sendPasswordChangedEmail(user, absoluteUrl(ctx, '/login'))
+      )
     } catch (error) {
       logger.error({ err: error, userId: user.id }, 'password changed email failed')
     }
