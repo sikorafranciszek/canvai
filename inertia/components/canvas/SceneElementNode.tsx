@@ -208,6 +208,10 @@ function ElementNodeInner(props: ElementNodeProps) {
           id={el.id}
           x={el.x}
           y={el.y}
+          // x/y elementu to lewy górny róg (jak w bounds i u prostokąta), a Konva
+          // rysuje elipsę od środka — przesuwamy ją ujemnym offsetem.
+          offsetX={-el.width / 2}
+          offsetY={-el.height / 2}
           width={el.width}
           height={el.height}
           rotation={el.rotation}

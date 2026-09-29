@@ -508,32 +508,20 @@ export function Canvas({ boardId }: { boardId: number }) {
 
       const scaleX = node.scaleX()
       const scaleY = node.scaleY()
-      const patch: Record<string, unknown> = { rotation: node.rotation() }
-
-      if (
-        el.type === 'rectangle' ||
-        el.type === 'ellipse' ||
-        el.type === 'sticky' ||
-        el.type === 'image'
-      ) {
-        patch.width = Math.max(1, el.width * scaleX)
-        patch.height = Math.max(1, el.height * scaleY)
-      }
-
-      next = updateElementLive(next, id, patch as Partial<SceneElement>)
       node.scaleX(1)
       node.scaleY(1)
+      next = updateElementLive(next, id, transformPatch(el, node, scaleX, scaleY))
     }
 
     store.commitGesture(baseline, next)
     transformer.getLayer()?.batchDraw()
   }
 
-  const handleTextCommit = (id: string, text: string) => {
+  const handleTextCommit = (id: string, text: string, size?: { width?: number; height?: number }) => {
     setEditingId(null)
     const store = useSceneStore.getState()
     const baseline = store.document
-    const next = updateElementLive(baseline, id, { text })
+    const next = updateElementLive(baseline, id, { text, ...size } as Partial<SceneElement>)
     store.commitGesture(baseline, next)
   }
 
@@ -594,6 +582,13 @@ export function Canvas({ boardId }: { boardId: number }) {
 
   const selectedElement =
     selection.length === 1 ? document.elements.find((e) => e.id === selection[0]) : undefined
+
+  // Tekst: boki zmieniają szerokość zawijania, rogi skalują czcionkę — bez
+  // górnego/dolnego środka (wysokość tekstu wynika z treści).
+  const transformerAnchors =
+    selectedElement?.type === 'text'
+      ? ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right']
+      : undefined
 
   return (
     <div
@@ -711,20 +706,30 @@ export function Canvas({ boardId }: { boardId: number }) {
               data-testid="marquee"
             />
           )}
-          <Transformer
-            ref={transformerRef}
-            rotateEnabled
-            anchorSize={8}
-            borderStroke={SELECTION}
-            anchorStroke={SELECTION}
-            anchorFill="#fdfbfa"
-            anchorCornerRadius={2}
-            boundBoxFunc={(oldBox, newBox) =>
-              Math.abs(newBox.width) < 4 || Math.abs(newBox.height) < 4 ? oldBox : newBox
-            }
-            onTransformEnd={handleTransformEnd}
-            listening={selection.length > 0}
-          />
+        </Layer>
+
+        {/* Uchwyty zaznaczenia (resize/rotate) — osobna warstwa, która MUSI słuchać
+            zdarzeń; w warstwie z listening={false} uchwyty były martwe. */}
+        <Layer listening={tool === 'select'}>
+            <Transformer
+              ref={transformerRef}
+              rotateEnabled
+              anchorSize={9}
+              padding={2}
+              ignoreStroke
+              rotationSnaps={[0, 90, 180, 270]}
+              enabledAnchors={transformerAnchors}
+            // Proporcje trzymamy tylko dla obrazów i tekstu (Shift odwraca zachowanie).
+            keepRatio={selectedElement?.type === 'image' || selectedElement?.type === 'text'}
+              borderStroke={SELECTION}
+              anchorStroke={SELECTION}
+              anchorFill="#fdfbfa"
+              anchorCornerRadius={2}
+              boundBoxFunc={(oldBox, newBox) =>
+                Math.abs(newBox.width) < 4 || Math.abs(newBox.height) < 4 ? oldBox : newBox
+              }
+              onTransformEnd={handleTransformEnd}
+            />
         </Layer>
       </Stage>
 
@@ -894,6 +899,48 @@ function DraftShape({ draft }: { draft: { kind: Tool; start: ScenePoint; points:
       )
     default:
       return null
+  }
+}
+
+/**
+ * Zamiana skali węzła (po transformacji) na trwałe wymiary elementu.
+ * Pozycja zawsze z węzła — przy ciągnięciu za lewy/górny uchwyt zmienia się też x/y.
+ */
+function transformPatch(el: SceneElement, node: Konva.Node, scaleX: number, scaleY: number): Partial<SceneElement> {
+  const base = { x: node.x(), y: node.y(), rotation: node.rotation() }
+  switch (el.type) {
+    case 'rectangle':
+    case 'ellipse':
+    case 'sticky':
+    case 'image':
+      return {
+        ...base,
+        width: Math.max(8, el.width * scaleX),
+        height: Math.max(8, el.height * scaleY),
+      } as Partial<SceneElement>
+    case 'text': {
+      const cornerDrag = Math.abs(scaleY - 1) > 0.001
+      const currentWidth = el.width ?? node.width()
+      if (cornerDrag) {
+        // Róg: proporcjonalne skalowanie czcionki (i szerokości, jeśli była ustawiona).
+        return {
+          ...base,
+          fontSize: Math.max(6, Math.round(el.fontSize * scaleY * 10) / 10),
+          ...(el.width ? { width: Math.max(20, el.width * scaleX) } : {}),
+        } as Partial<SceneElement>
+      }
+      // Bok: nowa szerokość zawijania tekstu.
+      return { ...base, width: Math.max(20, currentWidth * scaleX) } as Partial<SceneElement>
+    }
+    case 'line':
+    case 'arrow':
+    case 'freehand':
+      return {
+        ...base,
+        points: el.points.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY })),
+      } as Partial<SceneElement>
+    default:
+      return base as Partial<SceneElement>
   }
 }
 
