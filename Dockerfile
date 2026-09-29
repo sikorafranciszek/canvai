@@ -15,7 +15,15 @@ RUN npm ci
 
 FROM deps AS build
 COPY . .
-RUN node ace build
+# `codegen` odtwarza .adonisjs/ (rejestr tras, indeksy stron) — nie ma go w repo.
+# Oba polecenia bootują aplikację i walidują env, więc dostają tu atrapy
+# (nadpisują też puste ARG-i wstrzykiwane przez Coolify); prawdziwe wartości
+# trafiają do kontenera dopiero w runtime.
+RUN env NODE_ENV=production HOST=0.0.0.0 PORT=3333 LOG_LEVEL=info \
+      APP_KEY=build-only-placeholder-key-000000 APP_URL=http://localhost:3333 \
+      SESSION_DRIVER=cookie DB_CONNECTION=sqlite AI_PROVIDER=mock MAIL_MAILER=outbox \
+      DEEPSEEK_API_KEY= RESEND_API_KEY= \
+    sh -c 'node ace codegen && node ace build'
 
 # Tylko zależności produkcyjne.
 FROM deps AS prod-deps
