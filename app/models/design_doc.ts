@@ -20,7 +20,7 @@ export interface DesignDocSource {
   assetId: number
   filename: string
   kind: string
-  sections: number[]
+  sections: string[]
 }
 
 export default class DesignDoc extends BaseModel {

@@ -1,3 +1,5 @@
+import type { DesignSpec } from '#services/design/spec'
+
 /**
  * Typy warstwy AI (M3). Wspólne dla dostawców (`deepseek`, `mock`), pipeline'u
  * i testów. Dostawca dostaje ustrukturyzowane wejście i zwraca zwalidowane
@@ -43,6 +45,10 @@ export interface AssetAnalysisData {
   typography: TypographySample[]
   components: string[]
   layoutPatterns: string[]
+  /** Obserwacje stylu: zaokrąglenia, cienie, obramowania, gęstość, odstępy. */
+  styleHints: string[]
+  /** Nastrój / charakter wizualny w kilku słowach. */
+  mood: string
   tags: string[]
 }
 
@@ -59,33 +65,6 @@ export interface AnalyzeAssetInput {
   image: { buffer: Buffer; mime: string } | null
 }
 
-/** Klucze siedmiu sekcji pisanych przez model (sekcję 8 składa kod). */
-export const SECTION_KEYS = [
-  'overview',
-  'screens',
-  'components',
-  'tokens',
-  'layout',
-  'content',
-  'openQuestions',
-] as const
-
-export type SectionKey = (typeof SECTION_KEYS)[number]
-
-export const SECTION_TITLES: Record<SectionKey | 'sources', string> = {
-  overview: '1. Przegląd produktu',
-  screens: '2. Ekrany i przepływy',
-  components: '3. Inwentarz komponentów',
-  tokens: '4. Tokeny wizualne',
-  layout: '5. Wzorce layoutu i interakcji',
-  content: '6. Treść i mikrocopy',
-  openQuestions: '7. Otwarte pytania i luki',
-  sources: '8. Źródła',
-}
-
-/** Wynik etapu 2 — treść markdown siedmiu sekcji. */
-export type ComposedSections = Record<SectionKey, string>
-
 export interface ComposeAssetInput {
   id: number
   filename: string
@@ -94,6 +73,8 @@ export interface ComposeAssetInput {
   onCanvas: boolean
   analysis: AssetAnalysisData
 }
+
+export type { DesignSpec } from '#services/design/spec'
 
 export interface ComposeInput {
   boardTitle: string
@@ -121,7 +102,7 @@ export interface AiProvider {
   readonly compositionModel: string
   readonly vision: boolean
   analyzeAsset(input: AnalyzeAssetInput): Promise<ProviderResult<AssetAnalysisData>>
-  composeDocument(input: ComposeInput): Promise<ProviderResult<ComposedSections>>
+  composeDocument(input: ComposeInput): Promise<ProviderResult<DesignSpec>>
 }
 
 /**

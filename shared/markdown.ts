@@ -192,6 +192,16 @@ export function parseMarkdown(source: string): Block[] {
       const ordered = /\d/.test(listMatch[1])
       const items: Inline[][] = []
       while (i < lines.length) {
+        // Pusta linia między pozycjami tej samej listy nie przerywa listy
+        // („1. …\n\n2. …” to nadal jedna lista numerowana).
+        if (!lines[i].trim()) {
+          const next = lines[i + 1]?.match(/^\s*([-*+]|\d+[.)])\s+/)
+          if (next && /\d/.test(next[1]) === ordered) {
+            i++
+            continue
+          }
+          break
+        }
         const m = lines[i].match(/^\s*([-*+]|\d+[.)])\s+(.*)$/)
         if (!m || /\d/.test(m[1]) !== ordered) break
         items.push(parseInline(m[2]))

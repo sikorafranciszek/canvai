@@ -1,11 +1,8 @@
 import sharp from 'sharp'
 import type { AiProviderConfig } from '#config/ai'
 import { limits as defaultLimits, vision as defaultVision } from '#config/ai'
-import {
-  parseJsonObject,
-  validateAssetAnalysis,
-  validateComposedSections,
-} from '#services/ai/schemas'
+import { parseJsonObject, validateAssetAnalysis } from '#services/ai/schemas'
+import { validateDesignSpec } from '#services/design/spec'
 import {
   AiProviderError,
   InvalidModelOutputError,
@@ -13,7 +10,7 @@ import {
   type AnalyzeAssetInput,
   type AssetAnalysisData,
   type ComposeInput,
-  type ComposedSections,
+  type DesignSpec,
   type ProviderResult,
 } from '#services/ai/types'
 import {
@@ -139,14 +136,14 @@ export class DeepseekProvider implements AiProvider {
     )
   }
 
-  async composeDocument(input: ComposeInput): Promise<ProviderResult<ComposedSections>> {
+  async composeDocument(input: ComposeInput): Promise<ProviderResult<DesignSpec>> {
     return this.#chatJson(
       this.compositionModel,
       [
         { role: 'system', content: COMPOSE_SYSTEM_PROMPT },
         { role: 'user', content: buildComposeUserText(input) },
       ],
-      validateComposedSections
+      validateDesignSpec
     )
   }
 

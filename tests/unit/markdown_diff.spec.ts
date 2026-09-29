@@ -91,3 +91,14 @@ test.group('Line diff', () => {
     assert.deepEqual(diffStats(diffLines('x\ny', 'x\ny')), { added: 0, removed: 0 })
   })
 })
+
+test.group('Markdown parser — listy', () => {
+  test('pusta linia między pozycjami nie przerywa listy numerowanej', ({ assert }) => {
+    const blocks = parseMarkdown('1. a\n\n2. b\n\n3. c\n\nakapit')
+    assert.deepEqual(
+      blocks.map((b) => b.type),
+      ['list', 'paragraph']
+    )
+    assert.lengthOf((blocks[0] as any).items, 3)
+  })
+})

@@ -9,7 +9,6 @@ import { setProviderOverride } from '#services/ai/provider'
 import { MockProvider } from '#services/ai/mock_provider'
 import { AiProviderError } from '#services/ai/types'
 import { runPendingJobs } from '#services/queue'
-import { SECTION_TITLES } from '#services/ai/types'
 
 /**
  * Pipeline DESIGN.md end-to-end po API, na dostawcy `mock` (zero sieci).
@@ -172,7 +171,7 @@ test.group('Design doc API', (group) => {
     return { imageIds: images.map((i) => i.id), linkId }
   }
 
-  test('generacja: 202 → kolejka → ready z 8 sekcjami i ugruntowanymi źródłami', async ({
+  test('generacja: 202 → kolejka → ready w formacie Style Reference z ugruntowanymi źródłami', async ({
     client,
     assert,
   }) => {
@@ -196,21 +195,40 @@ test.group('Design doc API', (group) => {
     res.assertStatus(200)
     const doc = res.body().data
     assert.equal(doc.status, 'ready', doc.error)
-    assert.equal(doc.promptVersion, 'v1')
+    assert.equal(doc.promptVersion, 'v2')
     assert.equal(doc.model, 'mock-text')
 
     const md: string = doc.contentMd
-    for (const title of Object.values(SECTION_TITLES)) {
-      assert.include(md, `## ${title}`)
+    assert.match(md, /^# Sklep z kawą — Style Reference\n/)
+    for (const title of [
+      'Tokens — Colors',
+      'Tokens — Typography',
+      'Tokens — Spacing & Shapes',
+      'Components',
+      'Screens & Flows',
+      "Do's and Don'ts",
+      'Surfaces',
+      'Agent Prompt Guide',
+      'Quick Start',
+      'Open Questions',
+      'Sources',
+    ]) {
+      assert.include(md, `\n## ${title}\n`)
+    }
+    // Quick Start generowany z tych samych tokenów co tabela kolorów.
+    assert.include(md, '```css\n:root {')
+    assert.include(md, '```css\n@theme {')
+    for (const [, hex, token] of md.matchAll(/\| `(#[0-9a-f]{6})` \| `(--color-[a-z0-9-]+)` \|/g)) {
+      assert.include(md, `  ${token}: ${hex};`)
     }
     // Każde odwołanie [A<id>] wskazuje asset tej tablicy.
     const refs = [...md.matchAll(/\[A(\d+)\]/g)].map((m) => Number(m[1]))
     assert.isAbove(refs.length, 0)
     for (const id of refs) assert.include(allIds, id)
 
-    // Sekcja 8 wymienia każdy asset; strzałka i notatka przeszły do dokumentu.
+    // Sources wymienia każdy asset; strzałka i notatki przeszły do dokumentu.
     for (const id of allIds) assert.include(md, `| A${id} |`)
-    assert.include(md, `A${imageIds[0]} → A${imageIds[1]}`)
+    assert.match(md, new RegExp(`\\[A${imageIds[0]}\\] → .*\\[A${imageIds[1]}\\]`))
     assert.include(md, 'Grupa docelowa: miłośnicy kawy')
     assert.include(md, 'Strona główna — ciepły, rzemieślniczy klimat')
     assert.match(md, /`#[0-9a-f]{6}`/)
@@ -330,7 +348,7 @@ test.group('Design doc API', (group) => {
     res.assertStatus(200)
     assert.match(res.header('content-type') ?? '', /^text\/markdown/)
     assert.equal(res.header('content-disposition'), 'attachment; filename="DESIGN.md"')
-    assert.match(res.text(), /^# DESIGN\.md — Sklep z kawą/)
+    assert.match(res.text(), /^# Sklep z kawą — Style Reference/)
   })
 
   test('obcy użytkownik dostaje 404 na każdym endpoincie', async ({ client }) => {

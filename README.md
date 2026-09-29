@@ -169,16 +169,23 @@ Pipeline (`app/services/design/`):
 2. **Per-asset analysis** (`analyzer.ts`) — one call per asset (concurrency 4),
    cached in `asset_analyses` by content hash + model + `PROMPT_VERSION`, so
    re-generating never pays twice for unchanged assets.
-3. **Composition** (`generator.ts`) — one call over the structured analyses;
-   the response is schema-validated and grounding-checked (every `[A<id>]` must
-   exist; key sections must cite sources). Rejected output is retried with the
-   list of problems.
-4. **Render** (`renderer.ts`) — 8 fixed sections; section 8 (sources) is built
-   by code from the `[A<id>]` references.
-
-Sections: 1. Przegląd produktu · 2. Ekrany i przepływy · 3. Inwentarz
-komponentów · 4. Tokeny wizualne · 5. Wzorce layoutu i interakcji · 6. Treść i
-mikrocopy · 7. Otwarte pytania i luki · 8. Źródła.
+3. **Composition** (`generator.ts`) — one call over the structured analyses
+   returns a structured `DesignSpec` (`spec.ts`): colors, type families and
+   scale, spacing, radii, shadows, layout, components with states, screens and
+   flows, voice, do's/don'ts, surfaces, agent prompts, open questions. It is
+   schema-validated and grounding-checked: every source id must exist, items
+   without sources are flagged as assumptions. Rejected output is retried with
+   the list of problems.
+4. **Render** (`renderer.ts`) — code (not the model) writes the markdown in a
+   "Style Reference" format, in English for the UI-building AI:
+   `# <Product> — Style Reference`, tagline, theme, overview, **Tokens — Colors /
+   Typography / Spacing & Shapes**, **Components**, **Screens & Flows** (from
+   board arrows and frames), **Voice & Microcopy**, **Do's and Don'ts**,
+   **Surfaces**, **Elevation**, **Imagery**, **Layout**, **Agent Prompt Guide**,
+   **Similar Brands**, **Quick Start** (`:root` CSS custom properties and a
+   Tailwind v4 `@theme`, generated from the same tokens as the tables),
+   **Open Questions** and **Sources** (asset → sections). Every token and
+   component cites its assets as `[A<id>]`; assumed values are marked `†`.
 
 Board content (file names, notes, OCR text, link metadata) is untrusted: it is
 fenced in `<untrusted>` blocks and the system prompt treats it as data only.

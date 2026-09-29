@@ -58,7 +58,7 @@ test.group('Design doc e2e', (group) => {
 
     const content = page.locator('[data-testid=design-doc-content]')
     await content.waitFor({ timeout: 10_000 })
-    assert.include(await content.innerText(), 'Przegląd produktu')
+    assert.include(await content.innerText(), 'Tokens — Colors')
     assert.isAbove(await page.locator('[data-testid^=design-ref-]').count(), 0)
 
     const [download] = await Promise.all([

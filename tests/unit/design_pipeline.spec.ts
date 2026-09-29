@@ -3,20 +3,15 @@ import sharp from 'sharp'
 import type { AiProviderConfig } from '#config/ai'
 import { vision } from '#config/ai'
 import { buildBoardContext, computeInputFingerprint } from '#services/design/board_context'
-import { checkGrounding, findAssetRefs, renderDesignMd } from '#services/design/renderer'
+import { findAssetRefs, renderDesignMd } from '#services/design/renderer'
+import { groundSpec, validateDesignSpec, type DesignSpec } from '#services/design/spec'
 import {
   normalizeHex,
   parseJsonObject,
   validateAssetAnalysis,
-  validateComposedSections,
 } from '#services/ai/schemas'
 import { DeepseekProvider, prepareImageForVision } from '#services/ai/deepseek_provider'
-import {
-  AiProviderError,
-  InvalidModelOutputError,
-  SECTION_TITLES,
-  type ComposedSections,
-} from '#services/ai/types'
+import { AiProviderError, InvalidModelOutputError } from '#services/ai/types'
 import { fenceUntrusted } from '#services/design/prompts'
 import type { SceneDocument, SceneElement } from '#shared/scene'
 
@@ -26,17 +21,41 @@ function doc(elements: unknown[]): SceneDocument {
   return { metadata: {}, elements: elements as SceneElement[] }
 }
 
-function sections(overrides: Partial<ComposedSections> = {}): ComposedSections {
+/** Minimalna poprawna odpowiedź modelu (surowy JSON przed walidacją). */
+function rawSpec(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
-    overview: 'Sklep z kawą [A1].',
-    screens: '- Strona główna [A1]',
-    components: '- Przycisk [A2]',
-    tokens: '| primary | `#aa3300` | [A2] |',
-    layout: 'Siatka 12 kolumn [A1]',
-    content: 'Ton ciepły.',
-    openQuestions: '- Font?',
+    name: 'Kawa',
+    tagline: 'warm paper, espresso type',
+    theme: 'light',
+    overview: 'Warm interface [A1].',
+    colors: [
+      { name: 'Parchment', hex: '#FAF8F5', token: 'color-parchment', role: 'canvas', sources: [1] },
+      { name: 'Espresso', hex: '#3b2a20', role: 'text | ink', sources: ['A2'] },
+      { name: 'Danger', hex: '#b42318', role: 'errors', sources: [] },
+      { name: 'Broken', hex: 'red' },
+    ],
+    typography: {
+      families: [{ name: 'Inter', weights: [400, 500], sizes: ['14px'], lineHeights: ['1.5'], role: 'UI', sources: [] }],
+      scale: [{ role: 'body', size: '14px', lineHeight: '1.43', weight: '400' }],
+    },
+    spacing: { baseUnit: '4px', density: 'compact', scale: [{ name: '8', value: '8px' }], assumed: true },
+    radii: [{ element: 'cards', value: '16px' }],
+    shadows: [{ name: 'subtle', value: 'rgba(0,0,0,0.08) 0 1px 2px' }],
+    layout: { pageMaxWidth: '900px', description: 'Centered column.' },
+    components: [{ name: 'Primary Button', role: 'CTA', description: 'Ink fill.', states: ['hover: darker'], sources: [2] }],
+    screens: [{ name: 'Home', purpose: 'Landing', elements: ['hero'], sources: [1] }],
+    flows: ['Home [A1] → Menu [A2]'],
+    dos: ['Use parchment.'],
+    donts: ["Don't use pure white."],
+    surfaces: [{ level: 0, name: 'Page Canvas', value: '#faf8f5', purpose: 'bg' }],
+    agentGuide: { componentPrompts: ['Create a button…'] },
+    openQuestions: ['Which font?'],
     ...overrides,
   }
+}
+
+function spec(overrides: Record<string, unknown> = {}): DesignSpec {
+  return validateDesignSpec(rawSpec(overrides))
 }
 
 test.group('Design pipeline / board context', () => {
@@ -184,60 +203,89 @@ test.group('Design pipeline / board context', () => {
   })
 })
 
-test.group('Design pipeline / renderer', () => {
-  test('dokument ma 8 sekcji, a sekcja 8 wynika z odwołań [A<id>]', ({ assert }) => {
+test.group('Design pipeline / spec & renderer', () => {
+  test('validateDesignSpec normalizuje hex, tokeny i źródła, odrzuca złe kolory', ({ assert }) => {
+    const sp = spec()
+    assert.deepEqual(
+      sp.colors.map((c) => [c.name, c.hex, c.token, c.sources]),
+      [
+        ['Parchment', '#faf8f5', '--color-parchment', [1]],
+        ['Espresso', '#3b2a20', '--color-espresso', [2]],
+        ['Danger', '#b42318', '--color-danger', []],
+      ]
+    )
+    assert.equal(sp.typography.families[0].token, '--font-inter')
+    assert.equal(sp.typography.scale[0].token, '--text-body')
+    assert.throws(() => validateDesignSpec(rawSpec({ colors: [] })), /colors/)
+    assert.throws(() => validateDesignSpec(rawSpec({ components: [] })), /components/)
+    assert.throws(() => validateDesignSpec(rawSpec({ dos: [] })), /dos/)
+  })
+
+  test('groundSpec: obce id to błąd, brak źródeł oznacza założenie', ({ assert }) => {
+    const sp = spec()
+    assert.deepEqual(groundSpec(sp, [1, 2]), [])
+    assert.isTrue(sp.colors.find((c) => c.name === 'Danger')!.assumed)
+    assert.isTrue(sp.typography.families[0].assumed)
+    assert.isFalse(sp.colors[0].assumed)
+
+    const bad = spec({ overview: 'Invented [A99].' })
+    const errors = groundSpec(bad, [1, 2])
+    assert.lengthOf(errors, 1)
+    assert.include(errors[0], 'A99')
+    // Tablica z assetami, ale bez żadnego cytowania → błąd.
+    const none = spec({
+      overview: 'x',
+      colors: [{ name: 'A', hex: '#000000' }],
+      components: [{ name: 'B', description: 'c' }],
+      screens: [],
+      flows: [],
+    })
+    assert.lengthOf(groundSpec(none, [1]), 1)
+  })
+
+  test('renderDesignMd: format Style Reference, Quick Start spójny z tabelami, Sources z kodu', ({ assert }) => {
+    const sp = spec()
+    groundSpec(sp, [1, 2, 3])
     const { markdown, sources } = renderDesignMd(
-      sections(),
+      sp,
       [
         { id: 1, filename: 'home.png', kind: 'image', userNote: 'Strona | główna' },
-        { id: 2, filename: 'btn.png', kind: 'image', userNote: null },
+        { id: 2, filename: 'menu.png', kind: 'image', userNote: null },
         { id: 3, filename: 'unused.pdf', kind: 'pdf', userNote: null },
       ],
-      {
-        boardTitle: 'Kawa\n# hack',
-        version: 2,
-        model: 'm',
-        promptVersion: 'v1',
-        generatedAt: 'now',
-      }
+      { boardTitle: 'Kawa\n# hack', version: 2, model: 'm', promptVersion: 'v2', generatedAt: 'now' }
     )
 
-    assert.match(markdown, /^# DESIGN\.md — Kawa hack\n/)
-    for (const title of Object.values(SECTION_TITLES)) assert.include(markdown, `\n## ${title}\n`)
-    assert.deepEqual(sources, [
-      { assetId: 1, filename: 'home.png', kind: 'image', sections: [1, 2, 5] },
-      { assetId: 2, filename: 'btn.png', kind: 'image', sections: [3, 4] },
-      { assetId: 3, filename: 'unused.pdf', kind: 'pdf', sections: [] },
-    ])
-    assert.include(markdown, '| A1 | home.png | image | Strona \\| główna | 1, 2, 5 |')
-    assert.include(markdown, '| A3 | unused.pdf | pdf | — | nieużyty |')
-  })
+    assert.match(markdown, /^# Kawa — Style Reference\n\n> warm paper, espresso type\n\n\*\*Theme:\*\* light/)
+    assert.include(markdown, 'board „Kawa hack”')
+    for (const title of ['Tokens — Colors', 'Tokens — Typography', 'Tokens — Spacing & Shapes', 'Components', 'Screens & Flows', "Do's and Don'ts", 'Surfaces', 'Layout', 'Agent Prompt Guide', 'Quick Start', 'Open Questions', 'Sources']) {
+      assert.include(markdown, `\n## ${title}\n`)
+    }
+    assert.include(markdown, '| Parchment | `#faf8f5` | `--color-parchment` | canvas | [A1] |')
+    assert.include(markdown, '| Espresso | `#3b2a20` | `--color-espresso` | text \\| ink | [A2] |')
+    assert.include(markdown, '| Danger † | `#b42318` | `--color-danger` | errors | assumed † |')
+    assert.include(markdown, '### Inter † — UI · `--font-inter`')
+    assert.include(markdown, '**Base unit:** 4px †')
+    // Quick Start = te same tokeny co tabele.
+    assert.include(markdown, '  --color-parchment: #faf8f5;')
+    assert.include(markdown, "  --font-inter: Inter, ui-sans-serif, system-ui, sans-serif;")
+    assert.include(markdown, '  --text-body: 14px;\n  --leading-body: 1.43;')
+    assert.include(markdown, '  --radius-cards: 16px;')
+    assert.include(markdown, '@theme {')
+    assert.include(markdown, '  --text-body--line-height: 1.43;')
+    // Założenia trafiają do Open Questions.
+    assert.match(markdown, /Confirm assumed values †: color „Danger” \(#b42318\), font „Inter”, spacing scale/)
 
-  test('nagłówki modelu schodzą pod poziom sekcji', ({ assert }) => {
-    const { markdown } = renderDesignMd(sections({ layout: '# Siatka\n## Mobile [A1]' }), [], {
-      boardTitle: 't',
-      version: 1,
-      model: 'm',
-      promptVersion: 'v1',
-      generatedAt: 'x',
-    })
-    assert.include(markdown, '### Siatka\n### Mobile')
-  })
-
-  test('checkGrounding wykrywa obce odwołania i sekcje bez źródeł', ({ assert }) => {
-    assert.deepEqual(checkGrounding(sections(), [1, 2]), [])
-    const errors = checkGrounding(sections({ overview: 'Coś [A9]', tokens: 'bez źródła' }), [1, 2])
-    assert.lengthOf(errors, 2)
-    assert.include(errors[0], 'A9')
-    assert.include(errors[1], SECTION_TITLES.tokens)
-    // Tablica bez assetów (same notatki) nie wymaga źródeł.
     assert.deepEqual(
-      checkGrounding(
-        sections({ overview: 'x', screens: 'x', tokens: 'x', components: 'x', layout: 'x' }),
-        []
-      ),
-      []
+      sources.map((s) => [s.assetId, s.sections]),
+      [
+        [1, ['Colors', 'Screens', 'Overview', 'Flows']],
+        [2, ['Colors', 'Components', 'Flows']],
+        [3, []],
+      ]
     )
+    assert.include(markdown, '| A1 | home.png | image | Strona \\| główna | Colors, Screens, Overview, Flows |')
+    assert.include(markdown, '| A3 | unused.pdf | pdf | — | not used |')
     assert.deepEqual(findAssetRefs('[A1][A2] i znów [A1]'), [1, 2])
   })
 })
@@ -259,14 +307,6 @@ test.group('Design pipeline / schemas & prompts', () => {
     assert.deepEqual(a.typography, [{ usage: 'H1', size: '32px' }])
     assert.deepEqual(a.components, [])
     assert.throws(() => validateAssetAnalysis({ role: 'screen' }), /summary/)
-  })
-
-  test('kompozycja wymaga wszystkich siedmiu sekcji', ({ assert }) => {
-    assert.doesNotThrow(() => validateComposedSections({ sections: sections() }))
-    assert.throws(
-      () => validateComposedSections({ sections: { ...sections(), tokens: '  ' } }),
-      /tokens/
-    )
   })
 
   test('parseJsonObject toleruje ogrodzenie ```json, odrzuca śmieci', ({ assert }) => {

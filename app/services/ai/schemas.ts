@@ -1,10 +1,8 @@
 import {
   ASSET_ROLES,
   InvalidModelOutputError,
-  SECTION_KEYS,
   type AssetAnalysisData,
   type AssetRole,
-  type ComposedSections,
   type PaletteColor,
   type TypographySample,
 } from '#services/ai/types'
@@ -123,24 +121,8 @@ export function validateAssetAnalysis(value: unknown): AssetAnalysisData {
     typography: typography(value.typography),
     components: strList(value.components),
     layoutPatterns: strList(value.layoutPatterns),
+    styleHints: strList(value.styleHints),
+    mood: str(value.mood, 200),
     tags: strList(value.tags).slice(0, 12),
   }
-}
-
-/** Waliduje wynik etapu 2: siedem niepustych sekcji markdown. */
-export function validateComposedSections(value: unknown): ComposedSections {
-  if (!isObject(value)) throw new InvalidModelOutputError('Dokument: oczekiwano obiektu')
-  const sections = isObject(value.sections) ? value.sections : value
-
-  const out = {} as ComposedSections
-  const missing: string[] = []
-  for (const key of SECTION_KEYS) {
-    const body = str(sections[key], 20_000)
-    if (!body) missing.push(key)
-    out[key] = body
-  }
-  if (missing.length > 0) {
-    throw new InvalidModelOutputError(`Dokument: puste lub brakujące sekcje: ${missing.join(', ')}`)
-  }
-  return out
 }

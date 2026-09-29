@@ -228,7 +228,7 @@ export interface DesignDocDto {
     tokensOut: number
     durationMs: number
   } | null
-  sources: { assetId: number; filename: string; kind: string; sections: number[] }[] | null
+  sources: { assetId: number; filename: string; kind: string; sections: string[] }[] | null
   createdAt: string | null
   generatedAt: string | null
   jobId: number | null

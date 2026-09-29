@@ -1818,8 +1818,19 @@ input.title-edit {
 
 .md table {
   border-collapse: collapse;
-  width: 100%;
+  /* Szerokie tabele tokenów przewijają się poziomo zamiast łamać wartości. */
+  width: max-content;
+  min-width: 100%;
   font-size: var(--text-body-sm);
+}
+
+.md td {
+  max-width: 280px;
+}
+
+.md td code,
+.md th code {
+  white-space: nowrap;
 }
 
 .md th,

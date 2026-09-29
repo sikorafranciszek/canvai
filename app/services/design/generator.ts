@@ -9,7 +9,7 @@ import {
   AiProviderError,
   InvalidModelOutputError,
   type AiProvider,
-  type ComposedSections,
+  type DesignSpec,
 } from '#services/ai/types'
 import { analyzeAssets, assertTokenBudget, type UsageTracker } from '#services/design/analyzer'
 import {
@@ -18,7 +18,8 @@ import {
   type BoardContext,
 } from '#services/design/board_context'
 import { PROMPT_VERSION } from '#services/design/prompts'
-import { checkGrounding, renderDesignMd } from '#services/design/renderer'
+import { renderDesignMd } from '#services/design/renderer'
+import { groundSpec } from '#services/design/spec'
 import type { SceneDocument } from '#shared/scene'
 
 /**
@@ -120,9 +121,9 @@ export async function runGeneration(
   }))
   const allowedIds = assets.map((a) => a.id)
 
-  let sections: ComposedSections | null = null
+  let spec: DesignSpec | null = null
   let previousErrors: string[] = []
-  for (let attempt = 0; attempt <= limits.maxRetries && !sections; attempt++) {
+  for (let attempt = 0; attempt <= limits.maxRetries && !spec; attempt++) {
     assertTokenBudget(usage)
     const result = await provider.composeDocument({
       boardTitle: board.title,
@@ -134,11 +135,11 @@ export async function runGeneration(
     usage.tokensOut += result.usage.tokensOut
     doc.model = result.model
 
-    const problems = checkGrounding(result.data, allowedIds)
-    if (problems.length === 0) sections = result.data
+    const problems = groundSpec(result.data, allowedIds)
+    if (problems.length === 0) spec = result.data
     else previousErrors = problems
   }
-  if (!sections) {
+  if (!spec) {
     throw new InvalidModelOutputError(
       `Model nie wygenerował poprawnie ugruntowanego dokumentu: ${previousErrors.join('; ')}`
     )
@@ -148,7 +149,7 @@ export async function runGeneration(
   await onProgress({ stage: 'render', done: 0, total: 1 })
   const generatedAt = DateTime.utc()
   const { markdown, sources } = renderDesignMd(
-    sections,
+    spec,
     assets.map((a) => ({ id: a.id, filename: a.filename, kind: a.kind, userNote: a.userNote })),
     {
       boardTitle: board.title,

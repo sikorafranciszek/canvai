@@ -230,7 +230,7 @@ export function DesignDocPanel() {
                         onClick={() => jumpTo(i)}
                         title={title}
                       >
-                        {title.replace(/^(\d+)\.\s.*$/, '$1')}. {shortTitle(title)}
+                        {shortTitle(title)}
                       </button>
                     ))}
                   </nav>
@@ -253,9 +253,10 @@ export function DesignDocPanel() {
   )
 }
 
+/** „Tokens — Colors” → „Colors”, „Do's and Don'ts” bez zmian, stare „1. Przegląd produktu” → „Przegląd”. */
 function shortTitle(title: string): string {
-  const bare = title.replace(/^\d+\.\s*/, '')
-  return bare.split(/\s+/)[0]
+  const bare = title.replace(/^Tokens\s+[—-]\s+/, '').replace(/^\d+\.\s*/, '')
+  return /^\d+\.\s/.test(title) ? bare.split(/\s+/)[0] : bare
 }
 
 function GenerationProgress({ doc }: { doc: DesignDocDto }) {
