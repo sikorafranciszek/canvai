@@ -1,0 +1,152 @@
+---
+import type { Content } from '../i18n/content'
+import { appLink, homePath } from '../i18n/content'
+import Logo from './Logo.astro'
+import LangSwitch from './LangSwitch.astro'
+import Icon from './Icon.astro'
+
+interface Props {
+  t: Content
+}
+const { t } = Astro.props
+const home = homePath(t.lang)
+const links = [
+  { href: `${home}#features`, label: t.nav.features },
+  { href: `${home}#how`, label: t.nav.how },
+  { href: `${home}#design-md`, label: t.nav.doc },
+  { href: `${home}#pricing`, label: t.nav.pricing },
+  { href: `${home}#faq`, label: t.nav.faq },
+]
+---
+
+<header class="header">
+  <div class="container header__inner">
+    <Logo href={home} />
+    <nav class="header__nav" aria-label="Main">
+      {links.map((l) => <a href={l.href}>{l.label}</a>)}
+    </nav>
+    <div class="header__actions">
+      <LangSwitch lang={t.lang} label={t.nav.language} />
+      <a class="btn btn--quiet" href={appLink('/login', t.lang)}>{t.nav.login}</a>
+      <a class="btn btn--primary" href={appLink('/signup', t.lang)}>{t.nav.signup}</a>
+    </div>
+    <details class="header__mobile">
+      <summary aria-label={t.nav.menu}>
+        <Icon name="menu" size={22} class="open" />
+        <Icon name="close" size={22} class="close" />
+      </summary>
+      <div class="header__sheet">
+        {links.map((l) => <a href={l.href} class="header__sheet-link">{l.label}</a>)}
+        <div class="header__sheet-actions">
+          <a class="btn" href={appLink('/login', t.lang)}>{t.nav.login}</a>
+          <a class="btn btn--primary" href={appLink('/signup', t.lang)}>{t.nav.signup}</a>
+        </div>
+        <div class="header__sheet-lang">
+          <LangSwitch lang={t.lang} label={t.nav.language} />
+        </div>
+      </div>
+    </details>
+  </div>
+</header>
+
+<script>
+  // Zamknij menu mobilne po wyborze kotwicy.
+  document.querySelectorAll('.header__sheet-link').forEach((a) =>
+    a.addEventListener('click', () => a.closest('details')?.removeAttribute('open'))
+  )
+</script>
+
+<style>
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(250, 248, 245, 0.94);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .header__inner {
+    height: 68px;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+  }
+  .header__nav {
+    display: flex;
+    gap: 26px;
+    font-size: 15px;
+    color: var(--graphite);
+  }
+  .header__nav a:hover {
+    color: var(--ink);
+  }
+  .header__actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .header__mobile {
+    display: none;
+    margin-left: auto;
+  }
+  .header__mobile summary {
+    list-style: none;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--r-lg);
+    cursor: pointer;
+  }
+  .header__mobile summary::-webkit-details-marker {
+    display: none;
+  }
+  /* Ikony są w komponencie Icon — style scoped do nich nie sięgają. */
+  .header__mobile :global(.close),
+  .header__mobile[open] :global(.open) {
+    display: none;
+  }
+  .header__mobile[open] :global(.close) {
+    display: block;
+  }
+  .header__sheet {
+    position: absolute;
+    top: 68px;
+    left: 0;
+    right: 0;
+    padding: 16px 20px 24px;
+    background: var(--parchment);
+    border-bottom: 1px solid var(--hairline);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .header__sheet-link {
+    padding: 12px 4px;
+    font-size: 17px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .header__sheet-lang {
+    align-self: flex-start;
+  }
+  .header__sheet-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 16px 0 12px;
+  }
+  @media (max-width: 1020px) {
+    .header__nav {
+      display: none;
+    }
+  }
+  @media (max-width: 720px) {
+    .header__actions {
+      display: none;
+    }
+    .header__mobile {
+      display: block;
+    }
+  }
+</style>

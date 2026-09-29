@@ -1,0 +1,65 @@
+---
+import { homePath, type Lang } from '../i18n/content'
+interface Props {
+  lang: Lang
+  label: string
+}
+const { lang, label } = Astro.props
+const langs: Lang[] = ['pl', 'en']
+---
+
+<div class="lang" role="group" aria-label={label}>
+  {
+    langs.map((l) => (
+      <a
+        href={homePath(l)}
+        hreflang={l}
+        lang={l}
+        class="lang__btn"
+        aria-current={l === lang ? 'true' : undefined}
+        data-set-lang={l}
+      >
+        {l.toUpperCase()}
+      </a>
+    ))
+  }
+</div>
+
+<script>
+  // Zapamiętaj wybór — Worker na `/` respektuje cookie przed językiem przeglądarki.
+  document.querySelectorAll<HTMLAnchorElement>('[data-set-lang]').forEach((a) => {
+    a.addEventListener('click', () => {
+      document.cookie = `canvai_lang=${a.dataset.setLang}; path=/; max-age=31536000; samesite=lax`
+    })
+  })
+</script>
+
+<style>
+  .lang {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 999px;
+    border: 1px solid var(--hairline);
+    background: var(--soft-paper);
+  }
+  .lang__btn {
+    min-width: 34px;
+    height: 26px;
+    padding: 0 8px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--graphite);
+  }
+  .lang__btn:hover {
+    color: var(--ink);
+  }
+  .lang__btn[aria-current='true'] {
+    background: var(--teal);
+    color: #fff;
+  }
+</style>

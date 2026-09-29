@@ -1,0 +1,86 @@
+---
+import '../styles/global.css'
+import type { Content } from '../i18n/content'
+import { SITE_URL, APP_URL } from '../i18n/content'
+import Header from '../components/Header.astro'
+import Footer from '../components/Footer.astro'
+
+interface Props {
+  t: Content
+  title?: string
+  description?: string
+  noindex?: boolean
+}
+const { t, title = t.meta.title, description = t.meta.description, noindex = false } = Astro.props
+const canonical = new URL(Astro.url.pathname, SITE_URL).toString()
+const alternates = [
+  { lang: 'en', href: `${SITE_URL}/` },
+  { lang: 'pl', href: `${SITE_URL}/pl/` },
+]
+const ogImage = `${SITE_URL}/og-${t.lang}.png`
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  'name': 'canvai',
+  'applicationCategory': 'DesignApplication',
+  'operatingSystem': 'Web',
+  'url': SITE_URL,
+  'description': description,
+  'inLanguage': t.lang,
+  'offers': { '@type': 'Offer', 'price': '0', 'priceCurrency': 'USD', 'description': 'Early access' },
+  'sameAs': [APP_URL],
+}
+---
+
+<!doctype html>
+<html lang={t.lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    {alternates.map((a) => <link rel="alternate" hreflang={a.lang} href={a.href} />)}
+    <link rel="alternate" hreflang="x-default" href={`${SITE_URL}/`} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#faf8f5" />
+    {noindex ? <meta name="robots" content="noindex" /> : null}
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="canvai" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:locale" content={t.lang === 'pl' ? 'pl_PL' : 'en_US'} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <Header t={t} />
+    <main id="main">
+      <slot />
+    </main>
+    <Footer t={t} />
+  </body>
+</html>
+
+<style>
+  .skip {
+    position: absolute;
+    left: -9999px;
+    top: 8px;
+    z-index: 100;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--ink);
+    color: var(--parchment);
+  }
+  .skip:focus {
+    left: 8px;
+  }
+</style>

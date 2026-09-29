@@ -1,0 +1,97 @@
+---
+import type { Content } from '../i18n/content'
+import { appLink, homePath } from '../i18n/content'
+import Logo from './Logo.astro'
+import LangSwitch from './LangSwitch.astro'
+
+interface Props {
+  t: Content
+}
+const { t } = Astro.props
+const home = homePath(t.lang)
+const year = new Date().getFullYear()
+---
+
+<footer class="footer">
+  <div class="container footer__grid">
+    <div class="footer__brand">
+      <Logo href={home} />
+      <p class="muted">{t.footer.tagline}</p>
+      <LangSwitch lang={t.lang} label={t.nav.language} />
+    </div>
+    <div class="footer__col">
+      <h2>{t.footer.product}</h2>
+      <a href={`${home}#features`}>{t.nav.features}</a>
+      <a href={`${home}#how`}>{t.nav.how}</a>
+      <a href={`${home}#design-md`}>{t.nav.doc}</a>
+      <a href={`${home}#pricing`}>{t.nav.pricing}</a>
+      <a href={`${home}#faq`}>{t.nav.faq}</a>
+    </div>
+    <div class="footer__col">
+      <h2>{t.footer.account}</h2>
+      <a href={appLink('/login', t.lang)}>{t.nav.login}</a>
+      <a href={appLink('/signup', t.lang)}>{t.nav.signup}</a>
+    </div>
+  </div>
+  <div class="container footer__bottom">
+    <span>© {year} canvai. {t.footer.rights}</span>
+    <span>canvai.dev</span>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    border-top: 1px solid var(--hairline);
+    background: var(--sidebar);
+    padding: 56px 0 28px;
+    font-size: 15px;
+  }
+  .footer__grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 32px;
+  }
+  .footer__brand {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-items: flex-start;
+    max-width: 340px;
+  }
+  .footer__col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    color: var(--graphite);
+  }
+  .footer__col h2 {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+  .footer__col a:hover {
+    color: var(--ink);
+  }
+  .footer__bottom {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 48px;
+    padding-top: 20px;
+    border-top: 1px solid var(--hairline);
+    font-size: 13px;
+    color: var(--ash);
+  }
+  @media (max-width: 720px) {
+    .footer__grid {
+      grid-template-columns: 1fr 1fr;
+    }
+    .footer__brand {
+      grid-column: 1 / -1;
+    }
+    .footer__bottom {
+      flex-direction: column;
+      gap: 6px;
+    }
+  }
+</style>

@@ -5,5 +5,11 @@
     "jsx": "react",
     "outDir": "./build"
   },
+  "exclude": [
+    "${configDir}/inertia/**",
+    "${configDir}/node_modules/**",
+    "${configDir}/build/**",
+    "${configDir}/landing/**"
+  ],
   "references": [{ "path": "./tsconfig.inertia.json" }]
 }

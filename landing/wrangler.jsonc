@@ -1,0 +1,21 @@
+{
+  // canvai.dev — statyczna strona (Astro → ./dist) serwowana przez Cloudflare Workers.
+  // Aplikacja działa osobno pod app.canvai.dev.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "canvai-landing",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash",
+    // Worker przed plikami: wybór języka na `/` i przekierowanie www → apex.
+    "run_worker_first": true
+  },
+  "routes": [
+    { "pattern": "canvai.dev", "custom_domain": true },
+    { "pattern": "www.canvai.dev", "custom_domain": true }
+  ],
+  "observability": { "enabled": true }
+}

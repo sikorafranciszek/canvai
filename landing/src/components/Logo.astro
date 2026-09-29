@@ -1,0 +1,33 @@
+---
+import Icon from './Icon.astro'
+interface Props {
+  href?: string
+}
+const { href = '/' } = Astro.props
+---
+
+<a href={href} class="logo" aria-label="canvai">
+  <span class="logo__mark"><Icon name="logo" size={16} strokeWidth={2} /></span>
+  <span class="logo__word">canvai</span>
+</a>
+
+<style>
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 19px;
+    letter-spacing: -0.02em;
+  }
+  .logo__mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: var(--ink);
+    color: var(--parchment);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+</style>
