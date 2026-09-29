@@ -6,6 +6,7 @@ import drive from '@adonisjs/drive/services/main'
 import sharp from 'sharp'
 import { ulid } from 'ulid'
 import Asset from '#models/asset'
+import BoardScene from '#models/board_scene'
 import {
   analysis,
   dangerousMimes,
@@ -347,4 +348,35 @@ export function serializeAsset(asset: Asset) {
       content: `/api/assets/${asset.id}/content`,
     },
   }
+}
+
+/** Identyfikatory assetów, do których odwołuje się dokument sceny (obrazy, karty linków). */
+export function referencedAssetIds(document: unknown): Set<number> {
+  const ids = new Set<number>()
+  const elements = (document as { elements?: unknown } | null)?.elements
+  if (!Array.isArray(elements)) return ids
+  for (const el of elements) {
+    const raw = (el as { assetId?: unknown } | null)?.assetId
+    const id = Number.parseInt(String(raw ?? ''), 10)
+    if (Number.isFinite(id) && id > 0) ids.add(id)
+  }
+  return ids
+}
+
+/**
+ * Usuwa assety tablicy, których nie ma już na płótnie (element usunięty), razem
+ * z plikami. Wołane przy otwarciu tablicy — wtedy historia cofania z poprzedniej
+ * sesji już nie istnieje, więc usunięcia nie da się cofnąć i asset jest sierotą.
+ * Bez sceny nie usuwa niczego (brak danych ≠ pusta tablica).
+ */
+export async function pruneOrphanAssets(boardId: number): Promise<number[]> {
+  const scene = await BoardScene.query().where('board_id', boardId).first()
+  if (!scene) return []
+  const referenced = referencedAssetIds(scene.document)
+  const orphans = (await Asset.query().where('board_id', boardId)).filter((a) => !referenced.has(a.id))
+  for (const asset of orphans) {
+    await deleteAssetFiles(asset)
+    await asset.delete()
+  }
+  return orphans.map((a) => a.id)
 }

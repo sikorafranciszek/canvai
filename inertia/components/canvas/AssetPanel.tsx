@@ -5,13 +5,14 @@
  */
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, File, FileText, ImagePlus, Link2, Search, Trash2 } from 'lucide-react'
-import { useBoardStore } from '~/lib/board/session'
+import { useBoardStore, useCanvasAssets } from '~/lib/board/session'
 import { assetKindLabel, formatBytes } from '@shared/asset-utils'
 import type { AssetDto } from '~/lib/board/api'
 import { Dialog } from '~/components/ui/Dialog'
 
 export function AssetPanel() {
-  const assets = useBoardStore((s) => s.assets)
+  // Tylko materiały obecne na płótnie (usunięty element znika też stąd).
+  const assets = useCanvasAssets()
   const loading = useBoardStore((s) => s.assetsLoading)
   const initialized = useBoardStore((s) => s.initialized)
   const [query, setQuery] = useState('')

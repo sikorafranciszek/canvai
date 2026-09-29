@@ -20,7 +20,7 @@ import {
 import { diffLines, diffStats } from '@shared/line-diff'
 import { designDocDownloadUrl, type DesignDocDto } from '~/lib/board/api'
 import { progressLabel, progressRatio, useDesignStore } from '~/lib/board/design'
-import { useBoardStore } from '~/lib/board/session'
+import { useBoardStore, useCanvasAssets } from '~/lib/board/session'
 import { MarkdownView, sectionTitles } from '~/components/design/MarkdownView'
 import { formatDateTime, plural, relativeTime } from '~/lib/format'
 
@@ -49,6 +49,7 @@ export function DesignDocPanel() {
   const generate = useDesignStore((s) => s.generate)
 
   const assets = useBoardStore((s) => s.assets)
+  const canvasAssets = useCanvasAssets()
   const centerOnAsset = useBoardStore((s) => s.centerOnAsset)
 
   const [showDiff, setShowDiff] = useState(false)
@@ -161,7 +162,7 @@ export function DesignDocPanel() {
           </div>
         ) : !current ? (
           active ? null : (
-            <EmptyDoc onGenerate={() => void generate()} hasAssets={assets.length > 0} />
+            <EmptyDoc onGenerate={() => void generate()} hasAssets={canvasAssets.length > 0} />
           )
         ) : current.status === 'failed' ? (
           <div style={{ padding: 16 }}>

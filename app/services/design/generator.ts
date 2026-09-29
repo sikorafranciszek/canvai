@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon'
 import { limits } from '#config/ai'
 import Asset from '#models/asset'
+import { referencedAssetIds } from '#services/assets_service'
 import Board from '#models/board'
 import BoardScene from '#models/board_scene'
 import type DesignDoc from '#models/design_doc'
@@ -51,7 +52,12 @@ export async function prepareGeneration(
 ): Promise<GenerationInput> {
   const scene = await BoardScene.query().where('board_id', board.id).first()
   const context = buildBoardContext((scene?.document ?? null) as SceneDocument | null)
-  const assets = await Asset.query().where('board_id', board.id).orderBy('id', 'asc')
+  // Tylko materiały obecne na płótnie — usunięty element nie trafia do DESIGN.md,
+  // nawet jeśli jego asset jeszcze czeka na sprzątnięcie.
+  const onCanvas = referencedAssetIds(scene?.document ?? null)
+  const assets = (await Asset.query().where('board_id', board.id).orderBy('id', 'asc')).filter((a) =>
+    onCanvas.has(a.id)
+  )
 
   const fingerprint = computeInputFingerprint({
     boardTitle: board.title,

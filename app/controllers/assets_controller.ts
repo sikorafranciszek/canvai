@@ -5,6 +5,7 @@ import Board from '#models/board'
 import Asset from '#models/asset'
 import { updateAssetValidator, uploadAssetsValidator } from '#validators/asset'
 import {
+  pruneOrphanAssets,
   deleteAssetFiles,
   serializeAsset,
   storeLink,
@@ -162,5 +163,13 @@ export default class AssetsController {
     }
 
     response.stream(stream)
+  }
+
+  /** POST /api/boards/:id/assets/prune — usuwa assety, których nie ma na płótnie. */
+  async prune({ auth, params, response }: HttpContext) {
+    const board = await Board.find(params.id)
+    if (!board || board.userId !== auth.user!.id) return response.notFound()
+    const removed = await pruneOrphanAssets(board.id)
+    return response.json({ data: { removed } })
   }
 }

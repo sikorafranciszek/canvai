@@ -6,7 +6,7 @@ import { Sparkles } from 'lucide-react'
 import { AssetPanel } from '~/components/canvas/AssetPanel'
 import { DesignDocPanel } from '~/components/design/DesignDocPanel'
 import { useDesignStore, type SidePanelTab } from '~/lib/board/design'
-import { useBoardStore } from '~/lib/board/session'
+import { useCanvasAssets } from '~/lib/board/session'
 
 const WIDTH: Record<SidePanelTab, number> = { assets: 320, design: 480 }
 
@@ -15,7 +15,7 @@ export function SidePanel({ open = true }: { open?: boolean }) {
   const setTab = useDesignStore((s) => s.setTab)
   const pending = useDesignStore((s) => Boolean(s.active))
   const latest = useDesignStore((s) => s.versions.find((v) => v.status === 'ready'))
-  const assetCount = useBoardStore((s) => s.assets.length)
+  const assetCount = useCanvasAssets().length
   const width = WIDTH[tab]
 
   return (

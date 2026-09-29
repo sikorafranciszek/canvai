@@ -152,6 +152,18 @@ export function uploadFiles(
   })
 }
 
+/** Usuwa na serwerze assety, których nie ma już na płótnie. Zwraca ich id. */
+export async function pruneAssets(boardId: number): Promise<number[]> {
+  const res = await fetch(`/api/boards/${boardId}/assets/prune`, {
+    method: 'POST',
+    headers: csrfHeaders(),
+    credentials: 'same-origin',
+  })
+  if (!res.ok) return []
+  const body = await parseJson<{ data?: { removed?: number[] } }>(res)
+  return body.data?.removed ?? []
+}
+
 export async function createLinkAsset(boardId: number, url: string): Promise<AssetDto> {
   const res = await fetch(`/api/boards/${boardId}/assets`, {
     method: 'POST',

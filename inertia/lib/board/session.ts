@@ -8,6 +8,7 @@
  * Czysta logika (autosave, cykl uploadu) żyje w `shared/` i jest testowana
  * jednostkowo; tutaj jest tylko spięcie z fetch/XHR i zustand.
  */
+import { useMemo } from 'react'
 import { create } from 'zustand'
 import { toast } from 'sonner'
 import { AutosaveEngine, AutosaveConflictError, type SaveStatus } from '@shared/autosave'
@@ -31,6 +32,7 @@ import {
   updateAssetNote as apiUpdateNote,
   uploadFiles,
   type AssetDto,
+  pruneAssets,
 } from './api'
 import { DEFAULTS } from '~/lib/scene/palette'
 
@@ -141,6 +143,9 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       })
 
       set({ initialized: true, version, saveStatus: 'idle' })
+      // Materiały usunięte z płótna w poprzedniej sesji nie mają już historii
+      // cofania — sprzątamy je na serwerze, zanim pobierzemy listę.
+      await pruneAssets(boardId).catch(() => [])
       await get().refreshAssets()
     } catch (error) {
       set({ saveStatus: 'error' })
@@ -283,7 +288,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
   async updateNote(assetId, note) {
     try {
       const updated = await apiUpdateNote(assetId, note)
-      set({ assets: get().assets.map((a) => (a.id === assetId ? updated : a)) })
+      set({ assets: get().assets.map((a) => (String(a.id) === String(assetId) ? updated : a)) })
     } catch {
       toast.error('Nie udało się zapisać notatki')
     }
@@ -292,12 +297,12 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
   async deleteAsset(assetId) {
     try {
       await apiDeleteAsset(assetId)
-      set({ assets: get().assets.filter((a) => a.id !== assetId) })
+      set({ assets: get().assets.filter((a) => String(a.id) !== String(assetId)) })
 
       // Usuń też elementy płótna wskazujące ten asset (bez sierot).
       const store = useSceneStore.getState()
       const ids = store.document.elements
-        .filter((el) => elementAssetId(el) === assetId)
+        .filter((el) => elementAssetId(el) === String(assetId))
         .map((el) => el.id)
       if (ids.length > 0) store.deleteElements(ids)
     } catch {
@@ -307,7 +312,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
 
   centerOnAsset(assetId) {
     const store = useSceneStore.getState()
-    const el = store.document.elements.find((e) => elementAssetId(e) === assetId)
+    const el = store.document.elements.find((e) => elementAssetId(e) === String(assetId))
     if (!el) {
       toast.error('Ten asset nie ma elementu na płótnie')
       return
@@ -326,8 +331,9 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
 
 /** Zwraca `assetId` elementu (dla image wymagane, dla sticky opcjonalne). */
 function elementAssetId(el: SceneElement): string | null {
-  if (el.type === 'image') return el.assetId
-  if (el.type === 'sticky' && el.assetId) return el.assetId
+  // API zwraca id assetu jako liczbę, scena trzyma je jako tekst — porównujemy tekstowo.
+  if (el.type === 'image') return String(el.assetId)
+  if (el.type === 'sticky' && el.assetId) return String(el.assetId)
   return null
 }
 
@@ -390,4 +396,17 @@ function fileRejectMessage(name: string, reason: ClientFileRejectReason): string
     case 'unsupported':
       return `Nieobsługiwany typ pliku: ${name}`
   }
+}
+
+/**
+ * Materiały widoczne w panelu: tylko te, które są na płótnie. Element usunięty
+ * z płótna znika z listy od razu, a Ctrl+Z przywraca go razem z elementem.
+ */
+export function useCanvasAssets(): AssetDto[] {
+  const assets = useBoardStore((s) => s.assets)
+  const elements = useSceneStore((s) => s.document.elements)
+  return useMemo(() => {
+    const onCanvas = new Set(elements.map(elementAssetId).filter((id): id is string => id !== null))
+    return assets.filter((a) => onCanvas.has(String(a.id)))
+  }, [assets, elements])
 }

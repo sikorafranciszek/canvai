@@ -5,6 +5,8 @@ import User from '#models/user'
 import Board from '#models/board'
 import AssetAnalysis from '#models/asset_analysis'
 import DesignDoc from '#models/design_doc'
+import Asset from '#models/asset'
+import drive from '@adonisjs/drive/services/main'
 import { setProviderOverride } from '#services/ai/provider'
 import { MockProvider } from '#services/ai/mock_provider'
 import { AiProviderError } from '#services/ai/types'
@@ -450,5 +452,48 @@ test.group('Design doc API', (group) => {
     assert.equal(res.body().data.status, 'ready')
     assert.equal(calls, 2)
     assert.notInclude(res.body().data.contentMd, 'A999999')
+  })
+
+  test('materiał usunięty z płótna nie trafia do DESIGN.md, a prune go sprząta', async ({ client, assert }) => {
+    const { user, cookies } = await login(client)
+    const board = await createBoard(user)
+    const { imageIds, linkId } = await seedBoard(client, cookies, board)
+    const logoId = imageIds[2]
+
+    // Usuń element logo z płótna (asset zostaje w bazie — jak po Delete w edytorze).
+    const scene = await client.get(`/api/boards/${board.id}/scene`).headers({ cookie: cookies })
+    const current = scene.body().data
+    const document = {
+      ...current.document,
+      elements: current.document.elements.filter((el: any) => el.assetId !== String(logoId)),
+    }
+    await client
+      .put(`/api/boards/${board.id}/scene`)
+      .headers({ cookie: cookies })
+      .json({ version: current.version, document, appState: {} })
+
+    await client.post(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies }).json({})
+    await runPendingJobs()
+    const doc = (await client.get(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies })).body().data
+    assert.equal(doc.status, 'ready', doc.error)
+    assert.equal(doc.usage.assets, 3)
+    assert.notInclude(doc.contentMd, `A${logoId}`)
+    assert.include(doc.contentMd, `| A${linkId} |`)
+
+    const logo = await Asset.findOrFail(logoId)
+    const keys = [logo.storageKey, logo.thumbKey].filter(Boolean) as string[]
+
+    // Obcy nie może sprzątać cudzej tablicy.
+    const intruder = await login(client)
+    const denied = await client.post(`/api/boards/${board.id}/assets/prune`).headers({ cookie: intruder.cookies })
+    denied.assertStatus(404)
+
+    const res = await client.post(`/api/boards/${board.id}/assets/prune`).headers({ cookie: cookies })
+    res.assertStatus(200)
+    assert.deepEqual(res.body().data.removed, [logoId])
+    assert.isNull(await Asset.find(logoId))
+    for (const key of keys) assert.isFalse(await drive.use().exists(key))
+    // Materiały z płótna zostają.
+    for (const id of [imageIds[0], imageIds[1], linkId]) assert.isNotNull(await Asset.find(id))
   })
 })
