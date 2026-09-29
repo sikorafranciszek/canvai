@@ -9,7 +9,7 @@ import Asset from '#models/asset'
 
 test.group('Assets API', (group) => {
   group.each.setup(async () => {
-    await rm(app.makePath('storage'), { recursive: true, force: true })
+    await rm(app.tmpPath('test-storage'), { recursive: true, force: true })
     return testUtils.db().withGlobalTransaction()
   })
 

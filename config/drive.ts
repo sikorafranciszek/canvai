@@ -11,12 +11,15 @@ import { defineConfig, services } from '@adonisjs/drive'
  *
  * Podmiana na S3 = dopisanie drugiego serwisu i zmiana `default` — kontrolery
  * nie muszą się zmieniać (operują wyłącznie na kluczu).
+ *
+ * Testy piszą do osobnego `tmp/test-storage/` — czyszczą go przed każdym
+ * testem, więc nie mogą dotykać uploadów z `storage/` środowiska dev.
  */
 const driveConfig = defineConfig({
   default: 'assets',
   services: {
     assets: services.fs({
-      location: app.makePath('storage'),
+      location: app.inTest ? app.tmpPath('test-storage') : app.makePath('storage'),
       visibility: 'private',
     }),
   },

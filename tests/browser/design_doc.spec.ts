@@ -39,9 +39,7 @@ test.group('Design doc e2e', (group) => {
       { name: 'home-screen.png', mimeType: 'image/png', buffer: await image('#faf6f0', 1280, 800) },
       { name: 'logo.png', mimeType: 'image/png', buffer: await image('#3b2a20', 300, 300) },
     ])
-    await page.waitForFunction(
-      () => document.querySelectorAll('[data-testid^=asset-item-]').length === 2
-    )
+    await page.locator('[data-testid^=asset-item-]').nth(1).waitFor()
     await page.locator('[data-testid=save-status][data-status=saved]').waitFor()
 
     await page.locator('[data-testid=generate-design-doc]').click()
