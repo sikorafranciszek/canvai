@@ -159,14 +159,18 @@ label {
   font-size: 14px;
   font-weight: 500;
 }
-input,
-textarea,
-button {
+/*
+ * Style formularzy startera są zawężone do <form>. Globalne `button { width: 100% }`
+ * rozciągało każdy przycisk edytora płótna (toolbar, panel assetów, DESIGN.md).
+ */
+form input,
+form textarea,
+form button {
   width: 100%;
   border-radius: 4px;
   font: inherit;
 }
-input {
+form input {
   height: 40px;
   border: 1px solid var(--gray-4);
   padding: 0 16px;
@@ -183,14 +187,14 @@ textarea[data-invalid='true'] + div {
   margin-top: 2px;
 }
 
-button {
+form button {
   background: var(--gray-12);
   color: #fff;
   border: none;
   padding: 10px;
   font-weight: 500;
 }
-button:hover {
+form button:hover {
   background: var(--gray-10);
 }
 
