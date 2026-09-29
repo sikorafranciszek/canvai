@@ -3,7 +3,7 @@ import { toast, Toaster } from 'sonner'
 import { usePage } from '@inertiajs/react'
 import { type ReactElement, type ReactNode, useEffect } from 'react'
 import { Form, Link } from '@adonisjs/inertia/react'
-import { LayoutGrid, LogOut, Plus } from 'lucide-react'
+import { LayoutGrid, LogOut, Plus, Settings } from 'lucide-react'
 import { Brand } from '~/components/ui/Brand'
 import { CreateBoardDialog } from '~/components/boards/CreateBoardDialog'
 import { useUiStore } from '~/lib/ui'
@@ -37,8 +37,9 @@ export default function Layout({ children }: { children: ReactElement<Data.Share
   }, [url])
 
   useEffect(() => {
-    // Na stronie logowania błąd pokazuje formularz (alert inline), nie toast.
-    if (flash.error && component !== 'auth/login') toast.error(translateFlash(flash.error))
+    // Na stronach auth komunikaty pokazuje formularz (FlashAlert), nie toast.
+    if (component.startsWith('auth/')) return
+    if (flash.error) toast.error(translateFlash(flash.error))
     if (flash.success) toast.success(translateFlash(flash.success))
   })
 
@@ -127,6 +128,15 @@ function AppShell({
           >
             <LayoutGrid />
             {t('nav.boards')}
+          </Link>
+          <Link
+            route="settings.show"
+            className="nav__item"
+            aria-current={component === 'settings/index' ? 'page' : undefined}
+            data-testid="nav-settings"
+          >
+            <Settings />
+            {t('nav.settings')}
           </Link>
         </nav>
 

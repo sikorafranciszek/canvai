@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon'
 import { test } from '@japa/runner'
 import testUtils from '@adonisjs/core/services/test_utils'
 import User from '#models/user'
@@ -16,7 +17,7 @@ test.group('Auth', (group) => {
   })
 
   test('can login with valid credentials', async ({ client }) => {
-    await User.create({ email: 'login@test.com', password: 'password123' })
+    await User.create({ emailVerifiedAt: DateTime.utc(), email: 'login@test.com', password: 'password123' })
 
     const response = await client.post('/login').json({
       email: 'login@test.com',
@@ -27,7 +28,7 @@ test.group('Auth', (group) => {
   })
 
   test('cannot login with invalid credentials', async ({ client, assert }) => {
-    await User.create({ email: 'bad@test.com', password: 'password123' })
+    await User.create({ emailVerifiedAt: DateTime.utc(), email: 'bad@test.com', password: 'password123' })
 
     const response = await client
       .post('/login')
@@ -41,7 +42,7 @@ test.group('Auth', (group) => {
   })
 
   test('can logout', async ({ client }) => {
-    await User.create({ email: 'logout@test.com', password: 'password123' })
+    await User.create({ emailVerifiedAt: DateTime.utc(), email: 'logout@test.com', password: 'password123' })
 
     const loginResponse = await client.post('/login').json({
       email: 'logout@test.com',

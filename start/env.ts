@@ -44,4 +44,14 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   // Kolejka: worker in-process w `node ace serve` (domyślnie włączony).
   QUEUE_INLINE_WORKER: Env.schema.boolean.optional(),
+
+  // Poczta: `outbox` (domyślnie, lokalnie — tmp/mail-outbox) albo `smtp`.
+  MAIL_MAILER: Env.schema.enum.optional(['outbox', 'smtp'] as const),
+  MAIL_FROM_NAME: Env.schema.string.optional(),
+  MAIL_FROM_ADDRESS: Env.schema.string.optional(),
+  SMTP_HOST: Env.schema.string.optional(),
+  SMTP_PORT: Env.schema.number.optional(),
+  SMTP_SECURE: Env.schema.boolean.optional(),
+  SMTP_USERNAME: Env.schema.string.optional(),
+  SMTP_PASSWORD: Env.schema.string.optional(),
 })

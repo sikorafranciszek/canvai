@@ -97,6 +97,27 @@ node ace test browser              # Playwright e2e (needs `npx playwright insta
 All tests run on the `mock` AI provider (forced in `.env.test`) — zero network
 calls, deterministic output.
 
+## Accounts: email verification & passwords
+
+- **Sign-up** creates an unverified account and emails a verification link
+  (valid 24 h). Until the address is confirmed the app and the API are blocked
+  by the `verified` middleware (pages redirect to `/verify-email`, the API
+  returns `403 E_EMAIL_NOT_VERIFIED`). The link can be re-sent (60 s cooldown).
+  Accounts that existed before this feature were marked as verified.
+- **Forgot password** (`/forgot-password`) emails a reset link (valid 60 min,
+  single use). The response is identical whether or not the account exists.
+  After a reset the user gets a “password changed” notification.
+- **Settings** (`/settings`): profile name, change password (requires the
+  current password; the session is regenerated and a notification is sent),
+  language.
+- Tokens are random 32-byte values; only their sha256 hash is stored
+  (`user_tokens`). In production, links are built from `APP_URL` only.
+- Mail: `MAIL_MAILER=outbox` (default) stores emails in `tmp/mail-outbox/` and
+  shows them at **`/dev/mailbox`** (not available in production) — no mail
+  server needed locally. For real delivery set `MAIL_MAILER=smtp` and the
+  `SMTP_*` / `MAIL_FROM_*` variables (see `.env.example`). Emails are sent in
+  the user's language (PL/EN).
+
 ## Languages (i18n)
 
 The app is available in **Polish and English**. The language is resolved per

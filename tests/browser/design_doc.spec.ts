@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon'
 import { test } from '@japa/runner'
 import testUtils from '@adonisjs/core/services/test_utils'
 import sharp from 'sharp'
@@ -28,7 +29,7 @@ test.group('Design doc e2e', (group) => {
 
   test('wklejone materiały → DESIGN.md do pobrania', async ({ browserContext, visit, assert }) => {
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    const user = await User.create({ email: `e2e-${suffix}@test.com`, password: 'password123' })
+    const user = await User.create({ emailVerifiedAt: DateTime.utc(), email: `e2e-${suffix}@test.com`, password: 'password123' })
     const board = await Board.create({ title: 'Kawiarnia', slug: `e2e-${suffix}`, userId: user.id })
     await browserContext.loginAs(user)
 

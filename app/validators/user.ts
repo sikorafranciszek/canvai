@@ -29,3 +29,27 @@ export const loginValidator = vine.create({
   email: email(),
   password: vine.string(),
 })
+
+/** „Nie pamiętam hasła” — tylko adres. */
+export const forgotPasswordValidator = vine.create({
+  email: email(),
+})
+
+/** Ustawienie nowego hasła z linku resetującego. */
+export const resetPasswordValidator = vine.create({
+  token: vine.string().trim().maxLength(200),
+  password: password().confirmed({ confirmationField: 'passwordConfirmation' }),
+  passwordConfirmation: vine.string(),
+})
+
+/** Zmiana hasła w ustawieniach (wymaga obecnego hasła). */
+export const changePasswordValidator = vine.create({
+  currentPassword: vine.string(),
+  password: password().confirmed({ confirmationField: 'passwordConfirmation' }),
+  passwordConfirmation: vine.string(),
+})
+
+/** Profil w ustawieniach. */
+export const updateProfileValidator = vine.create({
+  fullName: vine.string().trim().maxLength(120).nullable(),
+})

@@ -1,7 +1,7 @@
 import { Form, Link } from '@adonisjs/inertia/react'
 import { Head, usePage } from '@inertiajs/react'
 import { translateFlash } from '~/lib/format'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, CheckCircle2 } from 'lucide-react'
 import { useT } from '~/i18n'
 
 type FormState = { errors: Record<string, string>; processing: boolean }
@@ -10,6 +10,7 @@ export default function Login() {
   const { flash } = usePage()
   const { t } = useT()
   const flashError = typeof flash.error === 'string' ? translateFlash(flash.error) : null
+  const flashSuccess = typeof flash.success === 'string' ? flash.success : null
   return (
     <>
       <Head title={t('auth.login.headTitle')} />
@@ -22,10 +23,20 @@ export default function Login() {
         <Form route="session.store" className="auth__form">
           {({ errors, processing }: FormState) => (
             <>
-              {errors.E_INVALID_CREDENTIALS || flashError ? (
+              {errors.E_INVALID_CREDENTIALS ? (
                 <div className="alert alert--danger" role="alert" data-testid="login-error">
                   <AlertCircle />
-                  {flashError ?? t('auth.login.invalid')}
+                  {t('auth.login.invalid')}
+                </div>
+              ) : flashError ? (
+                <div className="alert alert--danger" role="alert" data-testid="login-error">
+                  <AlertCircle />
+                  {flashError}
+                </div>
+              ) : flashSuccess ? (
+                <div className="alert alert--notice" role="status" data-testid="flash-success">
+                  <CheckCircle2 />
+                  {flashSuccess}
                 </div>
               ) : null}
 
@@ -52,9 +63,14 @@ export default function Login() {
               </div>
 
               <div className="field">
-                <label className="field__label" htmlFor="password">
-                  {t('auth.field.password')}
-                </label>
+                <div className="field__row">
+                  <label className="field__label" htmlFor="password">
+                    {t('auth.field.password')}
+                  </label>
+                  <Link route="password.forgot" className="link t-small" data-testid="forgot-link">
+                    {t('auth.login.forgot')}
+                  </Link>
+                </div>
                 <input
                   className="input"
                   type="password"

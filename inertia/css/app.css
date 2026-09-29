@@ -2016,3 +2016,47 @@ input.title-edit {
     transition-duration: 1ms !important;
   }
 }
+
+/* ------------------------------------------------------------------ Ustawienia */
+
+.settings-section {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--space-6);
+  padding: var(--space-6);
+}
+
+.settings-section__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.settings-readonly {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  height: 40px;
+  padding: 0 14px;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--color-warm-mist);
+  color: var(--color-graphite);
+}
+
+@media (max-width: 720px) {
+  .settings-section {
+    grid-template-columns: 1fr;
+  }
+}

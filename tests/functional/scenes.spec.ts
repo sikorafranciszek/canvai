@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon'
 import { test } from '@japa/runner'
 import testUtils from '@adonisjs/core/services/test_utils'
 import User from '#models/user'
@@ -9,7 +10,7 @@ test.group('Scene API', (group) => {
 
   async function login(client: any) {
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    const user = await User.create({
+    const user = await User.create({ emailVerifiedAt: DateTime.utc(),
       email: `scene-test-${suffix}@test.com`,
       password: 'password123',
     })

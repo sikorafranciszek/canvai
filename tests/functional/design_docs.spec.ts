@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon'
 import { test } from '@japa/runner'
 import testUtils from '@adonisjs/core/services/test_utils'
 import sharp from 'sharp'
@@ -27,7 +28,7 @@ test.group('Design doc API', (group) => {
 
   async function login(client: any) {
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    const user = await User.create({ email: `design-${suffix}@test.com`, password: 'password123' })
+    const user = await User.create({ emailVerifiedAt: DateTime.utc(), email: `design-${suffix}@test.com`, password: 'password123' })
     const res = await client
       .post('/login')
       .json({ email: user.email, password: 'password123' })

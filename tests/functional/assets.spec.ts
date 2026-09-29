@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon'
 import { test } from '@japa/runner'
 import testUtils from '@adonisjs/core/services/test_utils'
 import app from '@adonisjs/core/services/app'
@@ -15,7 +16,7 @@ test.group('Assets API', (group) => {
 
   async function login(client: any) {
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    const user = await User.create({
+    const user = await User.create({ emailVerifiedAt: DateTime.utc(),
       email: `asset-test-${suffix}@test.com`,
       password: 'password123',
     })

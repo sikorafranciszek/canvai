@@ -11,9 +11,12 @@ import { middleware } from '#start/kernel'
 import { controllers } from '#generated/controllers'
 import router from '@adonisjs/core/services/router'
 
-router.get('/', [controllers.Board, 'index']).as('home').use(middleware.auth())
+router.get('/', [controllers.Board, 'index']).as('home').use([middleware.auth(), middleware.verified()])
 
-router.get('/boards', [controllers.Board, 'index']).as('boards.index').use(middleware.auth())
+router
+  .get('/boards', [controllers.Board, 'index'])
+  .as('boards.index')
+  .use([middleware.auth(), middleware.verified()])
 
 router
   .group(() => {
@@ -22,8 +25,34 @@ router
 
     router.get('login', [controllers.Session, 'create'])
     router.post('login', [controllers.Session, 'store'])
+
+    // Reset hasła
+    router.get('forgot-password', [controllers.PasswordReset, 'create']).as('password.forgot')
+    router.post('forgot-password', [controllers.PasswordReset, 'store']).as('password.email')
+    router.get('reset-password/:token', [controllers.PasswordReset, 'edit']).as('password.reset')
+    router.post('reset-password', [controllers.PasswordReset, 'update']).as('password.update')
   })
   .use(middleware.guest())
+
+/**
+ * Weryfikacja e-mail. Ekran „sprawdź skrzynkę” i ponowna wysyłka wymagają
+ * zalogowania (ale NIE weryfikacji); link z maila działa bez zalogowania.
+ */
+router
+  .group(() => {
+    router.get('/verify-email', [controllers.EmailVerification, 'notice']).as('verification.notice')
+    router
+      .post('/verify-email/resend', [controllers.EmailVerification, 'resend'])
+      .as('verification.resend')
+    router.post('logout', [controllers.Session, 'destroy']).as('session.destroy')
+  })
+  .use(middleware.auth())
+router
+  .get('/verify-email/:token', [controllers.EmailVerification, 'verify'])
+  .as('verification.verify')
+
+/** Podgląd lokalnej skrzynki (transport `outbox`) — kontroler zwraca 404 w produkcji. */
+router.get('/dev/mailbox', [controllers.DevMailbox, 'index'])
 
 router
   .group(() => {
@@ -32,9 +61,13 @@ router
     router.get('/boards/:id', [controllers.Board, 'show']).as('boards.show')
     router.patch('/boards/:id', [controllers.Board, 'update']).as('boards.update')
     router.delete('/boards/:id', [controllers.Board, 'destroy']).as('boards.destroy')
-    router.post('logout', [controllers.Session, 'destroy']).as('session.destroy')
+
+    // Ustawienia konta
+    router.get('/settings', [controllers.Settings, 'show']).as('settings.show')
+    router.patch('/settings/profile', [controllers.Settings, 'updateProfile']).as('settings.profile')
+    router.put('/settings/password', [controllers.Settings, 'updatePassword']).as('settings.password')
   })
-  .use(middleware.auth())
+  .use([middleware.auth(), middleware.verified()])
 
 /**
  * API assetów i sceny (M2b). Wszystko pod autoryzacją właściciela tablicy.
@@ -63,7 +96,7 @@ router
     router.get('/jobs/:id', [controllers.DesignDocs, 'job'])
   })
   .prefix('/api')
-  .use(middleware.auth())
+  .use([middleware.auth(), middleware.verified()])
 
 /**
  * Aliasy bez prefiksu `/api` — Bramka 2 sprawdza serwowanie pod
@@ -74,4 +107,4 @@ router
     router.get('/assets/:id/raw', [controllers.Assets, 'raw']).as('assets.raw')
     router.get('/assets/:id/thumb', [controllers.Assets, 'thumb']).as('assets.thumb')
   })
-  .use(middleware.auth())
+  .use([middleware.auth(), middleware.verified()])

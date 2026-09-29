@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon'
 import { test } from '@japa/runner'
 import testUtils from '@adonisjs/core/services/test_utils'
 import User from '#models/user'
@@ -7,7 +8,7 @@ test.group('Boards CRUD', (group) => {
   group.each.setup(() => testUtils.db().withGlobalTransaction())
 
   async function login(client: any) {
-    const user = await User.create({
+    const user = await User.create({ emailVerifiedAt: DateTime.utc(),
       email: `board-test-${Date.now()}@test.com`,
       password: 'password123',
     })
@@ -90,7 +91,7 @@ test.group('Boards CRUD', (group) => {
   test('cannot access another user board', async ({ client }) => {
     const { cookies } = await login(client)
 
-    const otherUser = await User.create({
+    const otherUser = await User.create({ emailVerifiedAt: DateTime.utc(),
       email: `other-${Date.now()}@test.com`,
       password: 'password123',
     })
