@@ -1,65 +1,167 @@
 import { type Data } from '@generated/data'
 import { toast, Toaster } from 'sonner'
 import { usePage } from '@inertiajs/react'
-import { type ReactElement, useEffect } from 'react'
+import { type ReactElement, type ReactNode, useEffect } from 'react'
 import { Form, Link } from '@adonisjs/inertia/react'
+import { LayoutGrid, LogOut, Plus } from 'lucide-react'
+import { Brand } from '~/components/ui/Brand'
+import { CreateBoardDialog } from '~/components/boards/CreateBoardDialog'
+import { useUiStore } from '~/lib/ui'
+import { translateFlash } from '~/lib/format'
 
+type SharedUser = { id: number; fullName: string | null; email: string; initials: string }
+
+/**
+ * Layout wybierany wg strony:
+ * - `auth/*` — wyśrodkowana karta,
+ * - `boards/show` i `errors/*` — pełny ekran (edytor ma własny pasek),
+ * - pozostałe — shell z lewym paskiem nawigacji.
+ */
 export default function Layout({ children }: { children: ReactElement<Data.SharedProps> }) {
-  const { url, flash } = usePage()
+  const { url, flash, component } = usePage()
+  const user = (children.props as { user?: SharedUser }).user
+
   useEffect(() => {
     toast.dismiss()
   }, [url])
 
   useEffect(() => {
-    if (flash.error) {
-      toast.error(flash.error)
-    }
-    if (flash.success) {
-      toast.success(flash.success)
-    }
+    // Na stronie logowania błąd pokazuje formularz (alert inline), nie toast.
+    if (flash.error && component !== 'auth/login') toast.error(translateFlash(flash.error))
+    if (flash.success) toast.success(translateFlash(flash.success))
   })
+
+  let content: ReactNode
+  if (component.startsWith('auth/')) {
+    content = (
+      <div className="auth">
+        <div className="auth__inner">
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <Brand />
+          </div>
+          {children}
+        </div>
+      </div>
+    )
+  } else if (component === 'boards/show' || component.startsWith('errors/') || !user) {
+    content = children
+  } else {
+    content = (
+      <AppShell user={user} component={component}>
+        {children}
+      </AppShell>
+    )
+  }
 
   return (
     <>
-      <header>
-        <div>
-          <div>
-            <Link route="home">
-              <svg
-                width="120"
-                height="24"
-                viewBox="0 0 195 38"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
+      {content}
+      <Toaster
+        position="bottom-center"
+        toastOptions={{
+          style: {
+            background: 'var(--color-soft-paper)',
+            color: 'var(--color-ink)',
+            border: '1px solid var(--color-hairline)',
+            borderRadius: 12,
+            boxShadow: 'var(--shadow-subtle)',
+            fontFamily: 'var(--font-sans)',
+            fontSize: 13,
+          },
+        }}
+      />
+    </>
+  )
+}
+
+function AppShell({
+  user,
+  component,
+  children,
+}: {
+  user: SharedUser
+  component: string
+  children: ReactNode
+}) {
+  const openCreateBoard = useUiStore((s) => s.openCreateBoard)
+  const onBoards = component === 'boards/index'
+
+  return (
+    <div className="shell">
+      <aside className="sidebar" aria-label="Nawigacja główna">
+        <Link route="boards.index" aria-label="Tablice — strona główna">
+          <Brand />
+        </Link>
+
+        <button
+          type="button"
+          className="btn btn--primary btn--block"
+          onClick={openCreateBoard}
+          data-testid="sidebar-new-board"
+        >
+          <Plus />
+          Nowa tablica
+        </button>
+
+        <nav className="nav">
+          <div className="nav__label">Przestrzeń robocza</div>
+          <Link
+            route="boards.index"
+            className="nav__item"
+            aria-current={onBoards ? 'page' : undefined}
+          >
+            <LayoutGrid />
+            Tablice
+          </Link>
+        </nav>
+
+        <div className="sidebar__footer">
+          <div className="user-chip">
+            <span className="avatar" aria-hidden>
+              {user.initials}
+            </span>
+            <div className="user-chip__text">
+              <span className="t-truncate" style={{ fontSize: 13, fontWeight: 500 }}>
+                {user.fullName || user.email.split('@')[0]}
+              </span>
+              <span className="t-truncate t-small t-faint">{user.email}</span>
+            </div>
+            <Form route="session.destroy" style={{ marginLeft: 'auto' }}>
+              <button
+                type="submit"
+                className="btn btn--quiet btn--icon btn--sm"
+                aria-label="Wyloguj"
+                data-tip="Wyloguj"
+                data-tip-side="top"
               >
-                <path
-                  d="M180 37.5v-30h-7.5V0H195v7.5h-7.5v30H180ZM150 15V7.5h-15V0h15v7.5h7.5V15H150Zm-15 22.5V30h-7.5V7.5h7.5V30h15v7.5h-15Zm15-7.5v-7.5h7.5V30H150ZM82.5 37.5v-30H90V0h15v7.5h7.5v30H105v-15H90v15h-7.5ZM90 15h15V7.8H90V15ZM45 37.5V0h22.5v7.5h-15V15h15v7.5h-15V30h15v7.5H45ZM0 37.5V0h22.5v7.5H30V15h-7.5v15H30v7.5h-7.5V30H15v-7.5H7.5v15H0ZM7.5 15h14.7V7.5H7.5V15Z"
-                  fill="currentColor"
-                />
-              </svg>
-            </Link>
-          </div>
-          <div>
-            <nav>
-              {children.props.user ? (
-                <>
-                  <span>{children.props.user.initials}</span>
-                  <Form route="session.destroy">
-                    <button type="submit"> Logout </button>
-                  </Form>
-                </>
-              ) : (
-                <>
-                  <Link route="new_account.create">Signup</Link>
-                  <Link route="session.create">Login</Link>
-                </>
-              )}
-            </nav>
+                <LogOut />
+              </button>
+            </Form>
           </div>
         </div>
-      </header>
-      <main>{children}</main>
-      <Toaster position="top-center" richColors />
-    </>
+      </aside>
+
+      <div className="main">
+        <div className="mobile-bar">
+          <Link route="boards.index">
+            <Brand />
+          </Link>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className="btn btn--primary btn--sm" onClick={openCreateBoard}>
+              <Plus />
+              Nowa
+            </button>
+            <Form route="session.destroy">
+              <button type="submit" className="btn btn--icon btn--sm" aria-label="Wyloguj">
+                <LogOut />
+              </button>
+            </Form>
+          </div>
+        </div>
+        <main>{children}</main>
+      </div>
+
+      <CreateBoardDialog />
+    </div>
   )
 }

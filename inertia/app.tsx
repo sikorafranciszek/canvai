@@ -8,10 +8,10 @@ import { createInertiaApp, type ResolvedComponent } from '@inertiajs/react'
 import { TuyauProvider } from '@adonisjs/inertia/react'
 import { resolvePageComponent } from '@adonisjs/inertia/helpers'
 
-const appName = import.meta.env.VITE_APP_NAME || 'AdonisJS'
+const appName = import.meta.env.VITE_APP_NAME || 'Design Canvas'
 
 createInertiaApp({
-  title: (title) => (title ? `${title} - ${appName}` : appName),
+  title: (title) => (title ? `${title} · ${appName}` : appName),
   resolve: (name) => {
     return resolvePageComponent<ResolvedComponent>(
       `./pages/${name}.tsx`,
@@ -27,6 +27,6 @@ createInertiaApp({
     )
   },
   progress: {
-    color: '#4B5563',
+    color: '#016a71',
   },
 })

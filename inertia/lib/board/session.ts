@@ -32,12 +32,17 @@ import {
   uploadFiles,
   type AssetDto,
 } from './api'
+import { DEFAULTS } from '~/lib/scene/palette'
 
 export type BoardSaveStatus = SaveStatus | 'dirty' | 'loading'
 
 /** Szerokość panelu assetów + wysokość headera/toolbara — do wyśrodkowania. */
 const PANEL_WIDTH = 304
 const CHROME_HEIGHT = 100
+
+/** Dłuższa krawędź obrazu wstawianego na płótno (px sceny) i odstęp między obrazami. */
+const MAX_IMAGE_EDGE = 960
+const IMAGE_GAP = 48
 
 interface BoardState {
   boardId: number | null
@@ -223,6 +228,9 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       })
 
       // Podmiana placeholderów na właściwe elementy sceny (w kolejności plików).
+      // Kolejne obrazy układamy w rzędzie (bez nakładania), duże skalujemy do
+      // MAX_IMAGE_EDGE — plik się nie zmienia, tylko jego rozmiar na płótnie.
+      let cursorX = point.x
       for (const [i, asset] of assets.entries()) {
         const resolution = resolveUploadResult(get().pendingUploads, placeholders[i].id, {
           ok: true,
@@ -231,7 +239,17 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
         })
         set({ pendingUploads: resolution.pendingUploads })
         if (resolution.addedElement) {
-          useSceneStore.getState().addElement(resolution.addedElement)
+          const el = resolution.addedElement
+          const fit = Math.min(1, MAX_IMAGE_EDGE / Math.max(el.width, el.height, 1))
+          const placed = {
+            ...el,
+            x: cursorX,
+            y: point.y,
+            width: Math.round(el.width * fit),
+            height: Math.round(el.height * fit),
+          }
+          cursorX += placed.width + IMAGE_GAP
+          useSceneStore.getState().addElement(placed)
         }
       }
       await get().refreshAssets()
@@ -341,7 +359,7 @@ function createLinkSticky(
     width: 280,
     height: 110,
     text,
-    fill: '#dbeafe',
+    fill: DEFAULTS.linkCard,
     fontSize: 13,
     assetId,
   }
@@ -358,7 +376,7 @@ function createTextSticky(text: string, point: { x: number; y: number }): SceneS
     width: 220,
     height: 120,
     text,
-    fill: '#fef08a',
+    fill: DEFAULTS.sticky,
     fontSize: 14,
   }
 }

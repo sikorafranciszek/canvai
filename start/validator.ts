@@ -12,7 +12,7 @@
 */
 
 import { DateTime } from 'luxon'
-import { VineDate } from '@vinejs/vine'
+import vine, { SimpleMessagesProvider, VineDate } from '@vinejs/vine'
 
 declare module '@vinejs/vine/types' {
   interface VineGlobalTransforms {
@@ -21,3 +21,32 @@ declare module '@vinejs/vine/types' {
 }
 
 VineDate.transform((value) => DateTime.fromJSDate(value))
+
+/**
+ * Komunikaty walidacji po polsku (UI aplikacji jest po polsku). Nazwy pól
+ * mapowane na etykiety widoczne w formularzach.
+ */
+
+vine.messagesProvider = new SimpleMessagesProvider(
+  {
+    'required': 'To pole jest wymagane',
+    'string': 'Wartość musi być tekstem',
+    'email': 'Podaj poprawny adres e-mail',
+    'minLength': '{{ field }} musi mieć co najmniej {{ min }} znaków',
+    'maxLength': '{{ field }} może mieć najwyżej {{ max }} znaków',
+    'confirmed': 'Hasła nie są takie same',
+    'database.unique': 'Konto z tym adresem e-mail już istnieje',
+    'url': 'Podaj poprawny adres URL',
+    'boolean': 'Nieprawidłowa wartość',
+    'number': 'Wartość musi być liczbą',
+    'enum': 'Nieprawidłowa wartość',
+  },
+  {
+    fullName: 'Imię i nazwisko',
+    email: 'E-mail',
+    password: 'Hasło',
+    passwordConfirmation: 'Powtórzone hasło',
+    title: 'Nazwa',
+    note: 'Notatka',
+  }
+)

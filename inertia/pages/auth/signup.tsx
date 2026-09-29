@@ -1,73 +1,113 @@
-import { Form } from '@adonisjs/inertia/react'
+import { Form, Link } from '@adonisjs/inertia/react'
+import { Head } from '@inertiajs/react'
+
+type FormState = { errors: Record<string, string>; processing: boolean }
+
+function Field({
+  id,
+  label,
+  error,
+  hint,
+  ...input
+}: {
+  id: string
+  label: string
+  error?: string
+  hint?: string
+} & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <div className="field">
+      <label className="field__label" htmlFor={id}>
+        {label}
+      </label>
+      <input
+        className="input"
+        id={id}
+        name={id}
+        aria-invalid={error ? 'true' : undefined}
+        aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
+        {...input}
+      />
+      {error ? (
+        <div className="field__error" id={`${id}-error`}>
+          {error}
+        </div>
+      ) : hint ? (
+        <div className="field__hint" id={`${id}-hint`}>
+          {hint}
+        </div>
+      ) : null}
+    </div>
+  )
+}
 
 export default function Signup() {
   return (
-    <div className="form-container">
-      <div>
-        <h1> Signup </h1>
-        <p>Enter your details below to create your account</p>
-      </div>
+    <>
+      <Head title="Załóż konto" />
+      <div className="card auth__card">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <h1 className="t-title">Załóż konto</h1>
+          <p className="t-muted">
+            Zbieraj materiały klienta na tablicy i generuj z nich specyfikację DESIGN.md.
+          </p>
+        </div>
 
-      <div>
-        <Form route="new_account.store">
-          {({ errors }: { errors: Record<string, string> }) => (
+        <Form route="new_account.store" className="auth__form">
+          {({ errors, processing }: FormState) => (
             <>
-              <div>
-                <label htmlFor="fullName">Full name</label>
-                <input
-                  type="text"
-                  name="fullName"
-                  id="fullName"
-                  data-invalid={errors.fullName ? 'true' : undefined}
-                />
-                {errors.fullName && <div>{errors.fullName}</div>}
-              </div>
+              <Field
+                id="fullName"
+                label="Imię i nazwisko"
+                type="text"
+                autoComplete="name"
+                autoFocus
+                placeholder="Anna Kowalska"
+                error={errors.fullName}
+              />
+              <Field
+                id="email"
+                label="E-mail służbowy"
+                type="email"
+                autoComplete="email"
+                placeholder="ty@firma.pl"
+                error={errors.email}
+              />
+              <Field
+                id="password"
+                label="Hasło"
+                type="password"
+                autoComplete="new-password"
+                hint="Od 8 do 32 znaków."
+                error={errors.password}
+              />
+              <Field
+                id="passwordConfirmation"
+                label="Powtórz hasło"
+                type="password"
+                autoComplete="new-password"
+                error={errors.passwordConfirmation}
+              />
 
-              <div>
-                <label htmlFor="email">Email</label>
-                <input
-                  type="email"
-                  name="email"
-                  id="email"
-                  autoComplete="email"
-                  data-invalid={errors.email ? 'true' : undefined}
-                />
-                {errors.email && <div>{errors.email}</div>}
-              </div>
-
-              <div>
-                <label htmlFor="password">Password</label>
-                <input
-                  type="password"
-                  name="password"
-                  id="password"
-                  autoComplete="new-password"
-                  data-invalid={errors.password ? 'true' : undefined}
-                />
-                {errors.password && <div>{errors.password}</div>}
-              </div>
-
-              <div>
-                <label htmlFor="passwordConfirmation">Confirm password</label>
-                <input
-                  type="password"
-                  name="passwordConfirmation"
-                  id="passwordConfirmation"
-                  autoComplete="new-password"
-                  data-invalid={errors.passwordConfirmation ? 'true' : undefined}
-                />
-                {errors.passwordConfirmation && <div>{errors.passwordConfirmation}</div>}
-              </div>
-
-              <div>
-                <button type="submit" className="button">
-                  Sign up
-                </button>
-              </div>
+              <button
+                type="submit"
+                className="btn btn--primary btn--lg btn--block"
+                disabled={processing}
+                data-testid="signup-submit"
+              >
+                {processing ? <span className="spinner" /> : null}
+                Utwórz konto
+              </button>
             </>
           )}
         </Form>
       </div>
-    </div>
+      <p className="auth__footer">
+        Masz już konto?{' '}
+        <Link route="session.create" className="link">
+          Zaloguj się
+        </Link>
+      </p>
+    </>
   )
 }

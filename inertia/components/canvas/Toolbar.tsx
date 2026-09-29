@@ -1,5 +1,100 @@
+/**
+ * Kontrolki pływające nad płótnem:
+ * - pasek narzędzi (góra, środek) z ikonami i skrótami,
+ * - pasek właściwości zaznaczenia (kolory, grubość, kolejność, duplikuj, usuń),
+ * - kontrolki widoku (lewy dół): zoom, dopasowanie, reset.
+ *
+ * Zmiany właściwości idą przez `commitGesture`, więc są cofane Ctrl+Z.
+ */
+import type React from 'react'
+import {
+  ArrowUpRight,
+  BringToFront,
+  Circle,
+  Copy,
+  Hand,
+  Maximize,
+  Minus,
+  MousePointer2,
+  Pencil,
+  Plus,
+  Redo2,
+  SendToBack,
+  Slash,
+  Square,
+  StickyNote,
+  Trash2,
+  Type,
+  Undo2,
+} from 'lucide-react'
+import type { SceneElement } from '@shared/scene'
+import { TOOLS, toolTestId, type Tool } from '@shared/tools'
 import { useSceneStore } from '~/lib/scene/store'
-import { TOOLS, toolTestId } from '@shared/tools'
+import { getElementBounds } from '~/lib/scene/geometry'
+import { FILL_COLORS, STICKY_COLORS, STROKE_COLORS } from '~/lib/scene/palette'
+
+const TOOL_ICONS: Record<Tool, React.ComponentType> = {
+  select: MousePointer2,
+  pan: Hand,
+  rectangle: Square,
+  ellipse: Circle,
+  line: Slash,
+  arrow: ArrowUpRight,
+  freehand: Pencil,
+  text: Type,
+  sticky: StickyNote,
+}
+
+const MIN_SCALE = 0.1
+const MAX_SCALE = 8
+
+function viewportSize() {
+  const rect = document.querySelector('[data-testid="canvas-root"]')?.getBoundingClientRect()
+  return { width: rect?.width ?? window.innerWidth, height: rect?.height ?? window.innerHeight }
+}
+
+/** Zoom względem środka widoku. */
+function zoomBy(factor: number) {
+  const { camera, setCamera } = useSceneStore.getState()
+  const { width, height } = viewportSize()
+  const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, camera.scale * factor))
+  const cx = width / 2
+  const cy = height / 2
+  const wx = (cx - camera.x) / camera.scale
+  const wy = (cy - camera.y) / camera.scale
+  setCamera({ x: cx - wx * scale, y: cy - wy * scale, scale })
+}
+
+function fitToContent() {
+  const { document, setCamera } = useSceneStore.getState()
+  const { width, height } = viewportSize()
+  const els = document.elements
+  if (els.length === 0) {
+    setCamera({ x: 0, y: 0, scale: 1 })
+    return
+  }
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const el of els) {
+    const b = getElementBounds(el)
+    minX = Math.min(minX, b.x)
+    minY = Math.min(minY, b.y)
+    maxX = Math.max(maxX, b.x + b.width)
+    maxY = Math.max(maxY, b.y + b.height)
+  }
+  const padding = 80
+  const contentW = Math.max(1, maxX - minX)
+  const contentH = Math.max(1, maxY - minY)
+  const scale = Math.min((width - padding * 2) / contentW, (height - padding * 2) / contentH, 2)
+  const safe = Math.max(MIN_SCALE, scale)
+  setCamera({
+    x: (width - contentW * safe) / 2 - minX * safe,
+    y: (height - contentH * safe) / 2 - minY * safe,
+    scale: safe,
+  })
+}
 
 export function Toolbar() {
   const tool = useSceneStore((s) => s.tool)
@@ -8,112 +103,346 @@ export function Toolbar() {
   const canRedo = useSceneStore((s) => s.canRedo)
   const undo = useSceneStore((s) => s.undo)
   const redo = useSceneStore((s) => s.redo)
-
-  const fitToContent = () => {
-    const { document, setCamera } = useSceneStore.getState()
-    const els = document.elements
-    if (els.length === 0) {
-      setCamera({ x: 0, y: 0, scale: 1 })
-      return
-    }
-
-    const xs: number[] = []
-    const ys: number[] = []
-    for (const el of els) {
-      xs.push(el.x)
-      ys.push(el.y)
-      if ('width' in el && 'height' in el && typeof el.width === 'number' && typeof el.height === 'number') {
-        xs.push(el.x + el.width)
-        ys.push(el.y + el.height)
-      } else if ('points' in el && Array.isArray(el.points)) {
-        for (const p of el.points) {
-          xs.push(el.x + p.x)
-          ys.push(el.y + p.y)
-        }
-      }
-    }
-
-    const minX = Math.min(...xs)
-    const maxX = Math.max(...xs)
-    const minY = Math.min(...ys)
-    const maxY = Math.max(...ys)
-    const contentW = Math.max(1, maxX - minX)
-    const contentH = Math.max(1, maxY - minY)
-
-    const padding = 80
-    const availW = Math.max(1, window.innerWidth - padding * 2)
-    const availH = Math.max(1, window.innerHeight - 160 - padding * 2)
-    const scale = Math.min(availW / contentW, availH / contentH, 2)
-
-    setCamera({
-      x: (window.innerWidth - contentW * scale) / 2 - minX * scale,
-      y: (window.innerHeight - 160 - contentH * scale) / 2 - minY * scale,
-      scale,
-    })
-  }
-
-  const resetView = () => {
-    useSceneStore.getState().setCamera({ x: 0, y: 0, scale: 1 })
-  }
+  const scale = useSceneStore((s) => s.camera.scale)
 
   return (
-    <div
-      data-testid="toolbar"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 4,
-        padding: '8px 12px',
-        borderBottom: '1px solid #e2e8f0',
-        background: '#fff',
-        flexWrap: 'wrap',
-      }}
-    >
-      {TOOLS.map((t) => (
+    <>
+      <div
+        className="float float--toolbar"
+        role="toolbar"
+        aria-label="Narzędzia"
+        data-testid="toolbar"
+      >
+        {TOOLS.map((t) => {
+          const Icon = TOOL_ICONS[t.id]
+          return (
+            <button
+              key={t.id}
+              type="button"
+              className="tool-btn"
+              data-testid={toolTestId(t.id)}
+              aria-label={t.label}
+              aria-pressed={tool === t.id}
+              data-tip={t.shortcut ? `${t.label} · ${t.shortcut}` : t.label}
+              onClick={() => setTool(t.id)}
+            >
+              <Icon />
+              {t.shortcut ? <span className="tool-btn__key">{t.shortcut}</span> : null}
+            </button>
+          )
+        })}
+        <span className="float__sep" aria-hidden />
         <button
-          key={t.id}
-          data-testid={toolTestId(t.id)}
-          title={t.shortcut ? `${t.label} (${t.shortcut})` : t.label}
-          onClick={() => setTool(t.id)}
-          style={{
-            padding: '6px 10px',
-            borderRadius: 6,
-            border: tool === t.id ? '2px solid #3b82f6' : '1px solid #e2e8f0',
-            background: tool === t.id ? '#eff6ff' : '#fff',
-            cursor: 'pointer',
-            fontSize: 13,
-          }}
+          type="button"
+          className="tool-btn"
+          data-testid="undo"
+          onClick={undo}
+          disabled={!canUndo}
+          aria-label="Cofnij"
+          data-tip="Cofnij · Ctrl+Z"
         >
-          {t.label}
+          <Undo2 />
+        </button>
+        <button
+          type="button"
+          className="tool-btn"
+          data-testid="redo"
+          onClick={redo}
+          disabled={!canRedo}
+          aria-label="Ponów"
+          data-tip="Ponów · Ctrl+Shift+Z"
+        >
+          <Redo2 />
+        </button>
+      </div>
+
+      <SelectionBar />
+
+      <div className="float float--zoom" role="group" aria-label="Widok">
+        <button
+          type="button"
+          className="tool-btn"
+          onClick={() => zoomBy(1 / 1.25)}
+          aria-label="Oddal"
+          data-tip="Oddal"
+          data-tip-side="top"
+          data-testid="zoom-out"
+        >
+          <Minus />
+        </button>
+        <button
+          type="button"
+          className="zoom-value"
+          onClick={() => useSceneStore.getState().setCamera({ x: 0, y: 0, scale: 1 })}
+          data-testid="reset-view"
+          aria-label="Resetuj widok do 100%"
+          data-tip="Resetuj widok"
+          data-tip-side="top"
+        >
+          <span data-testid="zoom-indicator">{Math.round(scale * 100)}%</span>
+        </button>
+        <button
+          type="button"
+          className="tool-btn"
+          onClick={() => zoomBy(1.25)}
+          aria-label="Przybliż"
+          data-tip="Przybliż"
+          data-tip-side="top"
+          data-testid="zoom-in"
+        >
+          <Plus />
+        </button>
+        <span className="float__sep" aria-hidden />
+        <button
+          type="button"
+          className="tool-btn"
+          onClick={fitToContent}
+          data-testid="fit-to-content"
+          aria-label="Dopasuj do zawartości"
+          data-tip="Dopasuj do zawartości"
+          data-tip-side="top"
+        >
+          <Maximize />
+        </button>
+      </div>
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Pasek właściwości zaznaczenia
+// ---------------------------------------------------------------------------
+
+type StrokeEl = Extract<SceneElement, { stroke: string }>
+
+const hasStroke = (el: SceneElement): el is StrokeEl =>
+  el.type === 'rectangle' ||
+  el.type === 'ellipse' ||
+  el.type === 'line' ||
+  el.type === 'arrow' ||
+  el.type === 'freehand'
+
+const hasShapeFill = (el: SceneElement) => el.type === 'rectangle' || el.type === 'ellipse'
+
+const STROKE_WIDTHS = [
+  { value: 1.5, label: 'Cienka' },
+  { value: 2.5, label: 'Średnia' },
+  { value: 4, label: 'Gruba' },
+]
+
+function applyToSelection(patch: (el: SceneElement) => Partial<SceneElement> | null) {
+  const store = useSceneStore.getState()
+  const baseline = store.document
+  const ids = new Set(store.selection)
+  let changed = false
+  const next = {
+    ...baseline,
+    elements: baseline.elements.map((el) => {
+      if (!ids.has(el.id)) return el
+      const p = patch(el)
+      if (!p) return el
+      changed = true
+      return { ...el, ...p } as SceneElement
+    }),
+  }
+  if (changed) store.commitGesture(baseline, next)
+}
+
+function Swatches({
+  label,
+  colors,
+  current,
+  onPick,
+  testId,
+}: {
+  label: string
+  colors: readonly { value: string; label: string }[]
+  current: string | undefined
+  onPick: (value: string) => void
+  testId: string
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={label}
+      style={{ display: 'flex', alignItems: 'center' }}
+      data-testid={testId}
+    >
+      <span className="props-label">{label}</span>
+      {colors.map((c) => (
+        <button
+          key={c.value}
+          type="button"
+          className="swatch-btn"
+          aria-label={`${label}: ${c.label}`}
+          aria-pressed={current === c.value}
+          data-tip={c.label}
+          onClick={() => onPick(c.value)}
+        >
+          <span
+            className={`swatch${c.value === 'transparent' ? ' swatch--none' : ''}`}
+            style={c.value === 'transparent' ? undefined : { background: c.value }}
+          />
         </button>
       ))}
-
-      <div style={{ width: 1, height: 24, background: '#e2e8f0', margin: '0 6px' }} />
-
-      <button data-testid="undo" onClick={undo} disabled={!canUndo} style={btnStyle(!canUndo)} title="Ctrl+Z">
-        ↩
-      </button>
-      <button data-testid="redo" onClick={redo} disabled={!canRedo} style={btnStyle(!canRedo)} title="Ctrl+Shift+Z">
-        ↪
-      </button>
-      <button data-testid="fit-to-content" onClick={fitToContent} style={btnStyle(false)} title="Dopasuj do zawartości">
-        ⤢
-      </button>
-      <button data-testid="reset-view" onClick={resetView} style={btnStyle(false)} title="Reset widoku">
-        100%
-      </button>
     </div>
   )
 }
 
-function btnStyle(disabled: boolean): React.CSSProperties {
-  return {
-    padding: '6px 10px',
-    borderRadius: 6,
-    border: '1px solid #e2e8f0',
-    background: '#fff',
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    opacity: disabled ? 0.4 : 1,
-    fontSize: 13,
+function SelectionBar() {
+  const selection = useSceneStore((s) => s.selection)
+  const elements = useSceneStore((s) => s.document.elements)
+  const tool = useSceneStore((s) => s.tool)
+
+  if (tool !== 'select' || selection.length === 0) return null
+  const ids = new Set(selection)
+  const selected = elements.filter((el) => ids.has(el.id))
+  if (selected.length === 0) return null
+
+  const strokeEls = selected.filter(hasStroke)
+  const fillEls = selected.filter(hasShapeFill) as Extract<
+    SceneElement,
+    { type: 'rectangle' | 'ellipse' }
+  >[]
+  const stickyEls = selected.filter((el) => el.type === 'sticky') as Extract<
+    SceneElement,
+    { type: 'sticky' }
+  >[]
+  const textEls = selected.filter((el) => el.type === 'text') as Extract<
+    SceneElement,
+    { type: 'text' }
+  >[]
+  const store = useSceneStore.getState()
+
+  const groups: React.ReactNode[] = []
+  if (strokeEls.length) {
+    groups.push(
+      <Swatches
+        key="stroke"
+        label="Linia"
+        colors={STROKE_COLORS}
+        current={strokeEls[0].stroke}
+        testId="props-stroke"
+        onPick={(value) => applyToSelection((el) => (hasStroke(el) ? { stroke: value } : null))}
+      />,
+      <div
+        key="width"
+        role="group"
+        aria-label="Grubość"
+        style={{ display: 'flex', alignItems: 'center' }}
+      >
+        {STROKE_WIDTHS.map((w) => (
+          <button
+            key={w.value}
+            type="button"
+            className="tool-btn"
+            aria-label={`Grubość: ${w.label}`}
+            aria-pressed={strokeEls[0].strokeWidth === w.value}
+            data-tip={w.label}
+            onClick={() =>
+              applyToSelection((el) => (hasStroke(el) ? { strokeWidth: w.value } : null))
+            }
+          >
+            <span
+              style={{ width: 16, height: w.value, background: 'currentColor', borderRadius: 2 }}
+            />
+          </button>
+        ))}
+      </div>
+    )
   }
+  if (fillEls.length) {
+    groups.push(
+      <Swatches
+        key="fill"
+        label="Tło"
+        colors={FILL_COLORS}
+        current={fillEls[0].fill}
+        testId="props-fill"
+        onPick={(value) => applyToSelection((el) => (hasShapeFill(el) ? { fill: value } : null))}
+      />
+    )
+  }
+  if (stickyEls.length) {
+    groups.push(
+      <Swatches
+        key="sticky"
+        label="Karteczka"
+        colors={STICKY_COLORS}
+        current={stickyEls[0].fill}
+        testId="props-sticky"
+        onPick={(value) =>
+          applyToSelection((el) => (el.type === 'sticky' ? { fill: value } : null))
+        }
+      />
+    )
+  }
+  if (textEls.length) {
+    groups.push(
+      <Swatches
+        key="text"
+        label="Tekst"
+        colors={STROKE_COLORS}
+        current={textEls[0].fill}
+        testId="props-text"
+        onPick={(value) => applyToSelection((el) => (el.type === 'text' ? { fill: value } : null))}
+      />
+    )
+  }
+
+  return (
+    <div
+      className="float float--props"
+      role="toolbar"
+      aria-label="Właściwości zaznaczenia"
+      data-testid="selection-bar"
+    >
+      {groups.map((g, i) => (
+        <span key={i} style={{ display: 'contents' }}>
+          {i > 0 ? <span className="float__sep" aria-hidden /> : null}
+          {g}
+        </span>
+      ))}
+      {groups.length ? <span className="float__sep" aria-hidden /> : null}
+      <span className="props-label">{selected.length > 1 ? `${selected.length} zazn.` : ''}</span>
+      <button
+        type="button"
+        className="tool-btn"
+        onClick={() => store.reorderSelection('forward')}
+        aria-label="Przesuń do przodu"
+        data-tip="Do przodu · ]"
+      >
+        <BringToFront />
+      </button>
+      <button
+        type="button"
+        className="tool-btn"
+        onClick={() => store.reorderSelection('backward')}
+        aria-label="Przesuń do tyłu"
+        data-tip="Do tyłu · ["
+      >
+        <SendToBack />
+      </button>
+      <button
+        type="button"
+        className="tool-btn"
+        onClick={() => store.duplicateSelection()}
+        aria-label="Duplikuj"
+        data-tip="Duplikuj · Ctrl+D"
+        data-testid="props-duplicate"
+      >
+        <Copy />
+      </button>
+      <button
+        type="button"
+        className="tool-btn"
+        onClick={() => store.deleteSelection()}
+        aria-label="Usuń"
+        data-tip="Usuń · Del"
+        data-testid="props-delete"
+      >
+        <Trash2 />
+      </button>
+    </div>
+  )
 }

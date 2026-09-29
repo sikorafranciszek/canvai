@@ -1,68 +1,62 @@
 /**
- * Prawy panel tablicy z zakładkami „Assety” i „DESIGN.md”.
+ * Prawy panel tablicy z zakładkami „Materiały” i „DESIGN.md” + przycisk
+ * generacji używany w górnym pasku edytora.
  */
-import type React from 'react'
+import { Sparkles } from 'lucide-react'
 import { AssetPanel } from '~/components/canvas/AssetPanel'
 import { DesignDocPanel } from '~/components/design/DesignDocPanel'
 import { useDesignStore, type SidePanelTab } from '~/lib/board/design'
 import { useBoardStore } from '~/lib/board/session'
 
-const WIDTH: Record<SidePanelTab, number> = { assets: 304, design: 460 }
+const WIDTH: Record<SidePanelTab, number> = { assets: 320, design: 480 }
 
 export function SidePanel() {
   const tab = useDesignStore((s) => s.tab)
   const setTab = useDesignStore((s) => s.setTab)
   const pending = useDesignStore((s) => Boolean(s.active))
+  const latest = useDesignStore((s) => s.versions.find((v) => v.status === 'ready'))
   const assetCount = useBoardStore((s) => s.assets.length)
-
-  const tabStyle = (id: SidePanelTab): React.CSSProperties => ({
-    flex: 1,
-    padding: '9px 8px',
-    fontSize: 13,
-    fontWeight: tab === id ? 600 : 400,
-    color: tab === id ? '#0f172a' : '#64748b',
-    background: 'transparent',
-    border: 0,
-    borderBottom: `2px solid ${tab === id ? '#4f46e5' : 'transparent'}`,
-    cursor: 'pointer',
-  })
 
   return (
     <aside
+      className="side-panel"
       data-testid="side-panel"
-      style={{
-        width: WIDTH[tab],
-        minWidth: WIDTH[tab],
-        borderLeft: '1px solid #e2e8f0',
-        background: '#fff',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
+      aria-label="Panel boczny"
+      style={{ width: WIDTH[tab], minWidth: WIDTH[tab] }}
     >
-      <div role="tablist" style={{ display: 'flex', borderBottom: '1px solid #e2e8f0' }}>
+      <div className="side-panel__tabs" role="tablist" aria-label="Widok panelu">
         <button
           type="button"
           role="tab"
+          className="chip"
           aria-selected={tab === 'assets'}
           data-testid="tab-assets"
           onClick={() => setTab('assets')}
-          style={tabStyle('assets')}
         >
-          Assety ({assetCount})
+          Materiały
+          <span style={{ opacity: 0.7 }}>{assetCount}</span>
         </button>
         <button
           type="button"
           role="tab"
+          className="chip"
           aria-selected={tab === 'design'}
           data-testid="tab-design"
           onClick={() => setTab('design')}
-          style={tabStyle('design')}
         >
-          DESIGN.md{pending ? ' •' : ''}
+          DESIGN.md
+          {pending ? (
+            <span
+              className="spinner"
+              style={{ width: 10, height: 10, borderWidth: 1.5 }}
+              aria-label="generowanie"
+            />
+          ) : latest ? (
+            <span style={{ opacity: 0.7 }}>v{latest.version}</span>
+          ) : null}
         </button>
       </div>
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <div className="side-panel__body" role="tabpanel">
         {tab === 'assets' ? <AssetPanel /> : <DesignDocPanel />}
       </div>
     </aside>
@@ -78,22 +72,16 @@ export function GenerateDesignDocButton() {
   return (
     <button
       type="button"
+      className="btn btn--primary btn--sm"
+      style={{ height: 32 }}
       data-testid="generate-design-doc"
       onClick={() => void generate()}
       disabled={busy}
+      aria-busy={busy}
       title="AI przeanalizuje materiały z tablicy i napisze specyfikację DESIGN.md"
-      style={{
-        fontSize: 13,
-        fontWeight: 600,
-        padding: '6px 12px',
-        borderRadius: 8,
-        border: 0,
-        background: busy ? '#a5b4fc' : '#4f46e5',
-        color: '#fff',
-        cursor: busy ? 'progress' : 'pointer',
-      }}
     >
-      {busy ? 'Generowanie…' : '✦ Generuj DESIGN.md'}
+      {busy ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Sparkles />}
+      {busy ? 'Generowanie…' : 'Generuj DESIGN.md'}
     </button>
   )
 }

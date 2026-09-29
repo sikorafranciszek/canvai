@@ -1,4 +1,8 @@
+import { type DateTime } from 'luxon'
+import Asset from '#models/asset'
 import Board from '#models/board'
+import BoardScene from '#models/board_scene'
+import DesignDoc from '#models/design_doc'
 import { createBoardValidator, updateBoardValidator } from '#validators/board'
 import type { HttpContext } from '@adonisjs/core/http'
 
@@ -6,17 +10,45 @@ export default class BoardController {
   async index({ auth, inertia }: HttpContext) {
     const user = auth.user!
     const boards = await Board.query().where('user_id', user.id).orderBy('updated_at', 'desc')
+    const ids = boards.map((b) => b.id)
+
+    // Dane kart: liczba assetów, okładka (pierwszy obraz z miniaturą),
+    // ostatni DESIGN.md i czas ostatniej edycji sceny.
+    const [assets, docs, scenes] = ids.length
+      ? await Promise.all([
+          Asset.query().whereIn('board_id', ids).orderBy('id', 'asc'),
+          DesignDoc.query().whereIn('board_id', ids).orderBy('version', 'desc'),
+          BoardScene.query().whereIn('board_id', ids),
+        ])
+      : [[], [], []]
+
+    const toIso = (value: DateTime | null | undefined) => value?.toISO() ?? null
 
     return inertia.render(
       'boards/index' as any,
       {
-        boards: boards.map((b) => ({
-          id: b.id,
-          title: b.title,
-          slug: b.slug,
-          createdAt: b.createdAt?.toISO(),
-          updatedAt: b.updatedAt?.toISO(),
-        })),
+        boards: boards.map((b) => {
+          const boardAssets = assets.filter((a) => a.boardId === b.id)
+          const cover = boardAssets.find((a) => a.kind === 'image' && a.thumbKey)
+          const doc = docs.find((d) => d.boardId === b.id)
+          const scene = scenes.find((sc) => sc.boardId === b.id)
+          const edited = [b.updatedAt, scene?.updatedAt, b.createdAt]
+            .filter((d): d is DateTime => Boolean(d))
+            .sort((x, y) => y.toMillis() - x.toMillis())[0]
+          return {
+            id: b.id,
+            title: b.title,
+            slug: b.slug,
+            createdAt: toIso(b.createdAt),
+            updatedAt: toIso(b.updatedAt),
+            editedAt: toIso(edited),
+            assetsCount: boardAssets.length,
+            coverUrl: cover ? `/api/assets/${cover.id}/thumb` : null,
+            designDoc: doc
+              ? { version: doc.version, status: doc.status, generatedAt: toIso(doc.generatedAt) }
+              : null,
+          }
+        }),
       } as any
     )
   }

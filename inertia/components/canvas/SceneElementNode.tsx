@@ -27,7 +27,10 @@ function toFlatPoints(el: PointyElement): number[] {
 
 /** Ładuje obraz z URL (bez dodatkowej zależności react-konva-utils). */
 function useLoadedImage(url: string) {
-  const [state, setState] = useState<{ image: HTMLImageElement | null; status: 'loading' | 'loaded' | 'failed' }>({
+  const [state, setState] = useState<{
+    image: HTMLImageElement | null
+    status: 'loading' | 'loaded' | 'failed'
+  }>({
     image: null,
     status: 'loading',
   })
@@ -88,7 +91,15 @@ function ImageNode({
   // Placeholder, gdy asset nie istnieje lub nie ma podglądu (np. PDF/plik).
   return (
     <Group {...common}>
-      <Rect width={el.width} height={el.height} fill="#e2e8f0" stroke="#64748b" strokeWidth={1} dash={[4, 4]} />
+      <Rect
+        width={el.width}
+        height={el.height}
+        fill="#f4f1ec"
+        stroke="#d1d1cd"
+        strokeWidth={1}
+        dash={[4, 4]}
+        cornerRadius={8}
+      />
       <Text
         text="podgląd niedostępny"
         x={8}
@@ -96,7 +107,7 @@ function ImageNode({
         width={el.width - 16}
         align="center"
         fontSize={12}
-        fill="#64748b"
+        fill="#92918b"
         listening={false}
       />
     </Group>
@@ -135,8 +146,28 @@ function StickyNode({
       onDblTap={() => onEdit?.(el.id)}
       ref={(node) => registerNode(el.id, node)}
     >
-      <Rect width={el.width} height={el.height} fill={el.fill} stroke="#ca8a04" strokeWidth={1} shadowColor="#00000033" shadowBlur={4} shadowOffsetY={2} cornerRadius={4} />
-      <Text text={el.text} width={el.width - 16} x={8} y={10} fontSize={el.fontSize ?? 14} fill="#422006" listening={false} />
+      <Rect
+        width={el.width}
+        height={el.height}
+        fill={el.fill}
+        stroke="rgba(39,37,30,0.1)"
+        strokeWidth={1}
+        shadowColor="rgba(0,0,0,0.12)"
+        shadowBlur={3}
+        shadowOffsetY={1}
+        cornerRadius={6}
+      />
+      <Text
+        text={el.text}
+        width={el.width - 24}
+        x={12}
+        y={12}
+        fontSize={el.fontSize ?? 14}
+        lineHeight={1.4}
+        fontFamily="'Inter Variable', Inter, system-ui, sans-serif"
+        fill="#27251e"
+        listening={false}
+      />
     </Group>
   )
 }

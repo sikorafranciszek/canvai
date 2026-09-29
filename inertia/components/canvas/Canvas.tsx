@@ -6,10 +6,16 @@ import { useSceneStore, createElementForTool, type Tool } from '~/lib/scene/stor
 import { getElementBounds, screenToWorld } from '~/lib/scene/geometry'
 import { isHttpUrl } from '@shared/asset-utils'
 import { createElementId } from '@shared/scene-ops'
-import { parseClipboardElements, prepareElementsForPaste, serializeElements } from '@shared/clipboard'
+import {
+  parseClipboardElements,
+  prepareElementsForPaste,
+  serializeElements,
+} from '@shared/clipboard'
 import { useBoardStore } from '~/lib/board/session'
 import { SceneElementNode } from './SceneElementNode'
 import { TextEditor } from './TextEditor'
+import { ClipboardPaste, MousePointer2, Upload, UploadCloud } from 'lucide-react'
+import { GRAPHITE, INK, SELECTION, SELECTION_TINT } from '~/lib/scene/palette'
 
 const MIN_SCALE = 0.1
 const MAX_SCALE = 8
@@ -27,8 +33,17 @@ export function Canvas({ boardId }: { boardId: number }) {
   const isSpaceDown = useRef(false)
   const spacePreviousTool = useRef<Tool>('select')
 
-  const [draft, setDraft] = useState<{ kind: Tool; start: ScenePoint; points: ScenePoint[] } | null>(null)
-  const [marquee, setMarquee] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
+  const [draft, setDraft] = useState<{
+    kind: Tool
+    start: ScenePoint
+    points: ScenePoint[]
+  } | null>(null)
+  const [marquee, setMarquee] = useState<{
+    x: number
+    y: number
+    width: number
+    height: number
+  } | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [isMiddlePan, setIsMiddlePan] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -144,12 +159,30 @@ export function Canvas({ boardId }: { boardId: number }) {
         return
       }
       const step = e.shiftKey ? 10 : 1
-      if (e.key === 'ArrowLeft') { e.preventDefault(); store.moveSelection(-step, 0) }
-      if (e.key === 'ArrowRight') { e.preventDefault(); store.moveSelection(step, 0) }
-      if (e.key === 'ArrowUp') { e.preventDefault(); store.moveSelection(0, -step) }
-      if (e.key === 'ArrowDown') { e.preventDefault(); store.moveSelection(0, step) }
-      if (e.key === ']') { e.preventDefault(); store.reorderSelection('forward') }
-      if (e.key === '[') { e.preventDefault(); store.reorderSelection('backward') }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        store.moveSelection(-step, 0)
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        store.moveSelection(step, 0)
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        store.moveSelection(0, -step)
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        store.moveSelection(0, step)
+      }
+      if (e.key === ']') {
+        e.preventDefault()
+        store.reorderSelection('forward')
+      }
+      if (e.key === '[') {
+        e.preventDefault()
+        store.reorderSelection('backward')
+      }
     }
 
     const onKeyUp = (e: KeyboardEvent) => {
@@ -292,7 +325,13 @@ export function Canvas({ boardId }: { boardId: number }) {
     if (tool === 'pan') return
 
     if (tool === 'text' || tool === 'sticky') {
-      useSceneStore.getState().addElement(createElementForTool(tool, point.x, point.y))
+      // Bez tego domyślna akcja mousedown przeniesie fokus na <body> i od razu
+      // zamknie (zatwierdzi) świeżo otwarty edytor tekstu.
+      e.evt.preventDefault()
+      const el = createElementForTool(tool, point.x, point.y)
+      finishCreate(el)
+      // Tekst/karteczka od razu w trybie edycji — użytkownik pisze bez dodatkowego kliknięcia.
+      setEditingId(el.id)
       return
     }
 
@@ -339,12 +378,23 @@ export function Canvas({ boardId }: { boardId: number }) {
     }
   }
 
+  /** Po utworzeniu kształtu: wróć do zaznaczania i zaznacz nowy element. */
+  const finishCreate = (el: SceneElement) => {
+    const store = useSceneStore.getState()
+    store.addElement(el)
+    store.setTool('select')
+    store.selectOnly([el.id])
+  }
+
   const commitDraft = (d: { kind: Tool; start: ScenePoint; points: ScenePoint[] }) => {
     const store = useSceneStore.getState()
     if (d.kind === 'freehand') {
       const points = d.points.map((p) => ({ x: p.x - d.start.x, y: p.y - d.start.y }))
       if (points.length < 2) return
-      const el = { ...createElementForTool('freehand', d.start.x, d.start.y), points } as SceneElement
+      const el = {
+        ...createElementForTool('freehand', d.start.x, d.start.y),
+        points,
+      } as SceneElement
       store.addElement(el)
       return
     }
@@ -361,7 +411,7 @@ export function Canvas({ boardId }: { boardId: number }) {
         el.width = Math.abs(width)
         el.height = Math.abs(height)
       }
-      store.addElement(el)
+      finishCreate(el)
       return
     }
 
@@ -373,7 +423,7 @@ export function Canvas({ boardId }: { boardId: number }) {
           { x: width, y: height },
         ]
       }
-      store.addElement(el)
+      finishCreate(el)
     }
   }
 
@@ -385,7 +435,9 @@ export function Canvas({ boardId }: { boardId: number }) {
     const ids = document.elements
       .filter((el) => {
         const b = getElementBounds(el)
-        return b.x < m.x + m.width && b.x + b.width > m.x && b.y < m.y + m.height && b.y + b.height > m.y
+        return (
+          b.x < m.x + m.width && b.x + b.width > m.x && b.y < m.y + m.height && b.y + b.height > m.y
+        )
       })
       .map((el) => el.id)
     useSceneStore.getState().selectOnly(ids)
@@ -458,7 +510,12 @@ export function Canvas({ boardId }: { boardId: number }) {
       const scaleY = node.scaleY()
       const patch: Record<string, unknown> = { rotation: node.rotation() }
 
-      if (el.type === 'rectangle' || el.type === 'ellipse' || el.type === 'sticky' || el.type === 'image') {
+      if (
+        el.type === 'rectangle' ||
+        el.type === 'ellipse' ||
+        el.type === 'sticky' ||
+        el.type === 'image'
+      ) {
         patch.width = Math.max(1, el.width * scaleX)
         patch.height = Math.max(1, el.height * scaleY)
       }
@@ -529,9 +586,8 @@ export function Canvas({ boardId }: { boardId: number }) {
   const handleUploadInput = (e: any) => {
     const files: File[] = Array.from(e.target.files ?? [])
     if (files.length === 0) return
-    const vw = Math.max(1, window.innerWidth - 304)
-    const vh = Math.max(1, window.innerHeight - 100)
-    const point = screenToWorld(vw / 2, vh / 2, camera)
+    const rect = containerRef.current?.getBoundingClientRect()
+    const point = screenToWorld((rect?.width ?? 800) / 2, (rect?.height ?? 600) / 2, camera)
     void useBoardStore.getState().uploadFiles(files, 'upload', point)
     e.target.value = ''
   }
@@ -542,7 +598,16 @@ export function Canvas({ boardId }: { boardId: number }) {
   return (
     <div
       ref={containerRef}
-      style={{ position: 'relative', width: '100%', height: '100%' }}
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        backgroundImage: 'radial-gradient(rgba(39, 37, 30, 0.16) 1px, transparent 1px)',
+        backgroundSize: `${gridStep(camera.scale)}px ${gridStep(camera.scale)}px`,
+        backgroundPosition: `${camera.x}px ${camera.y}px`,
+        cursor:
+          tool === 'pan' || isMiddlePan ? 'grab' : tool === 'select' ? 'default' : 'crosshair',
+      }}
       data-testid="canvas-root"
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
@@ -580,8 +645,8 @@ export function Canvas({ boardId }: { boardId: number }) {
                 <Rect
                   width={u.width}
                   height={u.height}
-                  fill="#eef2ff"
-                  stroke="#818cf8"
+                  fill="#fdfbfa"
+                  stroke="#d1d1cd"
                   strokeWidth={1}
                   dash={[4, 4]}
                   cornerRadius={4}
@@ -591,7 +656,7 @@ export function Canvas({ boardId }: { boardId: number }) {
                   height={6}
                   x={0}
                   y={u.height - 10}
-                  fill="#6366f1"
+                  fill={SELECTION}
                 />
                 <Text
                   text={u.filename}
@@ -599,7 +664,7 @@ export function Canvas({ boardId }: { boardId: number }) {
                   y={u.height / 2 - 22}
                   width={u.width - 16}
                   fontSize={12}
-                  fill="#475569"
+                  fill={INK}
                   ellipsis
                   listening={false}
                 />
@@ -609,7 +674,7 @@ export function Canvas({ boardId }: { boardId: number }) {
                   y={u.height / 2 - 2}
                   width={u.width - 16}
                   fontSize={11}
-                  fill="#64748b"
+                  fill={GRAPHITE}
                   listening={false}
                 />
               </Group>
@@ -619,11 +684,13 @@ export function Canvas({ boardId }: { boardId: number }) {
 
         {/* Warstwa interakcji: draft, marquee, transformer. */}
         <Layer listening={false}>
-          {draft && draft.kind !== 'freehand' && draft.points.length === 2 && <DraftShape draft={draft} />}
+          {draft && draft.kind !== 'freehand' && draft.points.length === 2 && (
+            <DraftShape draft={draft} />
+          )}
           {draft && draft.kind === 'freehand' && (
             <Line
               points={draft.points.flatMap((p) => [p.x, p.y])}
-              stroke="#7c3aed"
+              stroke={INK}
               strokeWidth={3}
               lineCap="round"
               lineJoin="round"
@@ -636,8 +703,8 @@ export function Canvas({ boardId }: { boardId: number }) {
               y={marquee.y}
               width={marquee.width}
               height={marquee.height}
-              fill="#3b82f633"
-              stroke="#3b82f6"
+              fill={SELECTION_TINT}
+              stroke={SELECTION}
               strokeWidth={1}
               dash={[4, 4]}
               listening={false}
@@ -648,8 +715,10 @@ export function Canvas({ boardId }: { boardId: number }) {
             ref={transformerRef}
             rotateEnabled
             anchorSize={8}
-            borderStroke="#3b82f6"
-            anchorStroke="#3b82f6"
+            borderStroke={SELECTION}
+            anchorStroke={SELECTION}
+            anchorFill="#fdfbfa"
+            anchorCornerRadius={2}
             boundBoxFunc={(oldBox, newBox) =>
               Math.abs(newBox.width) < 4 || Math.abs(newBox.height) < 4 ? oldBox : newBox
             }
@@ -662,86 +731,85 @@ export function Canvas({ boardId }: { boardId: number }) {
       {selectedElement &&
         (selectedElement.type === 'text' || selectedElement.type === 'sticky') &&
         editingId === selectedElement.id && (
-          <TextEditor element={selectedElement} onCommit={handleTextCommit} onCancel={() => setEditingId(null)} />
+          <TextEditor
+            element={selectedElement}
+            onCommit={handleTextCommit}
+            onCancel={() => setEditingId(null)}
+          />
         )}
 
       {/* Podświetlenie strefy upuszczenia. */}
       {isDragOver && (
-        <div
-          data-testid="drop-overlay"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: '#3b82f61a',
-            border: '2px dashed #3b82f6',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            pointerEvents: 'none',
-            zIndex: 20,
-          }}
-        >
-          <div
-            style={{
-              background: '#fff',
-              borderRadius: 8,
-              padding: '12px 20px',
-              fontSize: 14,
-              color: '#1d4ed8',
-              fontWeight: 600,
-            }}
-          >
+        <div data-testid="drop-overlay" className="drop-overlay">
+          <div className="drop-overlay__label">
+            <UploadCloud size={18} />
             Upuść pliki, aby dodać je do tablicy
           </div>
         </div>
       )}
 
-      {/* Empty state — podpowiedź Ctrl+V. */}
+      {/* Empty state — jak zacząć. */}
       {document.elements.length === 0 && pendingUploads.length === 0 && (
-        <div
-          data-testid="canvas-empty-state"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            pointerEvents: 'none',
-            zIndex: 5,
-          }}
-        >
-          <div style={{ textAlign: 'center', color: '#64748b' }}>
-            <div style={{ fontSize: 18, fontWeight: 600, color: '#334155' }}>Pusta tablica</div>
-            <div style={{ fontSize: 13, marginTop: 8 }}>
-              Wklej zrzut ekranu — <b>Ctrl+V</b>
+        <div data-testid="canvas-empty-state" className="canvas-empty">
+          <div className="card canvas-empty__card">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div className="t-body-lg" style={{ fontWeight: 500 }}>
+                Zacznij od materiałów klienta
+              </div>
+              <div className="t-muted t-small">
+                Wszystko, co trafi na tablicę, AI uwzględni w DESIGN.md.
+              </div>
             </div>
-            <div style={{ fontSize: 13, marginTop: 4 }}>albo upuść pliki na płótno</div>
+            <div className="hint-list">
+              <div className="hint">
+                <span className="hint__icon">
+                  <ClipboardPaste />
+                </span>
+                <span>
+                  Wklej zrzut ekranu, link albo tekst — <span className="kbd">Ctrl</span>{' '}
+                  <span className="kbd">V</span>
+                </span>
+              </div>
+              <div className="hint">
+                <span className="hint__icon">
+                  <UploadCloud />
+                </span>
+                <span>Przeciągnij pliki na płótno: PNG, JPG, WEBP, GIF, SVG, PDF</span>
+              </div>
+              <div className="hint">
+                <span className="hint__icon">
+                  <MousePointer2 />
+                </span>
+                <span>Połącz ekrany strzałkami i opisz je notatkami — to kontekst dla AI</span>
+              </div>
+            </div>
+            <div>
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload />
+                Wgraj pliki
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Fallback: zwykły przycisk uploadu. */}
-      <button
-        type="button"
-        data-testid="upload-button"
-        onClick={() => fileInputRef.current?.click()}
-        title="Wgraj pliki"
-        style={{
-          position: 'absolute',
-          top: 12,
-          right: 12,
-          zIndex: 10,
-          padding: '7px 12px',
-          borderRadius: 6,
-          border: '1px solid #e2e8f0',
-          background: '#fff',
-          cursor: 'pointer',
-          fontSize: 13,
-          boxShadow: '0 1px 2px #00000014',
-        }}
-      >
-        ⬆ Wgraj pliki
-      </button>
+      {/* Upload z dysku. */}
+      <div className="float float--upload">
+        <button
+          type="button"
+          className="btn btn--quiet btn--sm"
+          data-testid="upload-button"
+          onClick={() => fileInputRef.current?.click()}
+          data-tip="Wgraj pliki z dysku"
+        >
+          <Upload />
+          Wgraj
+        </button>
+      </div>
       <input
         ref={fileInputRef}
         type="file"
@@ -751,28 +819,15 @@ export function Canvas({ boardId }: { boardId: number }) {
         onChange={handleUploadInput}
         data-testid="upload-input"
       />
-
-      <div
-        style={{
-          position: 'absolute',
-          right: 16,
-          bottom: 16,
-          fontSize: 12,
-          color: '#64748b',
-          background: '#ffffffee',
-          border: '1px solid #e2e8f0',
-          borderRadius: 6,
-          padding: '2px 8px',
-        }}
-        data-testid="zoom-indicator"
-      >
-        {Math.round(camera.scale * 100)}%
-      </div>
     </div>
   )
 }
 
-function updateElementLive(doc: SceneDocument, id: string, patch: Partial<SceneElement>): SceneDocument {
+function updateElementLive(
+  doc: SceneDocument,
+  id: string,
+  patch: Partial<SceneElement>
+): SceneDocument {
   return {
     ...doc,
     elements: doc.elements.map((el) => (el.id === id ? ({ ...el, ...patch } as SceneElement) : el)),
@@ -789,16 +844,65 @@ function DraftShape({ draft }: { draft: { kind: Tool; start: ScenePoint; points:
 
   switch (draft.kind) {
     case 'rectangle':
-      return <Rect x={x} y={y} width={width} height={height} fill="#3b82f61a" stroke="#3b82f6" strokeWidth={1.5} dash={[4, 4]} listening={false} />
+      return (
+        <Rect
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          fill={SELECTION_TINT}
+          stroke={SELECTION}
+          strokeWidth={1.5}
+          dash={[4, 4]}
+          listening={false}
+        />
+      )
     case 'ellipse':
-      return <Ellipse x={x} y={y} width={width} height={height} fill="#3b82f61a" stroke="#3b82f6" strokeWidth={1.5} dash={[4, 4]} listening={false} />
+      return (
+        <Ellipse
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          fill={SELECTION_TINT}
+          stroke={SELECTION}
+          strokeWidth={1.5}
+          dash={[4, 4]}
+          listening={false}
+        />
+      )
     case 'line':
-      return <Line points={[p0.x, p0.y, p1.x, p1.y]} stroke="#3b82f6" strokeWidth={2} listening={false} />
+      return (
+        <Line
+          points={[p0.x, p0.y, p1.x, p1.y]}
+          stroke={SELECTION}
+          strokeWidth={2}
+          listening={false}
+        />
+      )
     case 'arrow':
-      return <Arrow points={[p0.x, p0.y, p1.x, p1.y]} stroke="#3b82f6" strokeWidth={2} fill="#3b82f6" pointerLength={10} pointerWidth={10} listening={false} />
+      return (
+        <Arrow
+          points={[p0.x, p0.y, p1.x, p1.y]}
+          stroke={SELECTION}
+          strokeWidth={2}
+          fill={SELECTION}
+          pointerLength={10}
+          pointerWidth={10}
+          listening={false}
+        />
+      )
     default:
       return null
   }
+}
+
+/** Krok siatki kropek w px ekranu — podwajany, żeby siatka nie gęstniała przy oddaleniu. */
+function gridStep(scale: number) {
+  let step = 24 * scale
+  while (step < 12) step *= 2
+  while (step > 48) step /= 2
+  return step
 }
 
 function clamp(v: number, min: number, max: number) {

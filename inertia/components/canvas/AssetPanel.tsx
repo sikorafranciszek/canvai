@@ -1,72 +1,119 @@
 /**
- * Panel boczny assetów tablicy — miniatury, nazwa, typ, rozmiar, notatka
- * użytkownika („co to jest”) i usuwanie. Klik w wiersz wyśrodkowuje i
- * zaznacza element na płótnie.
+ * Panel assetów tablicy — miniatury, nazwa, typ, rozmiar, notatka użytkownika
+ * („co to jest” — kontekst dla AI) i usuwanie z potwierdzeniem. Klik w
+ * miniaturę lub nazwę wyśrodkowuje i zaznacza element na płótnie.
  */
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { Check, File, FileText, ImagePlus, Link2, Search, Trash2 } from 'lucide-react'
 import { useBoardStore } from '~/lib/board/session'
 import { assetKindLabel, formatBytes } from '@shared/asset-utils'
 import type { AssetDto } from '~/lib/board/api'
+import { Dialog } from '~/components/ui/Dialog'
 
 export function AssetPanel() {
   const assets = useBoardStore((s) => s.assets)
   const loading = useBoardStore((s) => s.assetsLoading)
   const initialized = useBoardStore((s) => s.initialized)
+  const [query, setQuery] = useState('')
+  const [deleting, setDeleting] = useState<AssetDto | null>(null)
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return assets
+    return assets.filter((a) =>
+      [a.filename, a.userNote ?? '', a.linkMeta?.title ?? ''].some((v) =>
+        v.toLowerCase().includes(q)
+      )
+    )
+  }, [assets, query])
+
+  const withoutNote = assets.filter((a) => !a.userNote?.trim()).length
 
   return (
     <div
       data-testid="asset-panel"
-      style={{
-        flex: 1,
-        minHeight: 0,
-        background: '#fff',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
+      style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
     >
-      <div
-        style={{
-          padding: '10px 12px',
-          borderBottom: '1px solid #e2e8f0',
-          fontSize: 13,
-          fontWeight: 600,
-          color: '#0f172a',
-        }}
-      >
-        Assety <span style={{ color: '#94a3b8', fontWeight: 400 }}>({assets.length})</span>
-      </div>
+      {assets.length > 3 ? (
+        <div className="panel-toolbar">
+          <label className="input-group" style={{ flex: 1 }}>
+            <span className="sr-only">Filtruj materiały</span>
+            <Search />
+            <input
+              className="input input--sm"
+              style={{ paddingLeft: 34 }}
+              type="search"
+              placeholder="Filtruj materiały…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </label>
+        </div>
+      ) : null}
 
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      {assets.length > 0 && withoutNote > 0 ? (
+        <div className="alert alert--notice" style={{ margin: '12px 16px 4px' }}>
+          <FileText />
+          <span>
+            Dodaj krótką notatkę do materiałów bez opisu ({withoutNote}) — AI lepiej zrozumie, co
+            przedstawiają.
+          </span>
+        </div>
+      ) : null}
+
+      <div className="panel-scroll">
         {!initialized || loading ? (
           <div
-            style={{ padding: 16, color: '#64748b', fontSize: 13 }}
             data-testid="asset-panel-loading"
+            style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}
           >
-            Ładowanie assetów…
+            {[0, 1, 2].map((i) => (
+              <div key={i} style={{ display: 'flex', gap: 12 }}>
+                <div className="skeleton" style={{ width: 52, height: 52 }} />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div className="skeleton" style={{ height: 12, width: '70%' }} />
+                  <div className="skeleton" style={{ height: 10, width: '40%' }} />
+                </div>
+              </div>
+            ))}
           </div>
         ) : assets.length === 0 ? (
-          <div
-            style={{ padding: 16, color: '#64748b', fontSize: 13 }}
-            data-testid="asset-panel-empty"
-          >
-            Brak assetów. Wklej zrzut ekranu (Ctrl+V) albo upuść pliki na płótno.
+          <div className="panel-empty" data-testid="asset-panel-empty">
+            <div className="empty-state__icon">
+              <ImagePlus />
+            </div>
+            <div style={{ color: 'var(--color-ink)', fontWeight: 500 }}>Brak materiałów</div>
+            <p>
+              Wklej zrzut ekranu (<span className="kbd">Ctrl</span> <span className="kbd">V</span>),
+              przeciągnij pliki na płótno albo użyj przycisku „Wgraj”.
+            </p>
           </div>
+        ) : visible.length === 0 ? (
+          <div className="panel-empty">Brak materiałów pasujących do „{query}”.</div>
         ) : (
-          assets.map((asset) => <AssetRow key={asset.id} asset={asset} />)
+          visible.map((asset) => (
+            <AssetRow key={asset.id} asset={asset} onDelete={() => setDeleting(asset)} />
+          ))
         )}
       </div>
+
+      <DeleteAssetDialog asset={deleting} onClose={() => setDeleting(null)} />
     </div>
   )
 }
 
-const AssetRow = memo(function AssetRow({ asset }: { asset: AssetDto }) {
+const AssetRow = memo(function AssetRow({
+  asset,
+  onDelete,
+}: {
+  asset: AssetDto
+  onDelete: () => void
+}) {
   const centerOnAsset = useBoardStore((s) => s.centerOnAsset)
-  const deleteAsset = useBoardStore((s) => s.deleteAsset)
   const updateNote = useBoardStore((s) => s.updateNote)
 
   const [note, setNote] = useState(asset.userNote ?? '')
-  const [savingNote, setSavingNote] = useState(false)
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const noteDirty = useRef(false)
 
   // Synchronizuj lokalny stan notatki, gdy asset się zmieni (np. po odświeżeniu).
@@ -77,146 +124,154 @@ const AssetRow = memo(function AssetRow({ asset }: { asset: AssetDto }) {
   const commitNote = async () => {
     if (!noteDirty.current) return
     noteDirty.current = false
-    setSavingNote(true)
+    setSaveState('saving')
     try {
       await updateNote(asset.id, note)
-    } finally {
-      setSavingNote(false)
+      setSaveState('saved')
+      setTimeout(() => setSaveState('idle'), 1500)
+    } catch {
+      setSaveState('idle')
     }
   }
 
   const title = asset.linkMeta?.title || asset.filename
   const subtitle =
     asset.kind === 'link'
-      ? asset.filename
-      : `${assetKindLabel(asset.kind)} · ${formatBytes(asset.size)}`
+      ? safeHost(asset.filename)
+      : [assetKindLabel(asset.kind), formatBytes(asset.size), dims(asset)]
+          .filter(Boolean)
+          .join(' · ')
 
   return (
-    <div
-      data-testid={`asset-item-${asset.id}`}
-      style={{
-        display: 'flex',
-        gap: 10,
-        padding: '10px 12px',
-        borderBottom: '1px solid #f1f5f9',
-        alignItems: 'flex-start',
-      }}
-    >
+    <div className="asset-row" data-testid={`asset-item-${asset.id}`}>
       <button
         type="button"
+        className="asset-thumb"
         data-testid={`asset-thumb-${asset.id}`}
         onClick={() => centerOnAsset(asset.id)}
-        title="Wyśrodkuj na płótnie"
-        style={{
-          width: 56,
-          height: 56,
-          flexShrink: 0,
-          borderRadius: 6,
-          border: '1px solid #e2e8f0',
-          background: '#f8fafc',
-          overflow: 'hidden',
-          cursor: 'pointer',
-          padding: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
+        aria-label={`Pokaż „${title}” na płótnie`}
+        title="Pokaż na płótnie"
       >
         <AssetThumb asset={asset} />
       </button>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <button
-          type="button"
-          onClick={() => centerOnAsset(asset.id)}
-          style={{
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            cursor: 'pointer',
-            textAlign: 'left',
-            width: '100%',
-            fontSize: 12,
-            fontWeight: 600,
-            color: '#0f172a',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-          title={title}
-        >
-          {title}
-        </button>
-        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{subtitle}</div>
+      <div className="asset-row__main">
+        <div className="asset-row__head">
+          <button
+            type="button"
+            className="asset-row__name t-truncate"
+            onClick={() => centerOnAsset(asset.id)}
+            style={{ textAlign: 'left' }}
+            title={title}
+          >
+            {title}
+          </button>
+          <span className="badge badge--outline" style={{ height: 18 }}>
+            A{asset.id}
+          </span>
+          <div className="asset-row__actions">
+            <button
+              type="button"
+              className="btn btn--quiet btn--icon btn--sm"
+              data-testid={`asset-delete-${asset.id}`}
+              onClick={onDelete}
+              aria-label={`Usuń „${title}”`}
+              data-tip="Usuń"
+            >
+              <Trash2 />
+            </button>
+          </div>
+        </div>
+        <div className="t-small t-faint t-truncate">{subtitle}</div>
 
+        <label className="sr-only" htmlFor={`note-${asset.id}`}>
+          Notatka dla AI
+        </label>
         <textarea
+          id={`note-${asset.id}`}
+          className="textarea note-input"
           data-testid={`asset-note-${asset.id}`}
           value={note}
+          maxLength={2000}
           onChange={(e) => {
             noteDirty.current = true
             setNote(e.target.value)
           }}
           onBlur={commitNote}
-          placeholder="Co to jest? (notatka dla AI)"
-          rows={2}
-          style={{
-            marginTop: 6,
-            width: '100%',
-            fontSize: 12,
-            border: '1px solid #e2e8f0',
-            borderRadius: 6,
-            padding: '6px 8px',
-            resize: 'vertical',
-            boxSizing: 'border-box',
-          }}
+          placeholder="Dodaj opis dla AI…"
+          rows={note.length > 60 ? 3 : 1}
         />
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginTop: 4,
-          }}
-        >
-          <span style={{ fontSize: 10, color: '#cbd5e1' }}>{savingNote ? 'zapisywanie…' : ''}</span>
-          <button
-            type="button"
-            data-testid={`asset-delete-${asset.id}`}
-            onClick={() => deleteAsset(asset.id)}
-            title="Usuń asset"
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#ef4444',
-              fontSize: 12,
-              cursor: 'pointer',
-              padding: '2px 4px',
-            }}
+        {saveState !== 'idle' ? (
+          <span
+            className="t-caption t-faint"
+            style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}
           >
-            Usuń
-          </button>
-        </div>
+            {saveState === 'saving' ? (
+              'Zapisywanie…'
+            ) : (
+              <>
+                <Check size={11} /> Zapisano
+              </>
+            )}
+          </span>
+        ) : null}
       </div>
     </div>
   )
 })
 
+function DeleteAssetDialog({ asset, onClose }: { asset: AssetDto | null; onClose: () => void }) {
+  const deleteAsset = useBoardStore((s) => s.deleteAsset)
+  const title = asset ? asset.linkMeta?.title || asset.filename : ''
+  return (
+    <Dialog
+      open={Boolean(asset)}
+      onClose={onClose}
+      title="Usunąć materiał?"
+      testId="delete-asset-dialog"
+      description={
+        <>
+          „{title}” zniknie z tablicy i z panelu. Kolejne wersje DESIGN.md nie będą go uwzględniać.
+        </>
+      }
+      footer={
+        <>
+          <button type="button" className="btn" onClick={onClose} autoFocus>
+            Anuluj
+          </button>
+          <button
+            type="button"
+            className="btn btn--danger-solid"
+            data-testid="confirm-delete-asset"
+            onClick={() => {
+              if (asset) void deleteAsset(asset.id)
+              onClose()
+            }}
+          >
+            <Trash2 />
+            Usuń
+          </button>
+        </>
+      }
+    />
+  )
+}
+
+function dims(asset: AssetDto): string {
+  return asset.width && asset.height ? `${asset.width}×${asset.height}` : ''
+}
+
+function safeHost(url: string): string {
+  try {
+    return new URL(url).host
+  } catch {
+    return url
+  }
+}
+
 function AssetThumb({ asset }: { asset: AssetDto }) {
-  if (asset.kind === 'link') {
-    return <span style={{ fontSize: 20 }}>🔗</span>
-  }
-  if (asset.urls.thumb) {
-    return (
-      <img
-        src={asset.urls.thumb}
-        alt={asset.filename}
-        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        loading="lazy"
-      />
-    )
-  }
-  if (asset.kind === 'pdf') {
-    return <span style={{ fontSize: 20 }}>📄</span>
-  }
-  return <span style={{ fontSize: 20 }}>📎</span>
+  if (asset.kind === 'link') return <Link2 />
+  if (asset.urls.thumb) return <img src={asset.urls.thumb} alt="" loading="lazy" />
+  if (asset.kind === 'pdf') return <FileText />
+  return <File />
 }

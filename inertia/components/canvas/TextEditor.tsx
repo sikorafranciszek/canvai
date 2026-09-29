@@ -20,8 +20,12 @@ export function TextEditor({
   const camera = useSceneStore((s) => s.camera)
 
   useEffect(() => {
-    ref.current?.focus()
-    ref.current?.select()
+    // Następna klatka — po zakończeniu zdarzenia, które otworzyło edytor.
+    const frame = requestAnimationFrame(() => {
+      ref.current?.focus()
+      ref.current?.select()
+    })
+    return () => cancelAnimationFrame(frame)
   }, [])
 
   const commit = () => {
@@ -32,7 +36,7 @@ export function TextEditor({
   // Pozycja world -> screen: screen = world * scale + camera.
   const left = element.x * camera.scale + camera.x
   const top = element.y * camera.scale + camera.y
-  const fontSize = element.type === 'sticky' ? element.fontSize ?? 14 : element.fontSize
+  const fontSize = element.type === 'sticky' ? (element.fontSize ?? 14) : element.fontSize
 
   return (
     <textarea
@@ -51,16 +55,25 @@ export function TextEditor({
         position: 'absolute',
         left,
         top,
-        minWidth: 160,
-        minHeight: 40,
-        fontSize,
-        fontFamily: 'Inter, sans-serif',
-        background: element.type === 'sticky' ? '#fef9c3' : 'transparent',
-        border: '1px solid #3b82f6',
-        borderRadius: 4,
-        padding: 4,
-        resize: 'none',
         zIndex: 10,
+        margin: 0,
+        resize: 'none',
+        outline: 'none',
+        fontSize: fontSize * camera.scale,
+        lineHeight: 1.4,
+        fontFamily: "'Inter Variable', Inter, system-ui, sans-serif",
+        color: element.type === 'text' ? element.fill : '#27251e',
+        background: element.type === 'sticky' ? element.fill : 'rgba(253, 251, 250, 0.9)',
+        border: '1px solid #016a71',
+        boxShadow: '0 0 0 3px rgba(1, 106, 113, 0.22)',
+        borderRadius: 6,
+        ...(element.type === 'sticky'
+          ? {
+              width: element.width * camera.scale,
+              height: element.height * camera.scale,
+              padding: 12 * camera.scale,
+            }
+          : { minWidth: 160, minHeight: fontSize * camera.scale * 1.6, padding: '2px 4px' }),
         transform: `rotate(${element.rotation}deg)`,
         transformOrigin: 'top left',
       }}

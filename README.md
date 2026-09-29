@@ -97,6 +97,27 @@ node ace test browser              # Playwright e2e (needs `npx playwright insta
 All tests run on the `mock` AI provider (forced in `.env.test`) — zero network
 calls, deterministic output.
 
+## UI & design system
+
+The interface is Polish-language and follows one design system defined as CSS
+tokens in `inertia/css/app.css` ("parchment behind clean glass"): warm paper
+canvas `#faf8f5`, ink text `#27251e`, hairline warm-gray borders, and a single
+accent — deep teal `#016a71` — reserved for active/selected states. Type is
+Inter (400–500), components are flat with one subtle shadow. Component classes
+(`.btn`, `.input`, `.card`, `.chip`, `.badge`, `.modal`, `.menu`, …) are used
+everywhere instead of ad-hoc inline colors; canvas element colors live in
+`inertia/lib/scene/palette.ts`.
+
+Layouts (`inertia/layouts/default.tsx`) are picked per page: centered card for
+`auth/*`, full-screen workspace for the board editor, and an app shell with a
+left sidebar for everything else. Icons come from `lucide-react`.
+
+Editor UX: floating tool bar with shortcuts (V, R, O, L, P, T, S), zoom
+controls (bottom-left), a contextual selection bar (stroke/fill/sticky/text
+colors, stroke width, z-order, duplicate, delete — all undoable), inline board
+rename, collapsible side panel, dialogs with confirmation for destructive
+actions, and a DESIGN.md panel with section outline, versions and diff.
+
 ## Board editor
 
 The board editor (`/boards/:id`) is an infinite canvas (react-konva). Content
@@ -123,7 +144,15 @@ deletion — clicking an item centers and selects its element on the canvas.
 `generate-design-doc`, `tab-assets`, `tab-design`, `design-doc-panel`,
 `design-doc-status`, `design-doc-content`, `design-doc-empty`, `design-doc-error`,
 `design-doc-download`, `design-doc-copy`, `design-doc-version-select`,
-`design-doc-diff-toggle`, `design-doc-diff`, `design-ref-<assetId>`.
+`design-doc-diff-toggle`, `design-doc-diff`, `design-ref-<assetId>`,
+`toggle-side-panel`, `board-title`, `board-title-input`, `selection-bar`,
+`props-stroke`, `props-fill`, `props-sticky`, `props-text`, `props-duplicate`,
+`props-delete`, `zoom-in`, `zoom-out`, `delete-asset-dialog`,
+`confirm-delete-asset`; boards list: `new-board`, `sidebar-new-board`,
+`boards-search`, `board-grid`, `board-card-<id>`, `board-menu-<id>`,
+`board-rename`, `board-delete`, `create-board-dialog`, `create-board-submit`,
+`rename-board-dialog`, `delete-board-dialog`, `confirm-delete-board`; auth:
+`login-submit`, `login-error`, `signup-submit`.
 
 ## DESIGN.md generation (AI)
 
