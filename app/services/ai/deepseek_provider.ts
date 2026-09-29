@@ -19,6 +19,7 @@ import {
   buildAnalyzeUserText,
   buildComposeUserText,
 } from '#services/design/prompts'
+import { t } from '#services/i18n'
 
 /**
  * Dostawca DeepSeek (`api.deepseek.com`, protokół OpenAI Chat Completions).
@@ -77,7 +78,7 @@ export async function prepareImageForVision(
   const encodedBytes = Math.ceil(buffer.length / 3) * 4
   if (encodedBytes > visionLimits.maxImageBytes) {
     throw new AiProviderError(
-      `Obraz przekracza limit dostawcy (${Math.round(encodedBytes / 1024 / 1024)} MiB)`,
+      t('ai.imageTooLarge', { mb: Math.round(encodedBytes / 1024 / 1024) }),
       false
     )
   }
@@ -123,7 +124,7 @@ export class DeepseekProvider implements AiProvider {
 
     const imageCount = userContent.filter((c) => c.type === 'image_url').length
     if (imageCount > this.#vision.maxImagesPerRequest) {
-      throw new AiProviderError('Za dużo obrazów w jednym zapytaniu do modelu', false)
+      throw new AiProviderError(t('ai.tooManyImages'), false)
     }
 
     return this.#chatJson(
@@ -154,7 +155,7 @@ export class DeepseekProvider implements AiProvider {
   ): Promise<ProviderResult<T>> {
     if (!this.config.apiKey) {
       throw new AiProviderError(
-        'Brak klucza DEEPSEEK_API_KEY w .env — generacja przez DeepSeek jest niedostępna',
+        t('ai.noKeyDeepseek'),
         false
       )
     }
@@ -173,25 +174,25 @@ export class DeepseekProvider implements AiProvider {
         const choice = body.choices?.[0]
         if (choice?.finish_reason === 'length') {
           throw new InvalidModelOutputError(
-            'Odpowiedź modelu została ucięta (limit tokenów wyjścia)'
+            t('ai.truncated')
           )
         }
         const content = choice?.message?.content
         if (typeof content !== 'string' || !content.trim()) {
-          throw new InvalidModelOutputError('Model zwrócił pustą odpowiedź')
+          throw new InvalidModelOutputError(t('ai.emptyResponse'))
         }
         return { data: validate(parseJsonObject(content)), model, usage }
       } catch (error) {
         const err =
           error instanceof AiProviderError
             ? error
-            : new AiProviderError('Nieoczekiwany błąd połączenia z dostawcą AI', true)
+            : new AiProviderError(t('ai.unexpected'), true)
         if (!err.retryable) throw err
         lastError = err
       }
     }
 
-    throw lastError ?? new AiProviderError('Dostawca AI nie odpowiedział', false)
+    throw lastError ?? new AiProviderError(t('ai.noResponse'), false)
   }
 
   async #request(model: string, messages: ChatMessage[]) {
@@ -217,7 +218,7 @@ export class DeepseekProvider implements AiProvider {
     } catch (error) {
       const timedOut = error instanceof Error && error.name === 'TimeoutError'
       throw new AiProviderError(
-        timedOut ? 'Przekroczono czas odpowiedzi dostawcy AI' : 'Brak połączenia z dostawcą AI',
+        timedOut ? t('ai.timeout') : t('ai.noConnection'),
         true
       )
     }
@@ -226,14 +227,14 @@ export class DeepseekProvider implements AiProvider {
       const retryable = res.status === 429 || res.status >= 500
       const message =
         res.status === 401 || res.status === 403
-          ? 'Dostawca AI odrzucił klucz API (sprawdź DEEPSEEK_API_KEY)'
+          ? t('ai.badKey')
           : res.status === 402
-            ? 'Brak środków na koncie dostawcy AI'
+            ? t('ai.noCredit')
             : res.status === 429
-              ? 'Dostawca AI ogranicza liczbę zapytań (429)'
+              ? t('ai.rateLimited')
               : res.status >= 500
-                ? `Dostawca AI jest chwilowo niedostępny (${res.status})`
-                : `Dostawca AI odrzucił zapytanie (${res.status})`
+                ? t('ai.unavailable', { status: res.status })
+                : t('ai.rejected', { status: res.status })
       throw new AiProviderError(message, retryable, res.status)
     }
 

@@ -5,6 +5,7 @@
  */
 import { Fragment, memo, useMemo } from 'react'
 import { parseMarkdown, type Block, type Inline } from '@shared/markdown'
+import { translate } from '~/i18n'
 
 interface Props {
   source: string
@@ -59,7 +60,7 @@ function InlineNodes({ nodes, ctx }: { nodes: Inline[]; ctx: Ctx }) {
                 className="ref-chip"
                 data-testid={`design-ref-${node.assetId}`}
                 onClick={() => ctx.onAssetRef?.(node.assetId)}
-                title={label ? `${label} — pokaż na płótnie` : 'Pokaż na płótnie'}
+                title={label ? translate('doc.refTitle', { name: label }) : translate('assets.showOnCanvas')}
               >
                 A{node.assetId}
               </button>

@@ -11,6 +11,7 @@ import {
   storeLink,
   storeUploadedFile,
 } from '#services/assets_service'
+import { t } from '#services/i18n'
 
 /** Czyści nazwę pliku pod nagłówek Content-Disposition. */
 function safeAttachmentName(name: string | null | undefined, fallback: string): string {
@@ -49,7 +50,7 @@ export default class AssetsController {
 
     if (source === 'url') {
       if (!payload.url) {
-        throw new Exception('Pole „url” jest wymagane, gdy source = url', {
+        throw new Exception(t('asset.urlRequired'), {
           status: 422,
           code: 'E_ASSET_URL_REQUIRED',
         })
@@ -64,7 +65,7 @@ export default class AssetsController {
 
     const files = request.files('files')
     if (files.length === 0) {
-      throw new Exception('Brak plików w polu „files”', { status: 422, code: 'E_ASSET_NO_FILES' })
+      throw new Exception(t('asset.noFiles'), { status: 422, code: 'E_ASSET_NO_FILES' })
     }
 
     const assets = await Promise.all(

@@ -35,6 +35,7 @@ import {
   pruneAssets,
 } from './api'
 import { DEFAULTS } from '~/lib/scene/palette'
+import { translate } from '~/i18n'
 
 export type BoardSaveStatus = SaveStatus | 'dirty' | 'loading'
 
@@ -125,9 +126,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
           },
           onStatus: (status) => set({ saveStatus: status }),
           onConflict: () => {
-            toast.error(
-              'Ta tablica była edytowana w innym oknie. Twoje zmiany zostały zachowane i ponownie zapisane.'
-            )
+            toast.error(translate('session.conflict'))
           },
         },
         version
@@ -149,7 +148,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       await get().refreshAssets()
     } catch (error) {
       set({ saveStatus: 'error' })
-      toast.error(error instanceof Error ? error.message : 'Nie udało się wczytać tablicy')
+      toast.error(error instanceof Error ? error.message : translate('session.loadFailed'))
     }
   },
 
@@ -262,7 +261,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       // Rollback: usuń wszystkie placeholdery tej partii (brak sierot).
       const ids = new Set(placeholders.map((p) => p.id))
       set({ pendingUploads: get().pendingUploads.filter((u) => !ids.has(u.id)) })
-      toast.error(error instanceof Error ? error.message : 'Upload nie powiódł się')
+      toast.error(error instanceof Error ? error.message : translate('session.uploadFailed'))
     }
   },
 
@@ -277,7 +276,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       useSceneStore.getState().addElement(el)
       await get().refreshAssets()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Nie udało się dodać linku')
+      toast.error(error instanceof Error ? error.message : translate('session.linkFailed'))
     }
   },
 
@@ -290,7 +289,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       const updated = await apiUpdateNote(assetId, note)
       set({ assets: get().assets.map((a) => (String(a.id) === String(assetId) ? updated : a)) })
     } catch {
-      toast.error('Nie udało się zapisać notatki')
+      toast.error(translate('session.noteFailed'))
     }
   },
 
@@ -306,7 +305,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
         .map((el) => el.id)
       if (ids.length > 0) store.deleteElements(ids)
     } catch {
-      toast.error('Nie udało się usunąć assetu')
+      toast.error(translate('session.deleteFailed'))
     }
   },
 
@@ -314,7 +313,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
     const store = useSceneStore.getState()
     const el = store.document.elements.find((e) => elementAssetId(e) === String(assetId))
     if (!el) {
-      toast.error('Ten asset nie ma elementu na płótnie')
+      toast.error(translate('session.notOnCanvas'))
       return
     }
     store.selectOnly([el.id])
@@ -390,11 +389,11 @@ function createTextSticky(text: string, point: { x: number; y: number }): SceneS
 function fileRejectMessage(name: string, reason: ClientFileRejectReason): string {
   switch (reason) {
     case 'too_large':
-      return `Plik „${name}” jest za duży (limit 20 MB)`
+      return translate('file.tooLarge', { name })
     case 'dangerous':
-      return `Plik „${name}” ma niedozwolony typ`
+      return translate('file.dangerous', { name })
     case 'unsupported':
-      return `Nieobsługiwany typ pliku: ${name}`
+      return translate('file.unsupported', { name })
   }
 }
 

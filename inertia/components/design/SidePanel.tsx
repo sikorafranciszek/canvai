@@ -7,10 +7,12 @@ import { AssetPanel } from '~/components/canvas/AssetPanel'
 import { DesignDocPanel } from '~/components/design/DesignDocPanel'
 import { useDesignStore, type SidePanelTab } from '~/lib/board/design'
 import { useCanvasAssets } from '~/lib/board/session'
+import { useT } from '~/i18n'
 
 const WIDTH: Record<SidePanelTab, number> = { assets: 320, design: 480 }
 
 export function SidePanel({ open = true }: { open?: boolean }) {
+  const { t } = useT()
   const tab = useDesignStore((s) => s.tab)
   const setTab = useDesignStore((s) => s.setTab)
   const pending = useDesignStore((s) => Boolean(s.active))
@@ -32,10 +34,10 @@ export function SidePanel({ open = true }: { open?: boolean }) {
     <aside
       className="side-panel"
       data-testid="side-panel"
-      aria-label="Panel boczny"
+      aria-label={t('panel.label')}
       style={{ width, minWidth: width }}
     >
-      <div className="side-panel__tabs" role="tablist" aria-label="Widok panelu">
+      <div className="side-panel__tabs" role="tablist" aria-label={t('panel.tabs')}>
         <button
           type="button"
           role="tab"
@@ -44,7 +46,7 @@ export function SidePanel({ open = true }: { open?: boolean }) {
           data-testid="tab-assets"
           onClick={() => setTab('assets')}
         >
-          Materiały
+          {t('panel.materials')}
           <span style={{ opacity: 0.7 }}>{assetCount}</span>
         </button>
         <button
@@ -60,7 +62,7 @@ export function SidePanel({ open = true }: { open?: boolean }) {
             <span
               className="spinner"
               style={{ width: 10, height: 10, borderWidth: 1.5 }}
-              aria-label="generowanie"
+              aria-label={t('panel.generating')}
             />
           ) : latest ? (
             <span style={{ opacity: 0.7 }}>v{latest.version}</span>
@@ -76,6 +78,7 @@ export function SidePanel({ open = true }: { open?: boolean }) {
 }
 
 export function GenerateDesignDocButton() {
+  const { t } = useT()
   const generate = useDesignStore((s) => s.generate)
   const starting = useDesignStore((s) => s.starting)
   const pending = useDesignStore((s) => Boolean(s.active))
@@ -90,10 +93,10 @@ export function GenerateDesignDocButton() {
       onClick={() => void generate()}
       disabled={busy}
       aria-busy={busy}
-      title="AI przeanalizuje materiały z tablicy i napisze specyfikację DESIGN.md"
+      title={t('editor.generateHint')}
     >
       {busy ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Sparkles />}
-      {busy ? 'Generowanie…' : 'Generuj DESIGN.md'}
+      {busy ? t('editor.generating') : t('editor.generate')}
     </button>
   )
 }

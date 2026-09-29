@@ -22,19 +22,20 @@ import { designDocDownloadUrl, type DesignDocDto } from '~/lib/board/api'
 import { progressLabel, progressRatio, useDesignStore } from '~/lib/board/design'
 import { useBoardStore, useCanvasAssets } from '~/lib/board/session'
 import { MarkdownView, sectionTitles } from '~/components/design/MarkdownView'
-import { formatDateTime, plural, relativeTime } from '~/lib/format'
+import { formatDateTime, relativeTime } from '~/lib/format'
+import { useT, type MessageKey } from '~/i18n'
 
-const STATUS_LABEL: Record<DesignDocDto['status'], string> = {
-  queued: 'w kolejce',
-  running: 'w toku',
-  ready: 'gotowa',
-  failed: 'błąd',
+const STATUS_LABEL: Record<DesignDocDto['status'], MessageKey> = {
+  queued: 'doc.status.queued',
+  running: 'doc.status.running',
+  ready: 'doc.status.ready',
+  failed: 'doc.status.failed',
 }
 
 const STAGES = [
-  { key: 'analyze', label: 'Analiza materiałów' },
-  { key: 'compose', label: 'Składanie dokumentu' },
-  { key: 'render', label: 'Formatowanie' },
+  { key: 'analyze', label: 'doc.stage.analyze' },
+  { key: 'compose', label: 'doc.stage.compose' },
+  { key: 'render', label: 'doc.stage.render' },
 ] as const
 
 export function DesignDocPanel() {
@@ -48,6 +49,7 @@ export function DesignDocPanel() {
   const selectVersion = useDesignStore((s) => s.selectVersion)
   const generate = useDesignStore((s) => s.generate)
 
+  const { t } = useT()
   const assets = useBoardStore((s) => s.assets)
   const canvasAssets = useCanvasAssets()
   const centerOnAsset = useBoardStore((s) => s.centerOnAsset)
@@ -70,9 +72,9 @@ export function DesignDocPanel() {
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(content)
-      toast.success('Skopiowano DESIGN.md do schowka')
+      toast.success(t('doc.copied'))
     } catch {
-      toast.error('Nie udało się skopiować do schowka')
+      toast.error(t('doc.copyFailed'))
     }
   }
 
@@ -92,7 +94,7 @@ export function DesignDocPanel() {
       {versions.length > 0 ? (
         <div className="panel-toolbar">
           <label style={{ flex: 1, minWidth: 0 }}>
-            <span className="sr-only">Wersja dokumentu</span>
+            <span className="sr-only">{t('doc.versionLabel')}</span>
             <select
               className="select select--sm"
               data-testid="design-doc-version-select"
@@ -104,8 +106,11 @@ export function DesignDocPanel() {
             >
               {versions.map((v) => (
                 <option key={v.id} value={v.version}>
-                  Wersja {v.version} · {STATUS_LABEL[v.status]} ·{' '}
-                  {relativeTime(v.generatedAt ?? v.createdAt)}
+                  {t('doc.version', {
+                    version: v.version,
+                    status: t(STATUS_LABEL[v.status]),
+                    when: relativeTime(v.generatedAt ?? v.createdAt),
+                  })}
                 </option>
               ))}
             </select>
@@ -117,10 +122,10 @@ export function DesignDocPanel() {
               aria-pressed={showDiff}
               data-testid="design-doc-diff-toggle"
               onClick={() => setShowDiff((v) => !v)}
-              data-tip={`Porównaj z wersją ${previous!.version}`}
+              data-tip={t('doc.diffCompare', { version: previous!.version })}
             >
               <GitCompare size={14} />
-              Diff
+              {t('doc.diff')}
             </button>
           ) : null}
           {content && boardId != null ? (
@@ -130,8 +135,8 @@ export function DesignDocPanel() {
                 className="btn btn--quiet btn--icon btn--sm"
                 data-testid="design-doc-copy"
                 onClick={copy}
-                aria-label="Kopiuj markdown"
-                data-tip="Kopiuj"
+                aria-label={t('doc.copyLabel')}
+                data-tip={t('common.copy')}
               >
                 <Copy />
               </button>
@@ -140,8 +145,8 @@ export function DesignDocPanel() {
                 data-testid="design-doc-download"
                 href={designDocDownloadUrl(boardId, current!.version)}
                 download="DESIGN.md"
-                aria-label="Pobierz DESIGN.md"
-                data-tip="Pobierz .md"
+                aria-label={t('doc.downloadLabel')}
+                data-tip={t('doc.downloadTip')}
               >
                 <Download />
               </a>
@@ -170,8 +175,8 @@ export function DesignDocPanel() {
               <AlertCircle />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div>
-                  <div style={{ fontWeight: 500 }}>Wersja {current.version} nie powstała</div>
-                  <div>{current.error ?? 'Nieznany błąd'}</div>
+                  <div style={{ fontWeight: 500 }}>{t('doc.failedTitle', { version: current.version })}</div>
+                  <div>{current.error ?? t('doc.unknownError')}</div>
                 </div>
                 <div>
                   <button
@@ -181,23 +186,21 @@ export function DesignDocPanel() {
                     disabled={Boolean(active)}
                   >
                     <RefreshCw />
-                    Spróbuj ponownie
+                    {t('common.retry')}
                   </button>
                 </div>
               </div>
             </div>
           </div>
         ) : current.status !== 'ready' ? (
-          <div className="panel-empty">Ta wersja jest jeszcze generowana…</div>
+          <div className="panel-empty">{t('doc.stillGenerating')}</div>
         ) : (
           <>
             {reusedNotice ? (
               <div className="alert alert--notice" style={{ margin: '12px 16px 0' }}>
                 <FileText />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <span>
-                    Tablica nie zmieniła się od tej wersji — pokazuję istniejący dokument.
-                  </span>
+                  <span>{t('doc.unchanged')}</span>
                   <div>
                     <button
                       type="button"
@@ -205,7 +208,7 @@ export function DesignDocPanel() {
                       onClick={() => void generate({ force: true })}
                     >
                       <RefreshCw />
-                      Wygeneruj mimo to
+                      {t('doc.generateAnyway')}
                     </button>
                   </div>
                 </div>
@@ -221,7 +224,7 @@ export function DesignDocPanel() {
             ) : (
               <>
                 {sections.length ? (
-                  <nav className="doc-outline" aria-label="Sekcje dokumentu">
+                  <nav className="doc-outline" aria-label={t('doc.sections')}>
                     {sections.slice(0).map((title, i) => (
                       <button
                         key={title}
@@ -261,6 +264,7 @@ function shortTitle(title: string): string {
 }
 
 function GenerationProgress({ doc }: { doc: DesignDocDto }) {
+  const { t } = useT()
   const stageIndex = doc.progress ? STAGES.findIndex((s) => s.key === doc.progress!.stage) : -1
   return (
     <div
@@ -272,7 +276,7 @@ function GenerationProgress({ doc }: { doc: DesignDocDto }) {
     >
       <div className="doc-status__row">
         <span className="spinner" />
-        <span style={{ fontWeight: 500 }}>Generowanie wersji {doc.version}</span>
+        <span style={{ fontWeight: 500 }}>{t('doc.generatingVersion', { version: doc.version })}</span>
         <span className="t-muted" style={{ marginLeft: 'auto', fontSize: 12 }}>
           {progressLabel(doc)}
         </span>
@@ -295,7 +299,7 @@ function GenerationProgress({ doc }: { doc: DesignDocDto }) {
             }}
           >
             <span className="dot" style={{ opacity: i <= stageIndex ? 1 : 0.4 }} />
-            {stage.label}
+            {t(stage.label)}
           </span>
         ))}
       </div>
@@ -304,22 +308,22 @@ function GenerationProgress({ doc }: { doc: DesignDocDto }) {
 }
 
 function EmptyDoc({ onGenerate, hasAssets }: { onGenerate: () => void; hasAssets: boolean }) {
+  const { t } = useT()
   const points = [
-    'Przegląd produktu i ekrany z przepływami',
-    'Inwentarz komponentów ze stanami',
-    'Tokeny: kolory, typografia, odstępy',
-    'Otwarte pytania i źródła każdego twierdzenia',
+    t('doc.empty.point1'),
+    t('doc.empty.point2'),
+    t('doc.empty.point3'),
+    t('doc.empty.point4'),
   ]
   return (
     <div className="panel-empty" data-testid="design-doc-empty">
       <div className="empty-state__icon">
         <Sparkles />
       </div>
-      <div style={{ color: 'var(--color-ink)', fontWeight: 500, fontSize: 15 }}>Brak DESIGN.md</div>
-      <p>
-        AI przeanalizuje materiały, notatki i układ tablicy, a potem napisze specyfikację, z której
-        inne AI zbuduje spójny interfejs.
-      </p>
+      <div style={{ color: 'var(--color-ink)', fontWeight: 500, fontSize: 15 }}>
+        {t('doc.empty.title')}
+      </div>
+      <p>{t('doc.empty.body')}</p>
       <ul style={{ display: 'flex', flexDirection: 'column', gap: 6, listStyle: 'none' }}>
         {points.map((p) => (
           <li key={p} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -336,17 +340,16 @@ function EmptyDoc({ onGenerate, hasAssets }: { onGenerate: () => void; hasAssets
           disabled={!hasAssets}
         >
           <Sparkles />
-          Generuj DESIGN.md
+          {t('editor.generate')}
         </button>
       </div>
-      {!hasAssets ? (
-        <span className="t-small t-faint">Najpierw dodaj materiały na tablicę.</span>
-      ) : null}
+      {!hasAssets ? <span className="t-small t-faint">{t('doc.empty.needAssets')}</span> : null}
     </div>
   )
 }
 
 function DocMeta({ doc }: { doc: DesignDocDto }) {
+  const { t, tp } = useT()
   const u = doc.usage
   return (
     <div className="doc-meta">
@@ -364,9 +367,9 @@ function DocMeta({ doc }: { doc: DesignDocDto }) {
         <>
           <span>
             <Layers />
-            {plural(u.assets, 'materiał', 'materiały', 'materiałów')} ({u.cached} z cache)
+            {t('doc.meta.materials', { materials: tp('count.materials', u.assets), cached: u.cached })}
           </span>
-          <span>{u.tokensIn + u.tokensOut} tokenów</span>
+          <span>{t('doc.meta.tokens', { n: u.tokensIn + u.tokensOut })}</span>
           <span>{(u.durationMs / 1000).toFixed(1)} s</span>
         </>
       ) : null}
@@ -383,13 +386,12 @@ function DiffView({
   previousVersion: number
   currentVersion: number
 }) {
+  const { t } = useT()
   const stats = diffStats(lines)
   return (
     <div data-testid="design-doc-diff">
       <div className="diff__stats">
-        <span>
-          Wersja {previousVersion} → {currentVersion}
-        </span>
+        <span>{t('doc.diffRange', { from: previousVersion, to: currentVersion })}</span>
         <span style={{ color: 'var(--color-deep-teal)' }}>+{stats.added}</span>
         <span style={{ color: 'var(--color-danger)' }}>−{stats.removed}</span>
       </div>

@@ -6,6 +6,8 @@ import DesignDoc from '#models/design_doc'
 import Job from '#models/job'
 import { AiProviderError } from '#services/ai/types'
 import { runGeneration } from '#services/design/generator'
+import { runWithLocale, t } from '#services/i18n'
+import { isLocale } from '#shared/i18n'
 
 /**
  * Kolejka zadań na tabeli `jobs` (bez Redisa). Worker in-process
@@ -47,7 +49,7 @@ const handlers: Record<string, JobHandler> = {
     async onRetry(job, message) {
       await DesignDoc.query()
         .where('id', job.payload.designDocId as number)
-        .update({ status: 'queued', error: `Ponawianie: ${message}` })
+        .update({ status: 'queued', error: t('gen.retrying', { message }) })
     },
   },
 }
@@ -85,10 +87,16 @@ export async function claimNext(): Promise<Job | null> {
   return null
 }
 
+/** Zadanie wykonuje się w języku użytkownika, który je zlecił (payload.locale). */
 export async function runJob(job: Job): Promise<void> {
+  const locale = isLocale(job.payload?.locale) ? job.payload.locale : undefined
+  return locale ? runWithLocale(locale, () => runJobInner(job)) : runJobInner(job)
+}
+
+async function runJobInner(job: Job): Promise<void> {
   const handler = handlers[job.type]
   if (!handler) {
-    job.merge({ status: 'failed', lastError: `Nieznany typ zadania: ${job.type}` })
+    job.merge({ status: 'failed', lastError: `Unknown job type: ${job.type}` })
     await job.save()
     return
   }
@@ -107,7 +115,7 @@ export async function runJob(job: Job): Promise<void> {
     await job.save()
   } catch (error) {
     const message =
-      error instanceof Error && error.message ? error.message : 'Nieoczekiwany błąd generacji'
+      error instanceof Error && error.message ? error.message : t('gen.unexpected')
     const retryable = error instanceof AiProviderError && error.retryable
 
     if (!(error instanceof AiProviderError)) {
@@ -152,22 +160,20 @@ export async function recoverStaleJobs(): Promise<number> {
     .where('locked_at', '<', sqlTime(threshold))
 
   for (const job of stale) {
-    if (job.attempts < limits.maxRetries) {
-      job.merge({ status: 'queued', lockedAt: null, lastError: 'Zadanie przerwane — ponawianie' })
-      await job.save()
-      await handlers[job.type]?.onRetry?.(job, 'zadanie przerwane')
-    } else {
-      job.merge({
-        status: 'failed',
-        lockedAt: null,
-        lastError: 'Zadanie przerwane zbyt wiele razy',
-      })
-      await job.save()
-      await handlers[job.type]?.onFailed(
-        job,
-        'Generacja została przerwana (restart serwera?) — spróbuj ponownie'
-      )
-    }
+    const locale = isLocale(job.payload?.locale) ? job.payload.locale : 'pl'
+    await runWithLocale(locale, () => recoverOne(job))
   }
   return stale.length
+}
+
+async function recoverOne(job: Job): Promise<void> {
+  if (job.attempts < limits.maxRetries) {
+    job.merge({ status: 'queued', lockedAt: null, lastError: t('gen.interruptedRetry') })
+    await job.save()
+    await handlers[job.type]?.onRetry?.(job, t('gen.interruptedRetry'))
+  } else {
+    job.merge({ status: 'failed', lockedAt: null, lastError: t('gen.interruptedTooMany') })
+    await job.save()
+    await handlers[job.type]?.onFailed(job, t('gen.interrupted'))
+  }
 }

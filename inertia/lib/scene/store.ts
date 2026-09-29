@@ -24,6 +24,7 @@ import {
 import { emptySceneDocument, type SceneDocument, type SceneElement } from '@shared/scene'
 import type { Tool } from '@shared/tools'
 import { DEFAULTS, FONT_FAMILY } from '~/lib/scene/palette'
+import { translate } from '~/i18n'
 
 export type { Tool } from '@shared/tools'
 
@@ -277,9 +278,9 @@ export function createElementForTool(tool: Tool, x: number, y: number): SceneEle
     case 'freehand':
       return { ...base, type: 'freehand', points: [{ x: 0, y: 0 }], stroke: DEFAULTS.freehand, strokeWidth: 2.5 }
     case 'text':
-      return { ...base, type: 'text', text: 'Tekst', fontSize: 24, fontFamily: FONT_FAMILY, fill: DEFAULTS.text, align: 'left' }
+      return { ...base, type: 'text', text: translate('canvas.newText'), fontSize: 24, fontFamily: FONT_FAMILY, fill: DEFAULTS.text, align: 'left' }
     case 'sticky':
-      return { ...base, type: 'sticky', width: 200, height: 150, text: 'Notatka', fill: DEFAULTS.sticky, fontSize: 14 }
+      return { ...base, type: 'sticky', width: 200, height: 150, text: translate('canvas.newSticky'), fill: DEFAULTS.sticky, fontSize: 14 }
     default:
       return { ...base, type: 'rectangle', width: 160, height: 100, fill: DEFAULTS.shapeFill, stroke: DEFAULTS.shapeStroke, strokeWidth: 1.5, cornerRadius: 8 }
   }

@@ -22,6 +22,7 @@ import { PROMPT_VERSION } from '#services/design/prompts'
 import { renderDesignMd } from '#services/design/renderer'
 import { groundSpec } from '#services/design/spec'
 import type { SceneDocument } from '#shared/scene'
+import { t } from '#services/i18n'
 
 /**
  * Orkiestracja generacji DESIGN.md:
@@ -83,7 +84,7 @@ export function hasContent(input: GenerationInput): boolean {
 /** Błąd przed pierwszym wywołaniem modelu (np. za dużo assetów). */
 export function preflightError(input: GenerationInput): string | null {
   if (input.assets.length > limits.maxAssetsPerJob) {
-    return `Tablica ma ${input.assets.length} assetów, a limit jednej generacji to ${limits.maxAssetsPerJob}. Usuń część materiałów albo podnieś limit w config/ai.ts.`
+    return t('doc.tooManyAssets', { count: input.assets.length, limit: limits.maxAssetsPerJob })
   }
   return null
 }
@@ -147,7 +148,7 @@ export async function runGeneration(
   }
   if (!spec) {
     throw new InvalidModelOutputError(
-      `Model nie wygenerował poprawnie ugruntowanego dokumentu: ${previousErrors.join('; ')}`
+      t('gen.notGrounded', { errors: previousErrors.join('; ') })
     )
   }
 

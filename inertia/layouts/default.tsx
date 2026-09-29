@@ -8,6 +8,9 @@ import { Brand } from '~/components/ui/Brand'
 import { CreateBoardDialog } from '~/components/boards/CreateBoardDialog'
 import { useUiStore } from '~/lib/ui'
 import { translateFlash } from '~/lib/format'
+import { LanguageSwitcher } from '~/components/ui/LanguageSwitcher'
+import { useLocaleStore, useT } from '~/i18n'
+import { isLocale } from '@shared/i18n'
 
 type SharedUser = { id: number; fullName: string | null; email: string; initials: string }
 
@@ -20,6 +23,14 @@ type SharedUser = { id: number; fullName: string | null; email: string; initials
 export default function Layout({ children }: { children: ReactElement<Data.SharedProps> }) {
   const { url, flash, component } = usePage()
   const user = (children.props as { user?: SharedUser }).user
+  const serverLocale = (children.props as { locale?: string }).locale
+
+  // Język z serwera (cookie / Accept-Language) jest źródłem prawdy przy wejściu na stronę.
+  useEffect(() => {
+    if (isLocale(serverLocale) && useLocaleStore.getState().locale !== serverLocale) {
+      useLocaleStore.setState({ locale: serverLocale })
+    }
+  }, [serverLocale])
 
   useEffect(() => {
     toast.dismiss()
@@ -35,6 +46,9 @@ export default function Layout({ children }: { children: ReactElement<Data.Share
   if (component.startsWith('auth/')) {
     content = (
       <div className="auth">
+        <div className="auth__topbar">
+          <LanguageSwitcher />
+        </div>
         <div className="auth__inner">
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <Brand />
@@ -84,12 +98,13 @@ function AppShell({
   children: ReactNode
 }) {
   const openCreateBoard = useUiStore((s) => s.openCreateBoard)
+  const { t } = useT()
   const onBoards = component === 'boards/index'
 
   return (
     <div className="shell">
-      <aside className="sidebar" aria-label="Nawigacja główna">
-        <Link route="boards.index" aria-label="Tablice — strona główna">
+      <aside className="sidebar" aria-label={t('nav.main')}>
+        <Link route="boards.index" aria-label={t('nav.home')}>
           <Brand />
         </Link>
 
@@ -100,22 +115,25 @@ function AppShell({
           data-testid="sidebar-new-board"
         >
           <Plus />
-          Nowa tablica
+          {t('nav.newBoard')}
         </button>
 
         <nav className="nav">
-          <div className="nav__label">Przestrzeń robocza</div>
+          <div className="nav__label">{t('nav.workspace')}</div>
           <Link
             route="boards.index"
             className="nav__item"
             aria-current={onBoards ? 'page' : undefined}
           >
             <LayoutGrid />
-            Tablice
+            {t('nav.boards')}
           </Link>
         </nav>
 
         <div className="sidebar__footer">
+          <div style={{ padding: '0 8px' }}>
+            <LanguageSwitcher />
+          </div>
           <div className="user-chip">
             <span className="avatar" aria-hidden>
               {user.initials}
@@ -130,8 +148,8 @@ function AppShell({
               <button
                 type="submit"
                 className="btn btn--quiet btn--icon btn--sm"
-                aria-label="Wyloguj"
-                data-tip="Wyloguj"
+                aria-label={t('nav.logout')}
+                data-tip={t('nav.logout')}
                 data-tip-side="top"
               >
                 <LogOut />
@@ -149,10 +167,10 @@ function AppShell({
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" className="btn btn--primary btn--sm" onClick={openCreateBoard}>
               <Plus />
-              Nowa
+              {t('nav.newShort')}
             </button>
             <Form route="session.destroy">
-              <button type="submit" className="btn btn--icon btn--sm" aria-label="Wyloguj">
+              <button type="submit" className="btn btn--icon btn--sm" aria-label={t('nav.logout')}>
                 <LogOut />
               </button>
             </Form>

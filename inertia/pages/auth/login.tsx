@@ -2,19 +2,21 @@ import { Form, Link } from '@adonisjs/inertia/react'
 import { Head, usePage } from '@inertiajs/react'
 import { translateFlash } from '~/lib/format'
 import { AlertCircle } from 'lucide-react'
+import { useT } from '~/i18n'
 
 type FormState = { errors: Record<string, string>; processing: boolean }
 
 export default function Login() {
   const { flash } = usePage()
+  const { t } = useT()
   const flashError = typeof flash.error === 'string' ? translateFlash(flash.error) : null
   return (
     <>
-      <Head title="Logowanie" />
+      <Head title={t('auth.login.headTitle')} />
       <div className="card auth__card">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h1 className="t-title">Zaloguj się</h1>
-          <p className="t-muted">Wróć do swoich tablic i dokumentów DESIGN.md.</p>
+          <h1 className="t-title">{t('auth.login.title')}</h1>
+          <p className="t-muted">{t('auth.login.subtitle')}</p>
         </div>
 
         <Form route="session.store" className="auth__form">
@@ -23,13 +25,13 @@ export default function Login() {
               {errors.E_INVALID_CREDENTIALS || flashError ? (
                 <div className="alert alert--danger" role="alert" data-testid="login-error">
                   <AlertCircle />
-                  {flashError ?? 'Nieprawidłowy e-mail lub hasło'}
+                  {flashError ?? t('auth.login.invalid')}
                 </div>
               ) : null}
 
               <div className="field">
                 <label className="field__label" htmlFor="email">
-                  E-mail
+                  {t('auth.field.email')}
                 </label>
                 <input
                   className="input"
@@ -38,7 +40,7 @@ export default function Login() {
                   id="email"
                   autoComplete="username"
                   autoFocus
-                  placeholder="ty@firma.pl"
+                  placeholder={t('auth.field.emailPlaceholder')}
                   aria-invalid={errors.email ? 'true' : undefined}
                   aria-describedby={errors.email ? 'email-error' : undefined}
                 />
@@ -51,7 +53,7 @@ export default function Login() {
 
               <div className="field">
                 <label className="field__label" htmlFor="password">
-                  Hasło
+                  {t('auth.field.password')}
                 </label>
                 <input
                   className="input"
@@ -71,16 +73,16 @@ export default function Login() {
                 data-testid="login-submit"
               >
                 {processing ? <span className="spinner" /> : null}
-                Zaloguj się
+                {t('auth.login.submit')}
               </button>
             </>
           )}
         </Form>
       </div>
       <p className="auth__footer">
-        Nie masz konta?{' '}
+        {t('auth.login.noAccount')}{' '}
         <Link route="new_account.create" className="link">
-          Załóż konto
+          {t('auth.login.signupLink')}
         </Link>
       </p>
     </>

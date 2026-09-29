@@ -3,18 +3,20 @@
  */
 import { AlertCircle, Check, CloudUpload } from 'lucide-react'
 import { useBoardStore, type BoardSaveStatus } from '~/lib/board/session'
+import { useT, type MessageKey } from '~/i18n'
 
-const LABELS: Record<BoardSaveStatus, string> = {
-  loading: 'Wczytywanie…',
-  idle: 'Zapisano',
-  dirty: 'Zapisywanie…',
-  saving: 'Zapisywanie…',
-  saved: 'Zapisano',
-  error: 'Błąd zapisu',
+const LABELS: Record<BoardSaveStatus, MessageKey> = {
+  loading: 'save.loading',
+  idle: 'save.saved',
+  dirty: 'save.saving',
+  saving: 'save.saving',
+  saved: 'save.saved',
+  error: 'save.error',
 }
 
 export function SaveStatus() {
   const status = useBoardStore((s) => s.saveStatus)
+  const { t } = useT()
 
   const icon =
     status === 'saving' || status === 'loading' ? (
@@ -34,14 +36,10 @@ export function SaveStatus() {
       data-status={status}
       role="status"
       aria-live="polite"
-      title={
-        status === 'error'
-          ? 'Zmiany zostaną zapisane ponownie przy następnej edycji'
-          : 'Stan zapisu tablicy'
-      }
+      title={status === 'error' ? t('save.errorHint') : t('save.hint')}
     >
       {icon}
-      {LABELS[status]}
+      {t(LABELS[status])}
     </span>
   )
 }

@@ -2,6 +2,7 @@ import { active, isReady, provider as activeProviderName } from '#config/ai'
 import { DeepseekProvider } from '#services/ai/deepseek_provider'
 import { MockProvider } from '#services/ai/mock_provider'
 import type { AiProvider } from '#services/ai/types'
+import { t } from '#services/i18n'
 
 /**
  * Fabryka dostawcy AI. Testy mogą podmienić dostawcę przez `setProviderOverride`
@@ -25,5 +26,5 @@ export function providerReady(): boolean {
 }
 
 export function providerNotReadyMessage(): string {
-  return 'Brak klucza DEEPSEEK_API_KEY w pliku .env — ustaw klucz albo przełącz AI_PROVIDER=mock'
+  return t('ai.noKey')
 }

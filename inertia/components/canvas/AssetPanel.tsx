@@ -6,11 +6,13 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, File, FileText, ImagePlus, Link2, Search, Trash2 } from 'lucide-react'
 import { useBoardStore, useCanvasAssets } from '~/lib/board/session'
-import { assetKindLabel, formatBytes } from '@shared/asset-utils'
+import { formatBytes } from '@shared/asset-utils'
+import { useT } from '~/i18n'
 import type { AssetDto } from '~/lib/board/api'
 import { Dialog } from '~/components/ui/Dialog'
 
 export function AssetPanel() {
+  const { t } = useT()
   // Tylko materiały obecne na płótnie (usunięty element znika też stąd).
   const assets = useCanvasAssets()
   const loading = useBoardStore((s) => s.assetsLoading)
@@ -38,13 +40,13 @@ export function AssetPanel() {
       {assets.length > 3 ? (
         <div className="panel-toolbar">
           <label className="input-group" style={{ flex: 1 }}>
-            <span className="sr-only">Filtruj materiały</span>
+            <span className="sr-only">{t('assets.filter')}</span>
             <Search />
             <input
               className="input input--sm"
               style={{ paddingLeft: 34 }}
               type="search"
-              placeholder="Filtruj materiały…"
+              placeholder={t('assets.filterPlaceholder')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -55,10 +57,7 @@ export function AssetPanel() {
       {assets.length > 0 && withoutNote > 0 ? (
         <div className="alert alert--notice" style={{ margin: '12px 16px 4px' }}>
           <FileText />
-          <span>
-            Dodaj krótką notatkę do materiałów bez opisu ({withoutNote}) — AI lepiej zrozumie, co
-            przedstawiają.
-          </span>
+          <span>{t('assets.missingNotes', { n: withoutNote })}</span>
         </div>
       ) : null}
 
@@ -83,14 +82,11 @@ export function AssetPanel() {
             <div className="empty-state__icon">
               <ImagePlus />
             </div>
-            <div style={{ color: 'var(--color-ink)', fontWeight: 500 }}>Brak materiałów</div>
-            <p>
-              Wklej zrzut ekranu (<span className="kbd">Ctrl</span> <span className="kbd">V</span>),
-              przeciągnij pliki na płótno albo użyj przycisku „Wgraj”.
-            </p>
+            <div style={{ color: 'var(--color-ink)', fontWeight: 500 }}>{t('assets.empty.title')}</div>
+            <p>{t('assets.empty.body', { keys: 'Ctrl+V' })}</p>
           </div>
         ) : visible.length === 0 ? (
-          <div className="panel-empty">Brak materiałów pasujących do „{query}”.</div>
+          <div className="panel-empty">{t('assets.noMatch', { query })}</div>
         ) : (
           visible.map((asset) => (
             <AssetRow key={asset.id} asset={asset} onDelete={() => setDeleting(asset)} />
@@ -110,6 +106,7 @@ const AssetRow = memo(function AssetRow({
   asset: AssetDto
   onDelete: () => void
 }) {
+  const { t } = useT()
   const centerOnAsset = useBoardStore((s) => s.centerOnAsset)
   const updateNote = useBoardStore((s) => s.updateNote)
 
@@ -139,7 +136,7 @@ const AssetRow = memo(function AssetRow({
   const subtitle =
     asset.kind === 'link'
       ? safeHost(asset.filename)
-      : [assetKindLabel(asset.kind), formatBytes(asset.size), dims(asset)]
+      : [t(`assetKind.${asset.kind}`), formatBytes(asset.size), dims(asset)]
           .filter(Boolean)
           .join(' · ')
 
@@ -150,8 +147,8 @@ const AssetRow = memo(function AssetRow({
         className="asset-thumb"
         data-testid={`asset-thumb-${asset.id}`}
         onClick={() => centerOnAsset(asset.id)}
-        aria-label={`Pokaż „${title}” na płótnie`}
-        title="Pokaż na płótnie"
+        aria-label={t('assets.showOnCanvasNamed', { name: title })}
+        title={t('assets.showOnCanvas')}
       >
         <AssetThumb asset={asset} />
       </button>
@@ -176,8 +173,8 @@ const AssetRow = memo(function AssetRow({
               className="btn btn--quiet btn--icon btn--sm"
               data-testid={`asset-delete-${asset.id}`}
               onClick={onDelete}
-              aria-label={`Usuń „${title}”`}
-              data-tip="Usuń"
+              aria-label={t('assets.deleteNamed', { name: title })}
+              data-tip={t('common.delete')}
             >
               <Trash2 />
             </button>
@@ -186,7 +183,7 @@ const AssetRow = memo(function AssetRow({
         <div className="t-small t-faint t-truncate">{subtitle}</div>
 
         <label className="sr-only" htmlFor={`note-${asset.id}`}>
-          Notatka dla AI
+          {t('assets.noteLabel')}
         </label>
         <textarea
           id={`note-${asset.id}`}
@@ -199,7 +196,7 @@ const AssetRow = memo(function AssetRow({
             setNote(e.target.value)
           }}
           onBlur={commitNote}
-          placeholder="Dodaj opis dla AI…"
+          placeholder={t('assets.notePlaceholder')}
           rows={note.length > 60 ? 3 : 1}
         />
         {saveState !== 'idle' ? (
@@ -208,10 +205,10 @@ const AssetRow = memo(function AssetRow({
             style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}
           >
             {saveState === 'saving' ? (
-              'Zapisywanie…'
+              t('assets.saving')
             ) : (
               <>
-                <Check size={11} /> Zapisano
+                <Check size={11} /> {t('assets.saved')}
               </>
             )}
           </span>
@@ -222,23 +219,20 @@ const AssetRow = memo(function AssetRow({
 })
 
 function DeleteAssetDialog({ asset, onClose }: { asset: AssetDto | null; onClose: () => void }) {
+  const { t } = useT()
   const deleteAsset = useBoardStore((s) => s.deleteAsset)
   const title = asset ? asset.linkMeta?.title || asset.filename : ''
   return (
     <Dialog
       open={Boolean(asset)}
       onClose={onClose}
-      title="Usunąć materiał?"
+      title={t('assets.delete.title')}
       testId="delete-asset-dialog"
-      description={
-        <>
-          „{title}” zniknie z tablicy i z panelu. Kolejne wersje DESIGN.md nie będą go uwzględniać.
-        </>
-      }
+      description={t('assets.delete.body', { name: title })}
       footer={
         <>
           <button type="button" className="btn" onClick={onClose} autoFocus>
-            Anuluj
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -250,7 +244,7 @@ function DeleteAssetDialog({ asset, onClose }: { asset: AssetDto | null; onClose
             }}
           >
             <Trash2 />
-            Usuń
+            {t('common.delete')}
           </button>
         </>
       }

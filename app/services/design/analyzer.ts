@@ -6,6 +6,7 @@ import AssetAnalysis from '#models/asset_analysis'
 import { validateAssetAnalysis } from '#services/ai/schemas'
 import { AiProviderError, type AiProvider, type AssetAnalysisData } from '#services/ai/types'
 import { PROMPT_VERSION } from '#services/design/prompts'
+import { t } from '#services/i18n'
 
 /**
  * Etap 1: analiza assetów. Każdy asset analizowany osobno (równolegle, z
@@ -45,7 +46,7 @@ export function assertTokenBudget(usage: UsageTracker): void {
   const total = usage.tokensIn + usage.tokensOut
   if (total > limits.maxTokensPerGeneration) {
     throw new AiProviderError(
-      `Przekroczono limit tokenów na generację (${total} > ${limits.maxTokensPerGeneration}). Zmniejsz liczbę assetów albo podnieś limit w config/ai.ts.`,
+      t('gen.tokenLimit', { total, limit: limits.maxTokensPerGeneration }),
       false
     )
   }
@@ -130,9 +131,9 @@ export async function analyzeAssets(
           image: await loadImage(asset),
         })
       } catch (error) {
-        const reason = error instanceof Error ? error.message : 'nieznany błąd'
+        const reason = error instanceof Error ? error.message : t('gen.unknownError')
         throw new AiProviderError(
-          `Nie udało się przeanalizować assetu A${asset.id} („${asset.filename.slice(0, 80)}”): ${reason}`,
+          t('gen.assetFailed', { id: asset.id, name: asset.filename.slice(0, 80), reason }),
           error instanceof AiProviderError ? error.retryable : false
         )
       }

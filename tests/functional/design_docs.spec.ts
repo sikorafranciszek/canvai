@@ -496,4 +496,53 @@ test.group('Design doc API', (group) => {
     // Materiały z płótna zostają.
     for (const id of [imageIds[0], imageIds[1], linkId]) assert.isNotNull(await Asset.find(id))
   })
+
+  test('i18n: komunikaty API w języku z cookie / Accept-Language, a błąd generacji w języku zlecającego', async ({ client, assert }) => {
+    const { user, cookies } = await login(client)
+    const board = await createBoard(user)
+
+    const pl = await client.post(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies }).json({})
+    assert.match(pl.body().message, /^Tablica jest pusta/)
+
+    const en = await client
+      .post(`/api/boards/${board.id}/design-doc`)
+      .headers({ 'cookie': cookies, 'accept-language': 'en-US,en;q=0.9' })
+      .json({})
+    assert.match(en.body().message, /^The board is empty/)
+
+    // Cookie `locale` ma pierwszeństwo przed nagłówkiem.
+    const cookieEn = await client
+      .post(`/api/boards/${board.id}/design-doc`)
+      .headers({ 'cookie': [...[cookies].flat(), 'locale=en'].join('; '), 'accept-language': 'pl' })
+      .json({})
+    assert.match(cookieEn.body().message, /^The board is empty/)
+
+    // Zadanie w tle zapisuje błąd w języku użytkownika, który zlecił generację.
+    await seedBoard(client, cookies, board)
+    const failing = new MockProvider()
+    failing.composeDocument = async () => {
+      const { t } = await import('#services/i18n')
+      throw new AiProviderError(t('ai.noCredit'), false)
+    }
+    setProviderOverride(failing)
+    await client
+      .post(`/api/boards/${board.id}/design-doc`)
+      .headers({ 'cookie': cookies, 'accept-language': 'en' })
+      .json({})
+    await runPendingJobs()
+    const doc = (await client.get(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies })).body().data
+    assert.equal(doc.status, 'failed')
+    assert.equal(doc.error, 'Insufficient balance on the AI provider account')
+  })
+
+  test('i18n: komunikaty walidacji w języku żądania', async ({ client, assert }) => {
+    const res = await client
+      .post('/signup')
+      .header('accept-language', 'en')
+      .header('accept', 'application/json')
+      .json({ email: 'zly', password: 'x', passwordConfirmation: 'y' })
+    const errors = JSON.stringify(res.body())
+    assert.include(errors, 'Enter a valid email address')
+    assert.notInclude(errors, 'Podaj poprawny')
+  })
 })

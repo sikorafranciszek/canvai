@@ -5,6 +5,7 @@
 import type { SceneDocument } from '@shared/scene'
 import { AutosaveConflictError } from '@shared/autosave'
 import type { UploadSource } from '@shared/upload-state'
+import { translate } from '~/i18n'
 
 export interface SceneResponse {
   version: number
@@ -49,7 +50,7 @@ async function parseJson<T>(res: Response): Promise<T> {
 
 export async function getScene(boardId: number): Promise<SceneResponse> {
   const res = await fetch(`/api/boards/${boardId}/scene`, { credentials: 'same-origin' })
-  if (!res.ok) throw new Error(`Nie udało się wczytać sceny (${res.status})`)
+  if (!res.ok) throw new Error(translate('api.sceneLoad', { status: res.status }))
   const body = await parseJson<{ data: SceneResponse }>(res)
   return body.data
 }
@@ -73,7 +74,7 @@ export async function putScene(
     )
     throw new AutosaveConflictError(body.currentVersion ?? payload.version)
   }
-  if (!res.ok) throw new Error(`Nie udało się zapisać sceny (${res.status})`)
+  if (!res.ok) throw new Error(translate('api.sceneSave', { status: res.status }))
 
   const body = await parseJson<{ data: SceneResponse }>(res)
   return body.data.version
@@ -81,7 +82,7 @@ export async function putScene(
 
 export async function listAssets(boardId: number): Promise<AssetDto[]> {
   const res = await fetch(`/api/boards/${boardId}/assets`, { credentials: 'same-origin' })
-  if (!res.ok) throw new Error(`Nie udało się pobrać assetów (${res.status})`)
+  if (!res.ok) throw new Error(translate('api.assetsLoad', { status: res.status }))
   const body = await parseJson<{ data: AssetDto[] }>(res)
   return body.data
 }
@@ -92,7 +93,7 @@ export interface UploadProgressEvent {
 }
 
 function parseUploadError(xhr: XMLHttpRequest): Error {
-  let message = `Upload nie powiódł się (${xhr.status})`
+  let message = translate('api.uploadFailed', { status: xhr.status })
   try {
     const body = JSON.parse(xhr.responseText)
     if (typeof body === 'string' && body) message = body
@@ -139,14 +140,14 @@ export function uploadFiles(
           const body = JSON.parse(xhr.responseText)
           resolve((body.data ?? []) as AssetDto[])
         } catch {
-          reject(new Error('Niepoprawna odpowiedź serwera'))
+          reject(new Error(translate('api.badResponse')))
         }
       } else {
         reject(parseUploadError(xhr))
       }
     }
-    xhr.onerror = () => reject(new Error('Brak połączenia z serwerem'))
-    xhr.onabort = () => reject(new Error('Upload przerwany'))
+    xhr.onerror = () => reject(new Error(translate('api.noConnection')))
+    xhr.onabort = () => reject(new Error(translate('api.uploadAborted')))
 
     xhr.send(form)
   })
@@ -172,7 +173,7 @@ export async function createLinkAsset(boardId: number, url: string): Promise<Ass
     credentials: 'same-origin',
   })
   if (!res.ok) {
-    throw new Error(await extractErrorMessage(res, `Nie udało się dodać linku (${res.status})`))
+    throw new Error(await extractErrorMessage(res, translate('api.linkFailed', { status: res.status })))
   }
   const body = await parseJson<{ data: AssetDto[] }>(res)
   return body.data[0]
@@ -185,7 +186,7 @@ export async function updateAssetNote(assetId: string, note: string): Promise<As
     body: JSON.stringify({ note }),
     credentials: 'same-origin',
   })
-  if (!res.ok) throw new Error(`Nie udało się zapisać notatki (${res.status})`)
+  if (!res.ok) throw new Error(translate('api.noteFailed', { status: res.status }))
   const body = await parseJson<{ data: AssetDto }>(res)
   return body.data
 }
@@ -196,7 +197,7 @@ export async function deleteAsset(assetId: string): Promise<void> {
     headers: csrfHeaders(),
     credentials: 'same-origin',
   })
-  if (!res.ok && res.status !== 404) throw new Error(`Nie udało się usunąć assetu (${res.status})`)
+  if (!res.ok && res.status !== 404) throw new Error(translate('api.deleteFailed', { status: res.status }))
 }
 
 async function extractErrorMessage(res: Response, fallback: string): Promise<string> {
@@ -284,7 +285,7 @@ export async function generateDesignDoc(
   }
   const inProgress = res.status === 409 ? ((body.data as DesignDocDto | undefined) ?? null) : null
   throw new DesignDocRequestError(
-    body.message ?? `Nie udało się uruchomić generacji (${res.status})`,
+    body.message ?? translate('api.generateFailed', { status: res.status }),
     res.status,
     body.code ?? null,
     inProgress
@@ -298,14 +299,14 @@ export async function getDesignDoc(
   const qs = version ? `?version=${version}` : ''
   const res = await fetch(`/api/boards/${boardId}/design-doc${qs}`, { credentials: 'same-origin' })
   if (res.status === 404) return null
-  if (!res.ok) throw new Error(`Nie udało się pobrać DESIGN.md (${res.status})`)
+  if (!res.ok) throw new Error(translate('api.docLoad', { status: res.status }))
   const body = await parseJson<{ data: DesignDocDto | null }>(res)
   return body.data
 }
 
 export async function listDesignDocs(boardId: number): Promise<DesignDocDto[]> {
   const res = await fetch(`/api/boards/${boardId}/design-docs`, { credentials: 'same-origin' })
-  if (!res.ok) throw new Error(`Nie udało się pobrać historii wersji (${res.status})`)
+  if (!res.ok) throw new Error(translate('api.docsLoad', { status: res.status }))
   const body = await parseJson<{ data: DesignDocDto[] }>(res)
   return body.data
 }

@@ -16,8 +16,9 @@ import {
 } from 'lucide-react'
 import { Dialog } from '~/components/ui/Dialog'
 import { Menu } from '~/components/ui/Menu'
-import { plural, relativeTime } from '~/lib/format'
+import { relativeTime } from '~/lib/format'
 import { useUiStore } from '~/lib/ui'
+import { useT, type MessageKey } from '~/i18n'
 
 interface Board {
   id: number
@@ -37,19 +38,20 @@ interface Board {
 
 type SortKey = 'edited' | 'title' | 'created'
 
-const SORTS: Record<SortKey, { label: string; compare: (a: Board, b: Board) => number }> = {
+const SORTS: Record<SortKey, { label: MessageKey; compare: (a: Board, b: Board) => number }> = {
   edited: {
-    label: 'Ostatnio edytowane',
+    label: 'boards.sort.edited',
     compare: (a, b) => (b.editedAt ?? '').localeCompare(a.editedAt ?? ''),
   },
-  title: { label: 'Nazwa A–Z', compare: (a, b) => a.title.localeCompare(b.title, 'pl') },
+  title: { label: 'boards.sort.title', compare: (a, b) => a.title.localeCompare(b.title) },
   created: {
-    label: 'Najnowsze',
+    label: 'boards.sort.created',
     compare: (a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''),
   },
 }
 
 const BoardsIndex: React.FC<{ boards: Board[] }> = ({ boards }) => {
+  const { t, tp, locale } = useT()
   const openCreateBoard = useUiStore((s) => s.openCreateBoard)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortKey>('edited')
@@ -57,23 +59,21 @@ const BoardsIndex: React.FC<{ boards: Board[] }> = ({ boards }) => {
   const [deleting, setDeleting] = useState<Board | null>(null)
 
   const visible = useMemo(() => {
-    const q = query.trim().toLocaleLowerCase('pl')
+    const q = query.trim().toLocaleLowerCase(locale)
     return boards
-      .filter((b) => !q || b.title.toLocaleLowerCase('pl').includes(q))
+      .filter((b) => !q || b.title.toLocaleLowerCase(locale).includes(q))
       .sort(SORTS[sort].compare)
-  }, [boards, query, sort])
+  }, [boards, query, sort, locale])
 
   return (
     <div className="page">
-      <Head title="Tablice" />
+      <Head title={t('boards.title')} />
 
       <header className="page-header">
         <div className="page-header__text">
-          <h1 className="t-display">Tablice</h1>
+          <h1 className="t-display">{t('boards.title')}</h1>
           <p className="t-muted">
-            {boards.length
-              ? `${plural(boards.length, 'tablica', 'tablice', 'tablic')} w Twojej przestrzeni`
-              : 'Zbieraj materiały klienta i generuj z nich specyfikację DESIGN.md.'}
+            {boards.length ? tp('boards.count', boards.length) : t('boards.subtitleEmpty')}
           </p>
         </div>
         {boards.length ? (
@@ -84,7 +84,7 @@ const BoardsIndex: React.FC<{ boards: Board[] }> = ({ boards }) => {
             data-testid="new-board"
           >
             <Plus />
-            Nowa tablica
+            {t('nav.newBoard')}
           </button>
         ) : null}
       </header>
@@ -95,28 +95,28 @@ const BoardsIndex: React.FC<{ boards: Board[] }> = ({ boards }) => {
         <>
           <div className="filters">
             <label className="input-group">
-              <span className="sr-only">Szukaj tablic</span>
+              <span className="sr-only">{t('boards.search')}</span>
               <Search />
               <input
                 className="input"
                 type="search"
-                placeholder="Szukaj po nazwie…"
+                placeholder={t('boards.searchPlaceholder')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 data-testid="boards-search"
               />
             </label>
             <label>
-              <span className="sr-only">Sortowanie</span>
+              <span className="sr-only">{t('boards.sort')}</span>
               <select
                 className="select"
                 style={{ width: 200 }}
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortKey)}
               >
-                {Object.entries(SORTS).map(([key, s]) => (
+                {(Object.keys(SORTS) as SortKey[]).map((key) => (
                   <option key={key} value={key}>
-                    {s.label}
+                    {t(SORTS[key].label)}
                   </option>
                 ))}
               </select>
@@ -128,9 +128,9 @@ const BoardsIndex: React.FC<{ boards: Board[] }> = ({ boards }) => {
               <div className="empty-state__icon">
                 <Search />
               </div>
-              <div className="t-body-lg">Brak wyników dla „{query}”</div>
+              <div className="t-body-lg">{t('boards.noResults', { query })}</div>
               <button type="button" className="btn btn--sm" onClick={() => setQuery('')}>
-                Wyczyść wyszukiwanie
+                {t('boards.clearSearch')}
               </button>
             </div>
           ) : (
@@ -155,20 +155,23 @@ const BoardsIndex: React.FC<{ boards: Board[] }> = ({ boards }) => {
 }
 
 function DocBadge({ doc }: { doc: Board['designDoc'] }) {
-  if (!doc) return <span className="badge badge--outline">Bez DESIGN.md</span>
+  const { t } = useT()
+  if (!doc) return <span className="badge badge--outline">{t('boards.doc.none')}</span>
   if (doc.status === 'ready') {
     return (
       <span className="badge badge--accent">
         <FileText />
-        DESIGN.md v{doc.version}
+        {t('boards.doc.ready', { version: doc.version })}
       </span>
     )
   }
-  if (doc.status === 'failed') return <span className="badge badge--danger">Błąd generacji</span>
+  if (doc.status === 'failed') {
+    return <span className="badge badge--danger">{t('boards.doc.failed')}</span>
+  }
   return (
     <span className="badge">
       <span className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} />
-      Generowanie
+      {t('boards.doc.running')}
     </span>
   )
 }
@@ -182,6 +185,7 @@ function BoardCard({
   onRename: () => void
   onDelete: () => void
 }) {
+  const { t, tp } = useT()
   return (
     <article className="board-card" data-testid={`board-card-${board.id}`}>
       <Link route="boards.show" routeParams={{ id: String(board.id) }} className="board-card__link">
@@ -193,7 +197,7 @@ function BoardCard({
           <div className="board-card__meta">
             <span>{relativeTime(board.editedAt)}</span>
             <span aria-hidden>·</span>
-            <span>{plural(board.assetsCount, 'materiał', 'materiały', 'materiałów')}</span>
+            <span>{tp('count.materials', board.assetsCount)}</span>
           </div>
           <div style={{ marginTop: 4 }}>
             <DocBadge doc={board.designDoc} />
@@ -202,17 +206,22 @@ function BoardCard({
       </Link>
       <div className="board-card__menu">
         <Menu
-          label={`Akcje tablicy ${board.title}`}
+          label={t('boards.menu', { title: board.title })}
           testId={`board-menu-${board.id}`}
           actions={[
             {
-              label: 'Otwórz',
+              label: t('common.open'),
               icon: <SquareArrowOutUpRight />,
               onSelect: () => router.visit(`/boards/${board.id}`),
             },
-            { label: 'Zmień nazwę', icon: <Pencil />, onSelect: onRename, testId: 'board-rename' },
             {
-              label: 'Usuń',
+              label: t('common.rename'),
+              icon: <Pencil />,
+              onSelect: onRename,
+              testId: 'board-rename',
+            },
+            {
+              label: t('common.delete'),
               icon: <Trash2 />,
               onSelect: onDelete,
               danger: true,
@@ -226,21 +235,22 @@ function BoardCard({
 }
 
 function Onboarding({ onCreate }: { onCreate: () => void }) {
+  const { t } = useT()
   const steps = [
     {
       icon: <ClipboardPaste />,
-      title: 'Wklej materiały',
-      text: 'Zrzuty ekranu (Ctrl+V), logo, inspiracje, PDF-y i linki do stron referencyjnych.',
+      title: t('boards.onboarding.step1.title'),
+      text: t('boards.onboarding.step1.text'),
     },
     {
       icon: <ImageIcon />,
-      title: 'Ułóż i opisz',
-      text: 'Pogrupuj ramkami, połącz ekrany strzałkami, dodaj notatki „co to jest”.',
+      title: t('boards.onboarding.step2.title'),
+      text: t('boards.onboarding.step2.text'),
     },
     {
       icon: <Sparkles />,
-      title: 'Wygeneruj DESIGN.md',
-      text: 'AI napisze specyfikację: ekrany, komponenty, tokeny — gotową dla AI budującego UI.',
+      title: t('boards.onboarding.step3.title'),
+      text: t('boards.onboarding.step3.text'),
     },
   ]
   return (
@@ -249,8 +259,8 @@ function Onboarding({ onCreate }: { onCreate: () => void }) {
         <LayoutGrid />
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div className="t-title">Utwórz pierwszą tablicę</div>
-        <p className="t-muted">Trzy kroki od materiałów klienta do specyfikacji interfejsu.</p>
+        <div className="t-title">{t('boards.onboarding.title')}</div>
+        <p className="t-muted">{t('boards.onboarding.subtitle')}</p>
       </div>
       <div
         className="steps"
@@ -273,18 +283,19 @@ function Onboarding({ onCreate }: { onCreate: () => void }) {
         data-testid="new-board"
       >
         <Plus />
-        Nowa tablica
+        {t('nav.newBoard')}
       </button>
     </div>
   )
 }
 
 function RenameDialog({ board, onClose }: { board: Board | null; onClose: () => void }) {
+  const { t } = useT()
   return (
     <Dialog
       open={Boolean(board)}
       onClose={onClose}
-      title="Zmień nazwę tablicy"
+      title={t('boards.rename.title')}
       testId="rename-board-dialog"
     >
       {board ? (
@@ -298,7 +309,7 @@ function RenameDialog({ board, onClose }: { board: Board | null; onClose: () => 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div className="field">
                 <label className="field__label" htmlFor="rename-title">
-                  Nazwa
+                  {t('common.name')}
                 </label>
                 <input
                   id="rename-title"
@@ -314,10 +325,10 @@ function RenameDialog({ board, onClose }: { board: Board | null; onClose: () => 
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                 <button type="button" className="btn" onClick={onClose}>
-                  Anuluj
+                  {t('common.cancel')}
                 </button>
                 <button type="submit" className="btn btn--primary" disabled={processing}>
-                  Zapisz
+                  {t('common.save')}
                 </button>
               </div>
             </div>
@@ -329,22 +340,20 @@ function RenameDialog({ board, onClose }: { board: Board | null; onClose: () => 
 }
 
 function DeleteDialog({ board, onClose }: { board: Board | null; onClose: () => void }) {
+  const { t, tp } = useT()
   return (
     <Dialog
       open={Boolean(board)}
       onClose={onClose}
-      title="Usunąć tablicę?"
+      title={t('boards.delete.title')}
       testId="delete-board-dialog"
       description={
-        board ? (
-          <>
-            Tablica{' '}
-            <strong style={{ color: 'var(--color-ink)', fontWeight: 500 }}>„{board.title}”</strong>{' '}
-            zostanie usunięta razem z{' '}
-            {plural(board.assetsCount, 'materiałem', 'materiałami', 'materiałami')} i wszystkimi
-            wersjami DESIGN.md. Tej operacji nie można cofnąć.
-          </>
-        ) : null
+        board
+          ? t('boards.delete.body', {
+              title: board.title,
+              count: tp('count.materials', board.assetsCount),
+            })
+          : null
       }
     >
       {board ? (
@@ -357,7 +366,7 @@ function DeleteDialog({ board, onClose }: { board: Board | null; onClose: () => 
           {({ processing }: { processing: boolean }) => (
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button type="button" className="btn" onClick={onClose} autoFocus>
-                Anuluj
+                {t('common.cancel')}
               </button>
               <button
                 type="submit"
@@ -366,7 +375,7 @@ function DeleteDialog({ board, onClose }: { board: Board | null; onClose: () => 
                 data-testid="confirm-delete-board"
               >
                 <Trash2 />
-                Usuń tablicę
+                {t('boards.delete.submit')}
               </button>
             </div>
           )}

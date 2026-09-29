@@ -97,6 +97,24 @@ node ace test browser              # Playwright e2e (needs `npx playwright insta
 All tests run on the `mock` AI provider (forced in `.env.test`) — zero network
 calls, deterministic output.
 
+## Languages (i18n)
+
+The app is available in **Polish and English**. The language is resolved per
+request: the `locale` cookie (set by the PL/EN switcher on the login screen, in
+the sidebar and in the editor top bar) → the `Accept-Language` header → Polish.
+
+- UI strings: `inertia/i18n/messages.ts` (`pl` + `en`, TypeScript enforces the
+  same keys); components use `useT()`, non-React code uses `translate()`.
+  Switching the language re-renders instantly, no reload.
+- Server strings (validation, API errors, DESIGN.md generation errors):
+  `app/services/i18n_messages.ts`, via `t()` from `app/services/i18n.ts`. The
+  locale lives in an `AsyncLocalStorage` set by `LocaleMiddleware`; queued jobs
+  store the requester's locale and run in it, so background errors use the
+  same language.
+- Plurals use `Intl.PluralRules` (`<key>.one|few|many|other`).
+- The generated DESIGN.md itself stays in English — it is written for the
+  UI-building AI.
+
 ## UI & design system
 
 The interface is Polish-language and follows one design system defined as CSS

@@ -13,6 +13,10 @@
 
 import { DateTime } from 'luxon'
 import vine, { SimpleMessagesProvider, VineDate } from '@vinejs/vine'
+import type { MessagesProviderContact } from '@vinejs/vine/types'
+import { createTranslator, type Locale } from '#shared/i18n'
+import { currentLocale } from '#services/i18n'
+import { en, pl, type ServerMessageKey } from '#services/i18n_messages'
 
 declare module '@vinejs/vine/types' {
   interface VineGlobalTransforms {
@@ -23,30 +27,46 @@ declare module '@vinejs/vine/types' {
 VineDate.transform((value) => DateTime.fromJSDate(value))
 
 /**
- * Komunikaty walidacji po polsku (UI aplikacji jest po polsku). Nazwy pól
- * mapowane na etykiety widoczne w formularzach.
+ * Komunikaty walidacji w języku żądania (PL/EN). Dostawca wybiera słownik na
+ * podstawie `currentLocale()` — ustawianego przez `LocaleMiddleware`.
  */
+function buildProvider(locale: Locale) {
+  const tr = (key: ServerMessageKey) => translator.t(locale, key)
+  // VineJS podstawia {{ field }}, {{ min }}, {{ max }}.
+  const vineTemplate = (key: ServerMessageKey) =>
+    tr(key).replace('{field}', '{{ field }}').replace('{min}', '{{ min }}').replace('{max}', '{{ max }}')
+  return new SimpleMessagesProvider(
+    {
+      'required': tr('validation.required'),
+      'string': tr('validation.string'),
+      'email': tr('validation.email'),
+      'minLength': vineTemplate('validation.minLength'),
+      'maxLength': vineTemplate('validation.maxLength'),
+      'confirmed': tr('validation.confirmed'),
+      'database.unique': tr('validation.unique'),
+      'url': tr('validation.url'),
+      'boolean': tr('validation.invalid'),
+      'number': tr('validation.number'),
+      'enum': tr('validation.invalid'),
+    },
+    {
+      fullName: tr('field.fullName'),
+      email: tr('field.email'),
+      password: tr('field.password'),
+      passwordConfirmation: tr('field.passwordConfirmation'),
+      title: tr('field.title'),
+      note: tr('field.note'),
+    }
+  )
+}
 
-vine.messagesProvider = new SimpleMessagesProvider(
-  {
-    'required': 'To pole jest wymagane',
-    'string': 'Wartość musi być tekstem',
-    'email': 'Podaj poprawny adres e-mail',
-    'minLength': '{{ field }} musi mieć co najmniej {{ min }} znaków',
-    'maxLength': '{{ field }} może mieć najwyżej {{ max }} znaków',
-    'confirmed': 'Hasła nie są takie same',
-    'database.unique': 'Konto z tym adresem e-mail już istnieje',
-    'url': 'Podaj poprawny adres URL',
-    'boolean': 'Nieprawidłowa wartość',
-    'number': 'Wartość musi być liczbą',
-    'enum': 'Nieprawidłowa wartość',
-  },
-  {
-    fullName: 'Imię i nazwisko',
-    email: 'E-mail',
-    password: 'Hasło',
-    passwordConfirmation: 'Powtórzone hasło',
-    title: 'Nazwa',
-    note: 'Notatka',
+const translator = createTranslator({ pl, en })
+const providers: Record<Locale, SimpleMessagesProvider> = { pl: buildProvider('pl'), en: buildProvider('en') }
+
+class LocaleMessagesProvider implements MessagesProviderContact {
+  getMessage(...args: Parameters<MessagesProviderContact['getMessage']>) {
+    return providers[currentLocale()].getMessage(...args)
   }
-)
+}
+
+vine.messagesProvider = new LocaleMessagesProvider()

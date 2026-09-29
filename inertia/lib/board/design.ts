@@ -12,6 +12,7 @@ import {
   type DesignDocDto,
 } from '~/lib/board/api'
 import { useBoardStore } from '~/lib/board/session'
+import { translate } from '~/i18n'
 
 export type SidePanelTab = 'assets' | 'design'
 
@@ -82,8 +83,8 @@ export const useDesignStore = create<DesignState>()((set, get) => {
         set({ active: null, current: doc })
         await refreshVersions(boardId)
         await loadPrevious(boardId, doc)
-        if (doc.status === 'ready') toast.success(`DESIGN.md v${doc.version} gotowy`)
-        else toast.error(doc.error ?? 'Generacja DESIGN.md nie powiodła się')
+        if (doc.status === 'ready') toast.success(translate('doc.ready', { version: doc.version }))
+        else toast.error(doc.error ?? translate('doc.failedToast'))
       } catch {
         // Chwilowy błąd sieci — próbujemy dalej.
         if (mySeq === seq) schedulePoll(boardId, version, mySeq)
@@ -150,7 +151,7 @@ export const useDesignStore = create<DesignState>()((set, get) => {
         set({ current: doc })
         await loadPrevious(boardId, doc)
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Nie udało się wczytać wersji')
+        toast.error(error instanceof Error ? error.message : translate('doc.loadVersionFailed'))
       } finally {
         set({ loading: false })
       }
@@ -170,7 +171,7 @@ export const useDesignStore = create<DesignState>()((set, get) => {
         if (result.kind === 'reused') {
           set({ current: result.doc, reusedNotice: true })
           await loadPrevious(boardId, result.doc)
-          toast.info(`Tablica nie zmieniła się od wersji ${result.doc.version}`)
+          toast.info(translate('doc.unchangedToast', { version: result.doc.version }))
           return
         }
         set({ active: result.doc })
@@ -182,7 +183,7 @@ export const useDesignStore = create<DesignState>()((set, get) => {
           schedulePoll(boardId, error.doc.version, seq)
           return
         }
-        toast.error(error instanceof Error ? error.message : 'Nie udało się uruchomić generacji')
+        toast.error(error instanceof Error ? error.message : translate('doc.startFailed'))
       } finally {
         set({ starting: false })
       }
@@ -192,12 +193,12 @@ export const useDesignStore = create<DesignState>()((set, get) => {
 
 export function progressLabel(doc: DesignDocDto | null): string {
   if (!doc) return ''
-  if (doc.status === 'queued') return doc.error ?? 'W kolejce…'
+  if (doc.status === 'queued') return doc.error ?? translate('doc.progress.queued')
   const p = doc.progress
-  if (!p) return 'Przygotowanie…'
-  if (p.stage === 'analyze') return `Analiza materiałów ${p.done}/${p.total}`
-  if (p.stage === 'compose') return 'Składanie dokumentu…'
-  return 'Formatowanie…'
+  if (!p) return translate('doc.progress.preparing')
+  if (p.stage === 'analyze') return translate('doc.progress.analyze', { done: p.done, total: p.total })
+  if (p.stage === 'compose') return translate('doc.progress.compose')
+  return translate('doc.progress.render')
 }
 
 export function progressRatio(doc: DesignDocDto | null): number {

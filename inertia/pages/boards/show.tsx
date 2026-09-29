@@ -7,6 +7,8 @@ import { SaveStatus } from '~/components/canvas/SaveStatus'
 import { GenerateDesignDocButton, SidePanel } from '~/components/design/SidePanel'
 import { useDesignStore } from '~/lib/board/design'
 import { useUiStore } from '~/lib/ui'
+import { useT } from '~/i18n'
+import { LanguageSwitcher } from '~/components/ui/LanguageSwitcher'
 
 interface Board {
   id: number
@@ -32,6 +34,7 @@ const BoardsShow: React.FC<{ board: Board; user?: SharedUser }> = ({ board, user
   }, [board.id])
 
   const sidePanelOpen = useUiStore((s) => s.sidePanelOpen)
+  const { t } = useT()
   const toggleSidePanel = useUiStore((s) => s.toggleSidePanel)
 
   const [Canvas, setCanvas] = useState<React.ComponentType<{ boardId: number }> | null>(null)
@@ -60,13 +63,13 @@ const BoardsShow: React.FC<{ board: Board; user?: SharedUser }> = ({ board, user
           <Link
             route="boards.index"
             className="btn btn--quiet btn--icon btn--sm"
-            aria-label="Wróć do tablic"
-            data-tip="Tablice"
+            aria-label={t('editor.back')}
+            data-tip={t('nav.boards')}
           >
             <ArrowLeft />
           </Link>
           <Link route="boards.index" className="topbar__crumb">
-            Tablice
+            {t('nav.boards')}
           </Link>
           <span className="topbar__sep" aria-hidden>
             /
@@ -81,12 +84,13 @@ const BoardsShow: React.FC<{ board: Board; user?: SharedUser }> = ({ board, user
             className="btn btn--quiet btn--icon btn--sm"
             onClick={toggleSidePanel}
             aria-pressed={sidePanelOpen}
-            aria-label={sidePanelOpen ? 'Ukryj panel boczny' : 'Pokaż panel boczny'}
-            data-tip={sidePanelOpen ? 'Ukryj panel' : 'Pokaż panel'}
+            aria-label={sidePanelOpen ? t('editor.panel.hideLabel') : t('editor.panel.showLabel')}
+            data-tip={sidePanelOpen ? t('editor.panel.hide') : t('editor.panel.show')}
             data-testid="toggle-side-panel"
           >
             <PanelRight />
           </button>
+          <LanguageSwitcher compact />
           <GenerateDesignDocButton />
           {user ? (
             <span className="avatar" title={user.fullName ?? user.email} aria-hidden>
@@ -103,7 +107,7 @@ const BoardsShow: React.FC<{ board: Board; user?: SharedUser }> = ({ board, user
           ) : (
             <div className="canvas-loading" data-testid="canvas-loading">
               <span className="spinner" />
-              Ładowanie edytora…
+              {t('editor.loading')}
             </div>
           )}
           {Toolbar ? <Toolbar /> : null}
@@ -120,6 +124,7 @@ function BoardTitle({ board }: { board: Board }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(board.title)
   const input = useRef<HTMLInputElement>(null)
+  const { t } = useT()
 
   useEffect(() => {
     if (editing) input.current?.select()
@@ -142,7 +147,7 @@ function BoardTitle({ board }: { board: Board }) {
         className="title-edit"
         value={value}
         maxLength={255}
-        aria-label="Nazwa tablicy"
+        aria-label={t('editor.titleLabel')}
         data-testid="board-title-input"
         onChange={(e) => setValue(e.target.value)}
         onBlur={commit}
@@ -163,7 +168,7 @@ function BoardTitle({ board }: { board: Board }) {
       className="title-edit t-truncate"
       onClick={() => setEditing(true)}
       data-testid="board-title"
-      title="Kliknij, aby zmienić nazwę"
+      title={t('editor.titleEdit')}
     >
       {board.title}
     </button>

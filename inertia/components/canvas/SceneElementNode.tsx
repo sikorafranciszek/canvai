@@ -3,6 +3,7 @@ import { Arrow, Ellipse, Group, Image as KonvaImage, Line, Rect, Text } from 're
 import type Konva from 'konva'
 import type { SceneElement } from '@shared/scene'
 import { resolveAssetUrl } from '~/lib/scene/geometry'
+import { translate } from '~/i18n'
 
 /**
  * Renderuje jeden element sceny. Memoizowany: re-render tylko gdy zmienia się
@@ -101,7 +102,7 @@ function ImageNode({
         cornerRadius={8}
       />
       <Text
-        text="podgląd niedostępny"
+        text={translate('canvas.noPreview')}
         x={8}
         y={el.height / 2 - 8}
         width={el.width - 16}

@@ -16,6 +16,7 @@ import {
   thumbnail,
   type AssetSource,
 } from '#config/assets'
+import { t } from '#services/i18n'
 
 export type AssetKind = 'image' | 'pdf' | 'link' | 'file'
 
@@ -69,7 +70,7 @@ export function classifyMime(mime: string): 'image' | 'pdf' | 'file' {
   if (imageMimes.includes(mime)) return 'image'
   if (pdfMimes.includes(mime)) return 'pdf'
   if (dangerousMimes.includes(mime)) {
-    throw new Exception(`Niedozwolony typ pliku: ${mime}`, {
+    throw new Exception(t('asset.forbiddenMime', { mime }), {
       status: 422,
       code: 'E_ASSET_MIME_FORBIDDEN',
     })
@@ -117,7 +118,7 @@ const SHARP_FORMAT_BY_MIME: Record<string, string> = {
 async function assertContentMatchesMime(buffer: Buffer, mime: string, filename: string) {
   const reject = (detail: string): never => {
     throw new Exception(
-      `Zawartość pliku „${filename}” nie zgadza się z zadeklarowanym typem ${mime} (${detail})`,
+      t('asset.mismatch', { name: filename, mime, detail }),
       { status: 422, code: 'E_ASSET_CONTENT_MISMATCH' }
     )
   }
@@ -125,7 +126,7 @@ async function assertContentMatchesMime(buffer: Buffer, mime: string, filename: 
   if (mime === 'image/svg+xml') {
     // SVG nie ma magic number — sprawdzamy, czy to w ogóle dokument SVG.
     const head = buffer.subarray(0, 4096).toString('utf8')
-    if (!/<svg[\s/>]/i.test(head)) reject('brak elementu <svg>')
+    if (!/<svg[\s/>]/i.test(head)) reject(t('asset.mismatch.noSvg'))
     return
   }
 
@@ -136,9 +137,9 @@ async function assertContentMatchesMime(buffer: Buffer, mime: string, filename: 
   try {
     format = (await sharp(buffer).metadata()).format
   } catch {
-    reject('nie udało się odczytać pliku jako obrazu')
+    reject(t('asset.mismatch.unreadable'))
   }
-  if (format !== expected) reject(`wykryty format: ${format ?? 'nieznany'}`)
+  if (format !== expected) reject(t('asset.mismatch.detected', { format: format ?? t('asset.mismatch.unknown') }))
 }
 
 /**
@@ -226,12 +227,12 @@ export async function storeUploadedFile(
   source: AssetSource
 ): Promise<Asset> {
   if (!file.isValid || !file.tmpPath) {
-    const message = file.errors?.[0]?.message ?? 'Nie udało się odczytać przesłanego pliku'
+    const message = file.errors?.[0]?.message ?? t('asset.readFailed')
     throw new Exception(message, { status: 422, code: 'E_ASSET_INVALID_FILE' })
   }
 
   if (file.size > maxUploadSizeBytes) {
-    throw new Exception(`Plik „${file.clientName}” przekracza limit rozmiaru`, {
+    throw new Exception(t('asset.tooLarge', { name: file.clientName }), {
       status: 422,
       code: 'E_ASSET_TOO_LARGE',
     })

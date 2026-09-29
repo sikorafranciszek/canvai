@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import type { SceneElement } from '@shared/scene'
 import { useSceneStore } from '~/lib/scene/store'
+import { useT } from '~/i18n'
 
 /**
  * Edycja tekstu inline (text / sticky). Overlay HTML textarea — Konva nie ma
@@ -26,6 +27,7 @@ export function TextEditor({
 }) {
   const ref = useRef<HTMLTextAreaElement>(null)
   const camera = useSceneStore((s) => s.camera)
+  const { t } = useT()
   const initialSize = useRef<{ width: number; height: number } | null>(null)
   const scale = camera.scale
 
@@ -90,7 +92,7 @@ export function TextEditor({
     <textarea
       ref={ref}
       data-testid="text-editor"
-      aria-label={element.type === 'sticky' ? 'Treść karteczki' : 'Treść tekstu'}
+      aria-label={element.type === 'sticky' ? t('canvas.stickyContent') : t('canvas.textContent')}
       defaultValue={element.text}
       onBlur={commit}
       onInput={autoGrow}

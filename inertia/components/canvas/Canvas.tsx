@@ -16,6 +16,7 @@ import { SceneElementNode } from './SceneElementNode'
 import { TextEditor } from './TextEditor'
 import { ClipboardPaste, MousePointer2, Upload, UploadCloud } from 'lucide-react'
 import { GRAPHITE, INK, SELECTION, SELECTION_TINT } from '~/lib/scene/palette'
+import { useT } from '~/i18n'
 
 const MIN_SCALE = 0.1
 const MAX_SCALE = 8
@@ -26,6 +27,7 @@ export function Canvas({ boardId }: { boardId: number }) {
   const tool = useSceneStore((s) => s.tool)
   const camera = useSceneStore((s) => s.camera)
   const pendingUploads = useBoardStore((s) => s.pendingUploads)
+  const { t } = useT()
 
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
@@ -664,7 +666,7 @@ export function Canvas({ boardId }: { boardId: number }) {
                   listening={false}
                 />
                 <Text
-                  text={u.status === 'error' ? 'błąd' : `${Math.round(u.progress * 100)}%`}
+                  text={u.status === 'error' ? t('canvas.uploadError') : `${Math.round(u.progress * 100)}%`}
                   x={8}
                   y={u.height / 2 - 2}
                   width={u.width - 16}
@@ -748,7 +750,7 @@ export function Canvas({ boardId }: { boardId: number }) {
         <div data-testid="drop-overlay" className="drop-overlay">
           <div className="drop-overlay__label">
             <UploadCloud size={18} />
-            Upuść pliki, aby dodać je do tablicy
+            {t('canvas.drop')}
           </div>
         </div>
       )}
@@ -759,10 +761,10 @@ export function Canvas({ boardId }: { boardId: number }) {
           <div className="card canvas-empty__card">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div className="t-body-lg" style={{ fontWeight: 500 }}>
-                Zacznij od materiałów klienta
+                {t('canvas.empty.title')}
               </div>
               <div className="t-muted t-small">
-                Wszystko, co trafi na tablicę, AI uwzględni w DESIGN.md.
+                {t('canvas.empty.subtitle')}
               </div>
             </div>
             <div className="hint-list">
@@ -771,7 +773,7 @@ export function Canvas({ boardId }: { boardId: number }) {
                   <ClipboardPaste />
                 </span>
                 <span>
-                  Wklej zrzut ekranu, link albo tekst — <span className="kbd">Ctrl</span>{' '}
+                  {t('canvas.empty.paste')} <span className="kbd">Ctrl</span>{' '}
                   <span className="kbd">V</span>
                 </span>
               </div>
@@ -779,13 +781,13 @@ export function Canvas({ boardId }: { boardId: number }) {
                 <span className="hint__icon">
                   <UploadCloud />
                 </span>
-                <span>Przeciągnij pliki na płótno: PNG, JPG, WEBP, GIF, SVG, PDF</span>
+                <span>{t('canvas.empty.drop')}</span>
               </div>
               <div className="hint">
                 <span className="hint__icon">
                   <MousePointer2 />
                 </span>
-                <span>Połącz ekrany strzałkami i opisz je notatkami — to kontekst dla AI</span>
+                <span>{t('canvas.empty.connect')}</span>
               </div>
             </div>
             <div>
@@ -795,7 +797,7 @@ export function Canvas({ boardId }: { boardId: number }) {
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Upload />
-                Wgraj pliki
+                {t('canvas.upload')}
               </button>
             </div>
           </div>
@@ -809,10 +811,10 @@ export function Canvas({ boardId }: { boardId: number }) {
           className="btn btn--quiet btn--sm"
           data-testid="upload-button"
           onClick={() => fileInputRef.current?.click()}
-          data-tip="Wgraj pliki z dysku"
+          data-tip={t('canvas.uploadHint')}
         >
           <Upload />
-          Wgraj
+          {t('canvas.uploadShort')}
         </button>
       </div>
       <input

@@ -1,5 +1,6 @@
 import { InvalidModelOutputError } from '#services/ai/types'
 import { normalizeHex } from '#services/ai/schemas'
+import { t } from '#services/i18n'
 
 /**
  * `DesignSpec` — ustrukturyzowany wynik etapu 2 (kompozycji).
@@ -183,7 +184,7 @@ function nameValue(item: unknown, nameKey = 'name', valueKey = 'value'): SpecNam
 
 export function validateDesignSpec(input: unknown): DesignSpec {
   const root = isObject(input) && isObject(input.spec) ? input.spec : input
-  if (!isObject(root)) throw new InvalidModelOutputError('Specyfikacja: oczekiwano obiektu JSON')
+  if (!isObject(root)) throw new InvalidModelOutputError(t('spec.notObject'))
   const v = root
 
   const problems: string[] = []
@@ -210,7 +211,7 @@ export function validateDesignSpec(input: unknown): DesignSpec {
     c.token = t
     seenTokens.add(t)
   }
-  if (colors.length === 0) problems.push('colors: wymagany co najmniej jeden kolor z poprawnym hex')
+  if (colors.length === 0) problems.push(t('spec.problem.colors'))
 
   const typo = isObject(v.typography) ? v.typography : {}
   const families = list(typo.families, (f) => {
@@ -232,7 +233,7 @@ export function validateDesignSpec(input: unknown): DesignSpec {
       assumed: f.assumed === true,
     }
   })
-  if (families.length === 0) problems.push('typography.families: wymagana co najmniej jedna rodzina fontów')
+  if (families.length === 0) problems.push(t('spec.problem.families'))
 
   const scale = list(typo.scale, (r) => {
     if (!isObject(r)) return null
@@ -281,7 +282,7 @@ export function validateDesignSpec(input: unknown): DesignSpec {
       assumed: c.assumed === true,
     }
   })
-  if (components.length === 0) problems.push('components: wymagany co najmniej jeden komponent')
+  if (components.length === 0) problems.push(t('spec.problem.components'))
 
   const screens = list(v.screens, (s) => {
     if (!isObject(s)) return null
@@ -342,12 +343,12 @@ export function validateDesignSpec(input: unknown): DesignSpec {
     openQuestions: strList(v.openQuestions, 20),
   }
 
-  if (!spec.name) problems.push('name: brak nazwy produktu/marki')
-  if (!spec.overview) problems.push('overview: brak opisu')
-  if (spec.dos.length === 0 || spec.donts.length === 0) problems.push("dos/donts: wymagane obie listy")
+  if (!spec.name) problems.push(t('spec.problem.name'))
+  if (!spec.overview) problems.push(t('spec.problem.overview'))
+  if (spec.dos.length === 0 || spec.donts.length === 0) problems.push(t('spec.problem.dosDonts'))
 
   if (problems.length) {
-    throw new InvalidModelOutputError(`Specyfikacja niekompletna: ${problems.join('; ')}`)
+    throw new InvalidModelOutputError(t('spec.incomplete', { problems: problems.join('; ') }))
   }
   return spec
 }
@@ -394,28 +395,28 @@ export function groundSpec(spec: DesignSpec, allowedIds: number[]): string[] {
   const check = (where: string, sources: number[]) => {
     const unknown = sources.filter((id) => !allowed.has(id))
     if (unknown.length) {
-      errors.push(`${where} odwołuje się do nieistniejących assetów: ${unknown.map((i) => `A${i}`).join(', ')}`)
+      errors.push(t('spec.unknownRefs', { where, ids: unknown.map((i) => `A${i}`).join(', ') }))
     }
     for (const id of sources) if (allowed.has(id)) referenced.add(id)
   }
 
   for (const c of spec.colors) {
-    check(`Kolor „${c.name}”`, c.sources)
+    check(t('spec.where.color', { name: c.name }), c.sources)
     if (c.sources.length === 0) c.assumed = true
   }
   for (const f of spec.typography.families) {
-    check(`Font „${f.name}”`, f.sources)
+    check(t('spec.where.font', { name: f.name }), f.sources)
     if (f.sources.length === 0) f.assumed = true
   }
   for (const c of spec.components) {
-    check(`Komponent „${c.name}”`, c.sources)
+    check(t('spec.where.component', { name: c.name }), c.sources)
     if (c.sources.length === 0) c.assumed = true
   }
-  for (const s of spec.screens) check(`Ekran „${s.name}”`, s.sources)
-  freeTexts(spec).forEach((t) => check('Tekst', refsInText(t)))
+  for (const s of spec.screens) check(t('spec.where.screen', { name: s.name }), s.sources)
+  freeTexts(spec).forEach((text) => check(t('spec.where.text'), refsInText(text)))
 
   if (allowed.size > 0 && referenced.size === 0) {
-    errors.push('Specyfikacja nie wskazuje żadnego assetu źródłowego (pola sources / [A<id>])')
+    errors.push(t('spec.noSources'))
   }
   return errors
 }

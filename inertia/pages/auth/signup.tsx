@@ -1,5 +1,6 @@
 import { Form, Link } from '@adonisjs/inertia/react'
 import { Head } from '@inertiajs/react'
+import { useT } from '~/i18n'
 
 type FormState = { errors: Record<string, string>; processing: boolean }
 
@@ -42,15 +43,14 @@ function Field({
 }
 
 export default function Signup() {
+  const { t } = useT()
   return (
     <>
-      <Head title="Załóż konto" />
+      <Head title={t('auth.signup.title')} />
       <div className="card auth__card">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h1 className="t-title">Załóż konto</h1>
-          <p className="t-muted">
-            Zbieraj materiały klienta na tablicy i generuj z nich specyfikację DESIGN.md.
-          </p>
+          <h1 className="t-title">{t('auth.signup.title')}</h1>
+          <p className="t-muted">{t('auth.signup.subtitle')}</p>
         </div>
 
         <Form route="new_account.store" className="auth__form">
@@ -58,32 +58,32 @@ export default function Signup() {
             <>
               <Field
                 id="fullName"
-                label="Imię i nazwisko"
+                label={t('auth.field.fullName')}
                 type="text"
                 autoComplete="name"
                 autoFocus
-                placeholder="Anna Kowalska"
+                placeholder={t('auth.field.fullNamePlaceholder')}
                 error={errors.fullName}
               />
               <Field
                 id="email"
-                label="E-mail służbowy"
+                label={t('auth.field.workEmail')}
                 type="email"
                 autoComplete="email"
-                placeholder="ty@firma.pl"
+                placeholder={t('auth.field.emailPlaceholder')}
                 error={errors.email}
               />
               <Field
                 id="password"
-                label="Hasło"
+                label={t('auth.field.password')}
                 type="password"
                 autoComplete="new-password"
-                hint="Od 8 do 32 znaków."
+                hint={t('auth.field.passwordHint')}
                 error={errors.password}
               />
               <Field
                 id="passwordConfirmation"
-                label="Powtórz hasło"
+                label={t('auth.field.passwordConfirmation')}
                 type="password"
                 autoComplete="new-password"
                 error={errors.passwordConfirmation}
@@ -96,16 +96,16 @@ export default function Signup() {
                 data-testid="signup-submit"
               >
                 {processing ? <span className="spinner" /> : null}
-                Utwórz konto
+                {t('auth.signup.submit')}
               </button>
             </>
           )}
         </Form>
       </div>
       <p className="auth__footer">
-        Masz już konto?{' '}
+        {t('auth.signup.hasAccount')}{' '}
         <Link route="session.create" className="link">
-          Zaloguj się
+          {t('auth.signup.loginLink')}
         </Link>
       </p>
     </>

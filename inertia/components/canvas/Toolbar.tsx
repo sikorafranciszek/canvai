@@ -32,6 +32,7 @@ import { TOOLS, toolTestId, type Tool } from '@shared/tools'
 import { useSceneStore } from '~/lib/scene/store'
 import { getElementBounds } from '~/lib/scene/geometry'
 import { FILL_COLORS, STICKY_COLORS, STROKE_COLORS } from '~/lib/scene/palette'
+import { useT, type MessageKey } from '~/i18n'
 
 const TOOL_ICONS: Record<Tool, React.ComponentType> = {
   select: MousePointer2,
@@ -104,30 +105,31 @@ export function Toolbar() {
   const undo = useSceneStore((s) => s.undo)
   const redo = useSceneStore((s) => s.redo)
   const scale = useSceneStore((s) => s.camera.scale)
+  const { t } = useT()
 
   return (
     <>
       <div
         className="float float--toolbar"
         role="toolbar"
-        aria-label="Narzędzia"
+        aria-label={t('tools.label')}
         data-testid="toolbar"
       >
-        {TOOLS.map((t) => {
-          const Icon = TOOL_ICONS[t.id]
+        {TOOLS.map((def) => {
+          const Icon = TOOL_ICONS[def.id]
           return (
             <button
-              key={t.id}
+              key={def.id}
               type="button"
               className="tool-btn"
-              data-testid={toolTestId(t.id)}
-              aria-label={t.label}
-              aria-pressed={tool === t.id}
-              data-tip={t.shortcut ? `${t.label} · ${t.shortcut}` : t.label}
-              onClick={() => setTool(t.id)}
+              data-testid={toolTestId(def.id)}
+              aria-label={t(`tool.${def.id}`)}
+              aria-pressed={tool === def.id}
+              data-tip={def.shortcut ? `${t(`tool.${def.id}`)} · ${def.shortcut}` : t(`tool.${def.id}`)}
+              onClick={() => setTool(def.id)}
             >
               <Icon />
-              {t.shortcut ? <span className="tool-btn__key">{t.shortcut}</span> : null}
+              {def.shortcut ? <span className="tool-btn__key">{def.shortcut}</span> : null}
             </button>
           )
         })}
@@ -138,8 +140,8 @@ export function Toolbar() {
           data-testid="undo"
           onClick={undo}
           disabled={!canUndo}
-          aria-label="Cofnij"
-          data-tip="Cofnij · Ctrl+Z"
+          aria-label={t('tools.undo')}
+          data-tip={`${t('tools.undo')} · Ctrl+Z`}
         >
           <Undo2 />
         </button>
@@ -149,8 +151,8 @@ export function Toolbar() {
           data-testid="redo"
           onClick={redo}
           disabled={!canRedo}
-          aria-label="Ponów"
-          data-tip="Ponów · Ctrl+Shift+Z"
+          aria-label={t('tools.redo')}
+          data-tip={`${t('tools.redo')} · Ctrl+Shift+Z`}
         >
           <Redo2 />
         </button>
@@ -163,8 +165,8 @@ export function Toolbar() {
           type="button"
           className="tool-btn"
           onClick={() => zoomBy(1 / 1.25)}
-          aria-label="Oddal"
-          data-tip="Oddal"
+          aria-label={t('view.zoomOut')}
+          data-tip={t('view.zoomOut')}
           data-tip-side="top"
           data-testid="zoom-out"
         >
@@ -175,8 +177,8 @@ export function Toolbar() {
           className="zoom-value"
           onClick={() => useSceneStore.getState().setCamera({ x: 0, y: 0, scale: 1 })}
           data-testid="reset-view"
-          aria-label="Resetuj widok do 100%"
-          data-tip="Resetuj widok"
+          aria-label={t('view.resetLabel')}
+          data-tip={t('view.reset')}
           data-tip-side="top"
         >
           <span data-testid="zoom-indicator">{Math.round(scale * 100)}%</span>
@@ -185,8 +187,8 @@ export function Toolbar() {
           type="button"
           className="tool-btn"
           onClick={() => zoomBy(1.25)}
-          aria-label="Przybliż"
-          data-tip="Przybliż"
+          aria-label={t('view.zoomIn')}
+          data-tip={t('view.zoomIn')}
           data-tip-side="top"
           data-testid="zoom-in"
         >
@@ -198,8 +200,8 @@ export function Toolbar() {
           className="tool-btn"
           onClick={fitToContent}
           data-testid="fit-to-content"
-          aria-label="Dopasuj do zawartości"
-          data-tip="Dopasuj do zawartości"
+          aria-label={t('view.fit')}
+          data-tip={t('view.fit')}
           data-tip-side="top"
         >
           <Maximize />
@@ -225,10 +227,10 @@ const hasStroke = (el: SceneElement): el is StrokeEl =>
 const hasShapeFill = (el: SceneElement) => el.type === 'rectangle' || el.type === 'ellipse'
 
 const STROKE_WIDTHS = [
-  { value: 1.5, label: 'Cienka' },
-  { value: 2.5, label: 'Średnia' },
-  { value: 4, label: 'Gruba' },
-]
+  { value: 1.5, label: 'props.width.thin' },
+  { value: 2.5, label: 'props.width.medium' },
+  { value: 4, label: 'props.width.thick' },
+] as const
 
 function applyToSelection(patch: (el: SceneElement) => Partial<SceneElement> | null) {
   const store = useSceneStore.getState()
@@ -256,11 +258,12 @@ function Swatches({
   testId,
 }: {
   label: string
-  colors: readonly { value: string; label: string }[]
+  colors: readonly { value: string; label: MessageKey }[]
   current: string | undefined
   onPick: (value: string) => void
   testId: string
 }) {
+  const { t } = useT()
   return (
     <div
       role="group"
@@ -274,9 +277,9 @@ function Swatches({
           key={c.value}
           type="button"
           className="swatch-btn"
-          aria-label={`${label}: ${c.label}`}
+          aria-label={`${label}: ${t(c.label)}`}
           aria-pressed={current === c.value}
-          data-tip={c.label}
+          data-tip={t(c.label)}
           onClick={() => onPick(c.value)}
         >
           <span
@@ -290,6 +293,7 @@ function Swatches({
 }
 
 function SelectionBar() {
+  const { t } = useT()
   const selection = useSceneStore((s) => s.selection)
   const elements = useSceneStore((s) => s.document.elements)
   const tool = useSceneStore((s) => s.tool)
@@ -319,7 +323,7 @@ function SelectionBar() {
     groups.push(
       <Swatches
         key="stroke"
-        label="Linia"
+        label={t('props.stroke')}
         colors={STROKE_COLORS}
         current={strokeEls[0].stroke}
         testId="props-stroke"
@@ -328,7 +332,7 @@ function SelectionBar() {
       <div
         key="width"
         role="group"
-        aria-label="Grubość"
+        aria-label={t('props.width')}
         style={{ display: 'flex', alignItems: 'center' }}
       >
         {STROKE_WIDTHS.map((w) => (
@@ -336,9 +340,9 @@ function SelectionBar() {
             key={w.value}
             type="button"
             className="tool-btn"
-            aria-label={`Grubość: ${w.label}`}
+            aria-label={`${t('props.width')}: ${t(w.label)}`}
             aria-pressed={strokeEls[0].strokeWidth === w.value}
-            data-tip={w.label}
+            data-tip={t(w.label)}
             onClick={() =>
               applyToSelection((el) => (hasStroke(el) ? { strokeWidth: w.value } : null))
             }
@@ -355,7 +359,7 @@ function SelectionBar() {
     groups.push(
       <Swatches
         key="fill"
-        label="Tło"
+        label={t('props.fill')}
         colors={FILL_COLORS}
         current={fillEls[0].fill}
         testId="props-fill"
@@ -367,7 +371,7 @@ function SelectionBar() {
     groups.push(
       <Swatches
         key="sticky"
-        label="Karteczka"
+        label={t('props.sticky')}
         colors={STICKY_COLORS}
         current={stickyEls[0].fill}
         testId="props-sticky"
@@ -381,7 +385,7 @@ function SelectionBar() {
     groups.push(
       <Swatches
         key="text"
-        label="Tekst"
+        label={t('props.text')}
         colors={STROKE_COLORS}
         current={textEls[0].fill}
         testId="props-text"
@@ -394,7 +398,7 @@ function SelectionBar() {
     <div
       className="float float--props"
       role="toolbar"
-      aria-label="Właściwości zaznaczenia"
+      aria-label={t('props.label')}
       data-testid="selection-bar"
     >
       {groups.map((g, i) => (
@@ -404,13 +408,13 @@ function SelectionBar() {
         </span>
       ))}
       {groups.length ? <span className="float__sep" aria-hidden /> : null}
-      <span className="props-label">{selected.length > 1 ? `${selected.length} zazn.` : ''}</span>
+      <span className="props-label">{selected.length > 1 ? t('props.selected', { n: selected.length }) : ''}</span>
       <button
         type="button"
         className="tool-btn"
         onClick={() => store.reorderSelection('forward')}
-        aria-label="Przesuń do przodu"
-        data-tip="Do przodu · ]"
+        aria-label={t('props.forwardLabel')}
+        data-tip={`${t('props.forward')} · ]`}
       >
         <BringToFront />
       </button>
@@ -418,8 +422,8 @@ function SelectionBar() {
         type="button"
         className="tool-btn"
         onClick={() => store.reorderSelection('backward')}
-        aria-label="Przesuń do tyłu"
-        data-tip="Do tyłu · ["
+        aria-label={t('props.backwardLabel')}
+        data-tip={`${t('props.backward')} · [`}
       >
         <SendToBack />
       </button>
@@ -427,8 +431,8 @@ function SelectionBar() {
         type="button"
         className="tool-btn"
         onClick={() => store.duplicateSelection()}
-        aria-label="Duplikuj"
-        data-tip="Duplikuj · Ctrl+D"
+        aria-label={t('props.duplicate')}
+        data-tip={`${t('props.duplicate')} · Ctrl+D`}
         data-testid="props-duplicate"
       >
         <Copy />
@@ -437,8 +441,8 @@ function SelectionBar() {
         type="button"
         className="tool-btn"
         onClick={() => store.deleteSelection()}
-        aria-label="Usuń"
-        data-tip="Usuń · Del"
+        aria-label={t('props.delete')}
+        data-tip={`${t('props.delete')} · Del`}
         data-testid="props-delete"
       >
         <Trash2 />

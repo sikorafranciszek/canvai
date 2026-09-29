@@ -1,18 +1,20 @@
 import { Form } from '@adonisjs/inertia/react'
 import { Dialog } from '~/components/ui/Dialog'
 import { useUiStore } from '~/lib/ui'
+import { useT } from '~/i18n'
 
 /** Dialog „Nowa tablica” — POST boards.store, serwer przekierowuje do edytora. */
 export function CreateBoardDialog() {
   const open = useUiStore((s) => s.createBoardOpen)
   const close = useUiStore((s) => s.closeCreateBoard)
+  const { t } = useT()
 
   return (
     <Dialog
       open={open}
       onClose={close}
-      title="Nowa tablica"
-      description="Tablica zbiera materiały jednego produktu: zrzuty ekranów, logo, inspiracje i notatki."
+      title={t('boards.create.title')}
+      description={t('boards.create.description')}
       testId="create-board-dialog"
     >
       <Form route="boards.store" onSuccess={close}>
@@ -20,13 +22,13 @@ export function CreateBoardDialog() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div className="field">
               <label className="field__label" htmlFor="create-board-title">
-                Nazwa
+                {t('common.name')}
               </label>
               <input
                 id="create-board-title"
                 name="title"
                 className="input"
-                placeholder="np. Sklep internetowy — redesign"
+                placeholder={t('boards.create.placeholder')}
                 autoFocus
                 autoComplete="off"
                 maxLength={255}
@@ -36,7 +38,7 @@ export function CreateBoardDialog() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button type="button" className="btn" onClick={close}>
-                Anuluj
+                {t('common.cancel')}
               </button>
               <button
                 type="submit"
@@ -45,7 +47,7 @@ export function CreateBoardDialog() {
                 data-testid="create-board-submit"
               >
                 {processing ? <span className="spinner" /> : null}
-                Utwórz tablicę
+                {t('boards.create.submit')}
               </button>
             </div>
           </div>

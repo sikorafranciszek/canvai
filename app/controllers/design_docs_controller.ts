@@ -6,6 +6,7 @@ import { providerNotReadyMessage, providerReady } from '#services/ai/provider'
 import { hasContent, preflightError, prepareGeneration } from '#services/design/generator'
 import { JOB_GENERATE_DESIGN_DOC, enqueue } from '#services/queue'
 import { designDocVersionValidator, generateDesignDocValidator } from '#validators/design_doc'
+import { currentLocale, t } from '#services/i18n'
 
 /**
  * DESIGN.md tablicy: zlecanie generacji, status, wersje, pobieranie.
@@ -61,7 +62,7 @@ export default class DesignDocsController {
       .first()
     if (inProgress) {
       return response.status(409).json({
-        message: 'Generacja DESIGN.md dla tej tablicy już trwa',
+        message: t('doc.inProgress'),
         code: 'E_DESIGN_DOC_IN_PROGRESS',
         data: await this.serialize(inProgress, false),
       })
@@ -70,7 +71,7 @@ export default class DesignDocsController {
     const input = await prepareGeneration(board)
     if (!hasContent(input)) {
       return response.status(422).json({
-        message: 'Tablica jest pusta — dodaj zrzuty ekranu, obrazy, linki albo notatki',
+        message: t('doc.emptyBoard'),
         code: 'E_DESIGN_DOC_EMPTY_BOARD',
       })
     }
@@ -96,7 +97,12 @@ export default class DesignDocsController {
       status: 'queued',
       inputFingerprint: input.fingerprint,
     })
-    const job = await enqueue(JOB_GENERATE_DESIGN_DOC, { designDocId: doc.id, boardId: board.id })
+    const job = await enqueue(JOB_GENERATE_DESIGN_DOC, {
+      designDocId: doc.id,
+      boardId: board.id,
+      // Język użytkownika — komunikaty generacji w tle mówią tym samym językiem.
+      locale: currentLocale(),
+    })
     doc.jobId = job.id
     await doc.save()
 

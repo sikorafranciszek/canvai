@@ -652,6 +652,52 @@ svg {
   }
 }
 
+/* Przełącznik języka */
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-hairline);
+  background: var(--color-soft-paper);
+}
+
+.lang-switch__icon {
+  width: 14px;
+  height: 14px;
+  margin: 0 4px 0 6px;
+  color: var(--color-ash);
+}
+
+.lang-switch__btn {
+  height: 24px;
+  min-width: 32px;
+  padding: 0 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-medium);
+  color: var(--color-graphite);
+  transition:
+    background-color 120ms var(--ease),
+    color 120ms var(--ease);
+}
+
+.lang-switch__btn:hover {
+  color: var(--color-ink);
+}
+
+.lang-switch__btn[aria-pressed='true'] {
+  background: var(--color-deep-teal);
+  color: var(--color-on-accent);
+}
+
+.auth__topbar {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+}
+
 /* ------------------------------------------------------------------ Dialogi */
 
 .modal {

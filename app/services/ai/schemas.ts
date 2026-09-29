@@ -6,6 +6,7 @@ import {
   type PaletteColor,
   type TypographySample,
 } from '#services/ai/types'
+import { t } from '#services/i18n'
 
 /**
  * Walidacja odpowiedzi modelu. Odpowiedź, która nie spełnia schematu, kończy
@@ -93,20 +94,20 @@ export function parseJsonObject(text: string): Record<string, unknown> {
   try {
     parsed = JSON.parse(body)
   } catch {
-    throw new InvalidModelOutputError('Model zwrócił odpowiedź, która nie jest poprawnym JSON-em')
+    throw new InvalidModelOutputError(t('ai.invalidJson'))
   }
   if (!isObject(parsed)) {
-    throw new InvalidModelOutputError('Model zwrócił JSON, który nie jest obiektem')
+    throw new InvalidModelOutputError(t('ai.jsonNotObject'))
   }
   return parsed
 }
 
 /** Waliduje wynik etapu 1. */
 export function validateAssetAnalysis(value: unknown): AssetAnalysisData {
-  if (!isObject(value)) throw new InvalidModelOutputError('Analiza assetu: oczekiwano obiektu')
+  if (!isObject(value)) throw new InvalidModelOutputError(t('ai.analysisNotObject'))
 
   const summary = str(value.summary, 1500)
-  if (!summary) throw new InvalidModelOutputError('Analiza assetu: brak pola „summary”')
+  if (!summary) throw new InvalidModelOutputError(t('ai.analysisNoSummary'))
 
   const rawRole = str(value.role, 40).toLowerCase()
   const role: AssetRole = (ASSET_ROLES as readonly string[]).includes(rawRole)
