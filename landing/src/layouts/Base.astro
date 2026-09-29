@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css'
+import '../styles/motion.css'
 import type { Content } from '../i18n/content'
 import { SITE_URL, APP_URL } from '../i18n/content'
 import Header from '../components/Header.astro'
@@ -37,6 +38,8 @@ const jsonLd = {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Animacje wejścia tylko z działającym JS — bez niego treść jest widoczna od razu. -->
+    <script is:inline>document.documentElement.classList.add('js')</script>
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
@@ -60,12 +63,16 @@ const jsonLd = {
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   </head>
   <body>
+    <div class="progress" aria-hidden="true"></div>
     <a class="skip" href="#main">Skip to content</a>
     <Header t={t} />
     <main id="main">
       <slot />
     </main>
     <Footer t={t} />
+    <script>
+      import '../scripts/motion.ts'
+    </script>
   </body>
 </html>
 

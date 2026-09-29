@@ -39,25 +39,45 @@ Terracotta (#c8702a) fill, 8px radius, 10px / 16px padding…
   --color-accent: #c8702a;
   --radius-buttons: 8px;
 }`
+const docLines = docExcerpt.split('\n')
 ---
 
 <!-- HERO -->
 <section class="hero">
   <div class="container hero__inner">
     <div class="hero__copy">
-      <span class="eyebrow">{t.hero.eyebrow}</span>
-      <h1 class="h1">{t.hero.title}</h1>
-      <p class="lead">{t.hero.subtitle}</p>
-      <div class="hero__ctas">
+      <span class="eyebrow eyebrow--live" data-enter style="--d:0">{t.hero.eyebrow}</span>
+      <h1 class="h1" data-enter style="--d:1">{t.hero.title}</h1>
+      <p class="lead" data-enter style="--d:2">{t.hero.subtitle}</p>
+      <div class="hero__ctas" data-enter style="--d:3">
         <a class="btn btn--primary btn--lg" href={signup}>
           {t.hero.primary}
           <Icon name="arrowRight" />
         </a>
         <a class="btn btn--lg" href={login}>{t.hero.secondary}</a>
       </div>
-      <p class="hero__note">{t.hero.note}</p>
+      <p class="hero__note" data-enter style="--d:4">{t.hero.note}</p>
     </div>
-    <div class="hero__visual">
+    <div class="hero__visual" data-enter style="--d:4">
+      <div class="stage" data-tilt>
+        <!-- Materiały „przyklejone” do kanwy — neutralne językowo, czysto dekoracyjne. -->
+        <div class="chip chip--swatch" aria-hidden="true" style="--x:-4%;--y:14%;--r:-5deg;--f:0">
+          <span class="chip__dot" style="background:#016a71"></span>
+          <span class="chip__mono">#016A71</span>
+        </div>
+        <div class="chip chip--type" aria-hidden="true" style="--x:99%;--y:34%;--r:4deg;--f:1">
+          <span class="chip__aa">Aa</span>
+          <span class="chip__meta">Inter<br /><span>400 · 500</span></span>
+        </div>
+        <div class="chip chip--note" aria-hidden="true" style="--x:-3%;--y:70%;--r:3deg;--f:2">
+          <span class="chip__line" style="width:82%"></span>
+          <span class="chip__line" style="width:64%"></span>
+          <span class="chip__line" style="width:74%"></span>
+        </div>
+        <div class="chip chip--ref" aria-hidden="true" style="--x:98%;--y:80%;--r:-3deg;--f:3">
+          <span class="chip__tag">[A12]</span>
+          <span class="chip__mono">--radius: 8px</span>
+        </div>
       <div class="window">
         <div class="window__bar" aria-hidden="true">
           <span></span><span></span><span></span>
@@ -75,6 +95,7 @@ Terracotta (#c8702a) fill, 8px radius, 10px / 16px padding…
           />
         </picture>
       </div>
+      </div>
     </div>
   </div>
 </section>
@@ -82,14 +103,14 @@ Terracotta (#c8702a) fill, 8px radius, 10px / 16px padding…
 <!-- PROBLEM -->
 <section class="section section--tint" id="problem">
   <div class="container">
-    <div class="section__head">
+    <div class="section__head" data-reveal>
       <span class="eyebrow">{t.problem.eyebrow}</span>
       <h2 class="h2">{t.problem.title}</h2>
     </div>
     <div class="grid-3">
       {
         t.problem.items.map((item, i) => (
-          <div class="card card--outlined feature">
+          <div class="card card--outlined feature lift" data-reveal style={`--i:${i}`}>
             <div class="icon-tile">
               <Icon name={problemIcons[i]} />
             </div>
@@ -99,7 +120,7 @@ Terracotta (#c8702a) fill, 8px radius, 10px / 16px padding…
         ))
       }
     </div>
-    <p class="solution">
+    <p class="solution" data-reveal>
       <Icon name="check" size={18} />
       {t.problem.solution}
     </p>
@@ -109,14 +130,14 @@ Terracotta (#c8702a) fill, 8px radius, 10px / 16px padding…
 <!-- HOW -->
 <section class="section" id="how">
   <div class="container">
-    <div class="section__head section__head--center">
+    <div class="section__head section__head--center" data-reveal>
       <span class="eyebrow">{t.how.eyebrow}</span>
       <h2 class="h2">{t.how.title}</h2>
     </div>
     <ol class="steps">
       {
         t.how.steps.map((step, i) => (
-          <li class="step">
+          <li class="step lift" data-reveal style={`--i:${i}`}>
             <div class="step__top">
               <span class="step__num">{i + 1}</span>
               <div class="icon-tile">
@@ -135,14 +156,14 @@ Terracotta (#c8702a) fill, 8px radius, 10px / 16px padding…
 <!-- FEATURES -->
 <section class="section section--tint" id="features">
   <div class="container">
-    <div class="section__head">
+    <div class="section__head" data-reveal>
       <span class="eyebrow">{t.features.eyebrow}</span>
       <h2 class="h2">{t.features.title}</h2>
     </div>
     <div class="grid-4">
       {
-        t.features.items.map((f) => (
-          <div class="card feature">
+        t.features.items.map((f, i) => (
+          <div class="card feature lift" data-reveal style={`--i:${i % 4}`}>
             <div class="icon-tile">
               <Icon name={f.icon as IconName} />
             </div>
@@ -158,14 +179,14 @@ Terracotta (#c8702a) fill, 8px radius, 10px / 16px padding…
 <!-- DESIGN.md -->
 <section class="section" id="design-md">
   <div class="container doc">
-    <div class="doc__copy">
+    <div class="doc__copy" data-reveal>
       <span class="eyebrow">{t.doc.eyebrow}</span>
       <h2 class="h2">{t.doc.title}</h2>
       <p class="lead">{t.doc.text}</p>
       <ul class="checklist">
         {
-          t.doc.points.map((p) => (
-            <li>
+          t.doc.points.map((p, i) => (
+            <li style={`--i:${i}`}>
               <span class="checklist__icon">
                 <Icon name="check" size={14} strokeWidth={2.25} />
               </span>
@@ -176,12 +197,12 @@ Terracotta (#c8702a) fill, 8px radius, 10px / 16px padding…
       </ul>
     </div>
     <div class="doc__code">
-      <div class="code">
+      <div class="code" data-reveal="scale">
         <div class="code__bar">
           <Icon name="fileText" size={15} />
           DESIGN.md
         </div>
-        <pre><code>{docExcerpt}</code></pre>
+        <pre><code>{docLines.map((line, i) => <span class="ln" style={`--l:${i}`}>{line + '\n'}</span>)}<span class="caret" aria-hidden="true" /></code></pre>
       </div>
     </div>
   </div>
@@ -190,14 +211,14 @@ Terracotta (#c8702a) fill, 8px radius, 10px / 16px padding…
 <!-- AUDIENCE -->
 <section class="section section--tint" id="audience">
   <div class="container">
-    <div class="section__head">
+    <div class="section__head" data-reveal>
       <span class="eyebrow">{t.audience.eyebrow}</span>
       <h2 class="h2">{t.audience.title}</h2>
     </div>
     <div class="grid-3">
       {
         t.audience.items.map((a, i) => (
-          <div class="card feature">
+          <div class="card feature lift" data-reveal style={`--i:${i}`}>
             <div class="icon-tile">
               <Icon name={audienceIcons[i]} />
             </div>
@@ -213,15 +234,17 @@ Terracotta (#c8702a) fill, 8px radius, 10px / 16px padding…
 <!-- PRICING -->
 <section class="section" id="pricing">
   <div class="container">
-    <div class="section__head section__head--center">
+    <div class="section__head section__head--center" data-reveal>
       <span class="eyebrow">{t.pricing.eyebrow}</span>
       <h2 class="h2">{t.pricing.title}</h2>
       <p class="lead">{t.pricing.subtitle}</p>
     </div>
     <div class="plans">
       {
-        t.pricing.plans.map((plan) => (
+        t.pricing.plans.map((plan, i) => (
           <article
+            data-reveal
+            style={`--i:${i}`}
             class:list={['plan', { 'plan--highlighted': plan.highlighted, 'plan--soon': plan.status === 'soon' }]}
             data-plan={plan.id}
           >
@@ -273,11 +296,11 @@ Terracotta (#c8702a) fill, 8px radius, 10px / 16px padding…
 <!-- FAQ -->
 <section class="section section--tint" id="faq">
   <div class="container faq">
-    <div class="section__head">
+    <div class="section__head" data-reveal>
       <span class="eyebrow">{t.faq.eyebrow}</span>
       <h2 class="h2">{t.faq.title}</h2>
     </div>
-    <div class="faq__list">
+    <div class="faq__list" data-reveal>
       {
         t.faq.items.map((item, i) => (
           <details class="faq__item" open={i === 0}>
@@ -296,7 +319,7 @@ Terracotta (#c8702a) fill, 8px radius, 10px / 16px padding…
 <!-- CTA -->
 <section class="section cta-section">
   <div class="container">
-    <div class="cta">
+    <div class="cta" data-reveal="scale">
       <h2 class="h2">{t.cta.title}</h2>
       <p class="lead">{t.cta.text}</p>
       <div class="hero__ctas" style="justify-content:center">
@@ -580,7 +603,23 @@ Terracotta (#c8702a) fill, 8px radius, 10px / 16px padding…
   .plan__placeholder span {
     height: 10px;
     border-radius: 999px;
-    background: var(--hover);
+    background: linear-gradient(90deg, var(--hover) 0%, rgba(39, 37, 30, 0.1) 50%, var(--hover) 100%)
+      0 0 / 200% 100%;
+    animation: shimmer 2.4s ease-in-out infinite;
+  }
+  .plan__placeholder span:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+  .plan__placeholder span:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+  @keyframes shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: -100% 0;
+    }
   }
   .plan__placeholder span:nth-child(1) {
     width: 80%;
@@ -711,5 +750,268 @@ Terracotta (#c8702a) fill, 8px radius, 10px / 16px padding…
   }
   .btn--ghost-light:hover {
     background: rgba(250, 248, 245, 0.08);
+  }
+  /* ================================================================ RUCH */
+
+  /* Pulsująca kropka przy eyebrow w hero */
+  .eyebrow--live::before {
+    animation: pulse 2.4s var(--ease) infinite;
+  }
+  @keyframes pulse {
+    0% {
+      box-shadow: 0 0 0 0 var(--teal-ring);
+    }
+    70%,
+    100% {
+      box-shadow: 0 0 0 7px rgba(1, 106, 113, 0);
+    }
+  }
+
+  /* Okno aplikacji: pochylone na starcie, prostuje się przy przewijaniu */
+  .hero__visual {
+    perspective: 1600px;
+  }
+  .stage {
+    --tilt: 1;
+    position: relative;
+    transform-origin: 50% 0%;
+    transform: rotateX(calc(var(--tilt) * 14deg)) scale(calc(1 - var(--tilt) * 0.04));
+    will-change: transform;
+  }
+
+  /* Pływające materiały wokół okna */
+  .chip {
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--r-lg);
+    background: var(--soft-paper);
+    border: 1px solid var(--hairline);
+    box-shadow: var(--shadow-float);
+    font-size: 12px;
+    color: var(--graphite);
+    white-space: nowrap;
+    translate: -50% 0;
+    rotate: var(--r);
+    animation: float 7s ease-in-out infinite;
+    animation-delay: calc(var(--f) * -1.7s);
+    transform: translateZ(40px);
+  }
+  @keyframes float {
+    0%,
+    100% {
+      translate: -50% 0;
+    }
+    50% {
+      translate: -50% -10px;
+    }
+  }
+  .chip__dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+  }
+  .chip__mono {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink);
+  }
+  .chip__aa {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .chip__meta {
+    line-height: 1.3;
+    color: var(--ink);
+  }
+  .chip__meta span {
+    color: var(--ash);
+  }
+  .chip--note {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 7px;
+    width: 128px;
+    padding: 14px;
+    background: #fdf3c9;
+    border-color: #f0e2a6;
+  }
+  .chip__line {
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(39, 37, 30, 0.14);
+  }
+  .chip__tag {
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: var(--teal-tint);
+    color: var(--teal);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+  }
+  @media (max-width: 860px) {
+    .chip {
+      display: none;
+    }
+  }
+
+  /* Karty: delikatne uniesienie na hover */
+  .lift {
+    transition:
+      opacity var(--reveal-dur) var(--ease-out),
+      transform var(--reveal-dur) var(--ease-out),
+      box-shadow 240ms var(--ease),
+      border-color 240ms var(--ease);
+    transition-delay: calc(var(--i, 0) * 80ms);
+  }
+  .lift:global(.is-done) {
+    transition-delay: 0ms;
+  }
+  .lift:global(.is-in):hover,
+  :global(html:not(.js)) .lift:hover {
+    transform: translateY(-4px);
+    transition-delay: 0ms;
+    box-shadow: var(--shadow-float);
+  }
+  .lift :global(.icon-tile) {
+    transition:
+      background-color 240ms var(--ease),
+      color 240ms var(--ease),
+      transform 240ms var(--ease-out);
+  }
+  .lift:hover :global(.icon-tile) {
+    background: var(--teal-tint);
+    color: var(--teal);
+    transform: rotate(-6deg) scale(1.06);
+  }
+
+  /* Kroki: pasek postępu rysuje się kolejno */
+  .step {
+    overflow: hidden;
+  }
+  .step::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    height: 3px;
+    background: var(--teal);
+    transform: scaleX(0);
+    transform-origin: 0 50%;
+    transition: transform 900ms var(--ease-out);
+    transition-delay: calc(var(--i, 0) * 260ms + 300ms);
+  }
+  :global(html:not(.js)) .step::after,
+  .step:global(.is-in)::after {
+    transform: scaleX(1);
+  }
+  .step__num {
+    transition: color 600ms var(--ease);
+    transition-delay: calc(var(--i, 0) * 260ms + 500ms);
+  }
+  .step:global(.is-in) .step__num {
+    color: var(--ink);
+  }
+
+  /* Checklista DESIGN.md: punkty kolejno */
+  :global(.js) .doc__copy .checklist li {
+    opacity: 0;
+    transform: translateX(-8px);
+    transition:
+      opacity 500ms var(--ease-out),
+      transform 500ms var(--ease-out);
+    transition-delay: calc(var(--i, 0) * 90ms + 250ms);
+  }
+  .doc__copy:global(.is-in) .checklist li {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Kod DESIGN.md „pisze się” linia po linii */
+  :global(.js) .code .ln {
+    opacity: 0;
+    transition: opacity 260ms linear;
+    transition-delay: calc(var(--l) * 55ms + 350ms);
+  }
+  .code:global(.is-in) .ln {
+    opacity: 1;
+  }
+  .caret {
+    display: inline-block;
+    width: 7px;
+    height: 14px;
+    margin-left: 2px;
+    vertical-align: -2px;
+    background: #7fd1d6;
+    animation: blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+
+  /* CTA: tło z kropek powoli dryfuje */
+  .cta {
+    animation: drift 24s linear infinite;
+  }
+  @keyframes drift {
+    to {
+      background-position: 22px 44px;
+    }
+  }
+
+  /* Strzałka w przycisku przesuwa się na hover */
+  .btn :global(svg) {
+    transition: transform 200ms var(--ease-out);
+  }
+  .btn:hover :global(svg) {
+    transform: translateX(3px);
+  }
+
+  /* FAQ: płynne rozwijanie tam, gdzie przeglądarka to wspiera */
+  @supports (interpolate-size: allow-keywords) {
+    .faq__item {
+      interpolate-size: allow-keywords;
+    }
+    .faq__item::details-content {
+      block-size: 0;
+      overflow: hidden;
+      transition:
+        block-size 320ms var(--ease-out),
+        content-visibility 320ms allow-discrete;
+    }
+    .faq__item[open]::details-content {
+      block-size: auto;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stage {
+      transform: none;
+    }
+    .chip,
+    .cta,
+    .plan__placeholder span,
+    .caret,
+    .eyebrow--live::before {
+      animation: none;
+    }
+    :global(.js) .code .ln,
+    :global(.js) .doc__copy .checklist li {
+      opacity: 1;
+      transform: none;
+    }
+    .step::after {
+      transform: scaleX(1);
+    }
   }
 </style>
