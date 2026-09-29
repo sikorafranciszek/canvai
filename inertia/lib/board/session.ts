@@ -52,7 +52,11 @@ interface BoardState {
   dispose: () => void
   refreshAssets: () => Promise<void>
   saveNow: (opts?: { keepalive?: boolean }) => Promise<void>
-  uploadFiles: (files: File[], source: UploadSource, point: { x: number; y: number }) => Promise<void>
+  uploadFiles: (
+    files: File[],
+    source: UploadSource,
+    point: { x: number; y: number }
+  ) => Promise<void>
   addLink: (url: string, point: { x: number; y: number }) => Promise<void>
   addTextNote: (text: string, point: { x: number; y: number }) => void
   updateNote: (assetId: string, note: string) => Promise<void>
@@ -106,7 +110,8 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       engine = new AutosaveEngine<SceneDocument, Record<string, unknown>>(
         {
           debounceMs: 1000,
-          save: ({ version, document, appState }) => putScene(boardId, { version, document, appState }),
+          save: ({ version, document, appState }) =>
+            putScene(boardId, { version, document, appState }),
           reload: async () => {
             const fresh = await getScene(boardId)
             return { version: fresh.version, document: fresh.document, appState: fresh.appState }
@@ -218,8 +223,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       })
 
       // Podmiana placeholderów na właściwe elementy sceny (w kolejności plików).
-      for (let i = 0; i < assets.length; i++) {
-        const asset = assets[i]
+      for (const [i, asset] of assets.entries()) {
         const resolution = resolveUploadResult(get().pendingUploads, placeholders[i].id, {
           ok: true,
           asset: { id: String(asset.id), width: asset.width, height: asset.height },
@@ -294,8 +298,10 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
     const bounds = getElementBounds(el)
     const cx = bounds.x + bounds.width / 2
     const cy = bounds.y + bounds.height / 2
-    const vw = Math.max(1, window.innerWidth - PANEL_WIDTH)
-    const vh = Math.max(1, window.innerHeight - CHROME_HEIGHT)
+    // Rzeczywisty rozmiar płótna (panel boczny ma różną szerokość wg zakładki).
+    const root = document.querySelector('[data-testid="canvas-root"]')?.getBoundingClientRect()
+    const vw = Math.max(1, root?.width ?? window.innerWidth - PANEL_WIDTH)
+    const vh = Math.max(1, root?.height ?? window.innerHeight - CHROME_HEIGHT)
     store.setCamera({ x: vw / 2 - cx, y: vh / 2 - cy, scale: 1 })
   },
 }))
@@ -309,13 +315,22 @@ function elementAssetId(el: SceneElement): string | null {
 
 function cameraFromAppState(appState: Record<string, unknown> | null | undefined): Camera {
   const cam = (appState ?? {}).camera as { x?: unknown; y?: unknown; scale?: unknown } | undefined
-  if (cam && typeof cam.x === 'number' && typeof cam.y === 'number' && typeof cam.scale === 'number') {
+  if (
+    cam &&
+    typeof cam.x === 'number' &&
+    typeof cam.y === 'number' &&
+    typeof cam.scale === 'number'
+  ) {
     return { x: cam.x, y: cam.y, scale: cam.scale }
   }
   return DEFAULT_CAMERA
 }
 
-function createLinkSticky(text: string, point: { x: number; y: number }, assetId: string): SceneStickyElement {
+function createLinkSticky(
+  text: string,
+  point: { x: number; y: number },
+  assetId: string
+): SceneStickyElement {
   return {
     id: createElementId(),
     type: 'sticky',

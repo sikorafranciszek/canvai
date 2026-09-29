@@ -68,7 +68,9 @@ export async function putScene(
   })
 
   if (res.status === 409) {
-    const body = await parseJson<{ currentVersion?: number }>(res).catch(() => ({} as { currentVersion?: number }))
+    const body = await parseJson<{ currentVersion?: number }>(res).catch(
+      () => ({}) as { currentVersion?: number }
+    )
     throw new AutosaveConflictError(body.currentVersion ?? payload.version)
   }
   if (!res.ok) throw new Error(`Nie udało się zapisać sceny (${res.status})`)
@@ -196,4 +198,106 @@ async function extractErrorMessage(res: Response, fallback: string): Promise<str
     // ignore
   }
   return fallback
+}
+
+// ---------------------------------------------------------------------------
+// DESIGN.md (M3)
+// ---------------------------------------------------------------------------
+
+export type DesignDocStatus = 'queued' | 'running' | 'ready' | 'failed'
+
+export interface DesignDocProgress {
+  stage: 'analyze' | 'compose' | 'render'
+  done: number
+  total: number
+}
+
+export interface DesignDocDto {
+  id: number
+  boardId: number
+  version: number
+  status: DesignDocStatus
+  error: string | null
+  model: string | null
+  promptVersion: string | null
+  usage: {
+    assets: number
+    analyzed: number
+    cached: number
+    tokensIn: number
+    tokensOut: number
+    durationMs: number
+  } | null
+  sources: { assetId: number; filename: string; kind: string; sections: number[] }[] | null
+  createdAt: string | null
+  generatedAt: string | null
+  jobId: number | null
+  progress: DesignDocProgress | null
+  contentMd?: string | null
+}
+
+export class DesignDocRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly code: string | null,
+    public readonly doc: DesignDocDto | null = null
+  ) {
+    super(message)
+  }
+}
+
+export type GenerateDesignDocResult =
+  { kind: 'queued'; doc: DesignDocDto } | { kind: 'reused'; doc: DesignDocDto }
+
+export async function generateDesignDoc(
+  boardId: number,
+  opts: { force?: boolean } = {}
+): Promise<GenerateDesignDocResult> {
+  const res = await fetch(`/api/boards/${boardId}/design-doc`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+    body: JSON.stringify({ force: opts.force ?? false }),
+    credentials: 'same-origin',
+  })
+  const body = await parseJson<{
+    data?: { doc: DesignDocDto; reused: boolean } | DesignDocDto
+    message?: string
+    code?: string
+  }>(res).catch(() => ({}) as { data?: undefined; message?: string; code?: string })
+
+  if (res.status === 202 || res.status === 200) {
+    const data = body.data as { doc: DesignDocDto; reused: boolean }
+    return { kind: data.reused ? 'reused' : 'queued', doc: data.doc }
+  }
+  const inProgress = res.status === 409 ? ((body.data as DesignDocDto | undefined) ?? null) : null
+  throw new DesignDocRequestError(
+    body.message ?? `Nie udało się uruchomić generacji (${res.status})`,
+    res.status,
+    body.code ?? null,
+    inProgress
+  )
+}
+
+export async function getDesignDoc(
+  boardId: number,
+  version?: number
+): Promise<DesignDocDto | null> {
+  const qs = version ? `?version=${version}` : ''
+  const res = await fetch(`/api/boards/${boardId}/design-doc${qs}`, { credentials: 'same-origin' })
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`Nie udało się pobrać DESIGN.md (${res.status})`)
+  const body = await parseJson<{ data: DesignDocDto | null }>(res)
+  return body.data
+}
+
+export async function listDesignDocs(boardId: number): Promise<DesignDocDto[]> {
+  const res = await fetch(`/api/boards/${boardId}/design-docs`, { credentials: 'same-origin' })
+  if (!res.ok) throw new Error(`Nie udało się pobrać historii wersji (${res.status})`)
+  const body = await parseJson<{ data: DesignDocDto[] }>(res)
+  return body.data
+}
+
+export function designDocDownloadUrl(boardId: number, version?: number): string {
+  return `/api/boards/${boardId}/design-doc/download${version ? `?version=${version}` : ''}`
 }

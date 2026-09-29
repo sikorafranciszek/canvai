@@ -1,8 +1,9 @@
 import { Link } from '@adonisjs/inertia/react'
 import { useEffect, useState } from 'react'
 import type React from 'react'
-import { AssetPanel } from '~/components/canvas/AssetPanel'
 import { SaveStatus } from '~/components/canvas/SaveStatus'
+import { GenerateDesignDocButton, SidePanel } from '~/components/design/SidePanel'
+import { useDesignStore } from '~/lib/board/design'
 
 interface Board {
   id: number
@@ -17,6 +18,13 @@ const BoardsShow: React.FC<{ board: Board }> = ({ board }) => {
   // w SSR pokazujemy stan ładowania.
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
+
+  // Stan DESIGN.md (wersje, generacja w toku) — niezależny od silnika płótna.
+  useEffect(() => {
+    const design = useDesignStore.getState()
+    void design.init(board.id)
+    return () => design.dispose()
+  }, [board.id])
 
   const [Canvas, setCanvas] = useState<React.ComponentType<{ boardId: number }> | null>(null)
   const [Toolbar, setToolbar] = useState<React.ComponentType | null>(null)
@@ -37,7 +45,8 @@ const BoardsShow: React.FC<{ board: Board }> = ({ board }) => {
   }, [mounted])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+    // Wysokość = widok minus nagłówek layoutu (64px + obramowanie `main`).
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 67px)', overflow: 'hidden' }}>
       <div
         style={{
           display: 'flex',
@@ -55,9 +64,12 @@ const BoardsShow: React.FC<{ board: Board }> = ({ board }) => {
           </h1>
           <SaveStatus />
         </div>
-        <Link route="boards.index" className="button" style={{ fontSize: 13 }}>
-          Back to Boards
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <GenerateDesignDocButton />
+          <Link route="boards.index" className="button" style={{ fontSize: 13 }}>
+            Back to Boards
+          </Link>
+        </div>
       </div>
 
       {Toolbar ? <Toolbar /> : null}
@@ -82,7 +94,7 @@ const BoardsShow: React.FC<{ board: Board }> = ({ board }) => {
           )}
         </div>
 
-        <AssetPanel />
+        <SidePanel />
       </div>
     </div>
   )

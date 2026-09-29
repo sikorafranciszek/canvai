@@ -14,12 +14,11 @@ export function AssetPanel() {
   const initialized = useBoardStore((s) => s.initialized)
 
   return (
-    <aside
+    <div
       data-testid="asset-panel"
       style={{
-        width: 304,
-        minWidth: 304,
-        borderLeft: '1px solid #e2e8f0',
+        flex: 1,
+        minHeight: 0,
         background: '#fff',
         display: 'flex',
         flexDirection: 'column',
@@ -40,18 +39,24 @@ export function AssetPanel() {
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {!initialized || loading ? (
-          <div style={{ padding: 16, color: '#64748b', fontSize: 13 }} data-testid="asset-panel-loading">
+          <div
+            style={{ padding: 16, color: '#64748b', fontSize: 13 }}
+            data-testid="asset-panel-loading"
+          >
             Ładowanie assetów…
           </div>
         ) : assets.length === 0 ? (
-          <div style={{ padding: 16, color: '#64748b', fontSize: 13 }} data-testid="asset-panel-empty">
+          <div
+            style={{ padding: 16, color: '#64748b', fontSize: 13 }}
+            data-testid="asset-panel-empty"
+          >
             Brak assetów. Wklej zrzut ekranu (Ctrl+V) albo upuść pliki na płótno.
           </div>
         ) : (
           assets.map((asset) => <AssetRow key={asset.id} asset={asset} />)
         )}
       </div>
-    </aside>
+    </div>
   )
 }
 
@@ -81,7 +86,10 @@ const AssetRow = memo(function AssetRow({ asset }: { asset: AssetDto }) {
   }
 
   const title = asset.linkMeta?.title || asset.filename
-  const subtitle = asset.kind === 'link' ? asset.filename : `${assetKindLabel(asset.kind)} · ${formatBytes(asset.size)}`
+  const subtitle =
+    asset.kind === 'link'
+      ? asset.filename
+      : `${assetKindLabel(asset.kind)} · ${formatBytes(asset.size)}`
 
   return (
     <div
@@ -162,7 +170,14 @@ const AssetRow = memo(function AssetRow({ asset }: { asset: AssetDto }) {
             boxSizing: 'border-box',
           }}
         />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: 4,
+          }}
+        >
           <span style={{ fontSize: 10, color: '#cbd5e1' }}>{savingNote ? 'zapisywanie…' : ''}</span>
           <button
             type="button"

@@ -5,7 +5,6 @@ import User from '#models/user'
 import Board from '#models/board'
 import AssetAnalysis from '#models/asset_analysis'
 import DesignDoc from '#models/design_doc'
-import Job from '#models/job'
 import { setProviderOverride } from '#services/ai/provider'
 import { MockProvider } from '#services/ai/mock_provider'
 import { AiProviderError } from '#services/ai/types'
@@ -309,7 +308,7 @@ test.group('Design doc API', (group) => {
       .json({})
     res.assertStatus(422)
     assert.equal(res.body().code, 'E_DESIGN_DOC_EMPTY_BOARD')
-    assert.lengthOf(await Job.all(), 0)
+    assert.lengthOf(await DesignDoc.query().where('board_id', board.id), 0)
   })
 
   test('pobranie DESIGN.md ma nagłówki pliku markdown', async ({ client, assert }) => {
