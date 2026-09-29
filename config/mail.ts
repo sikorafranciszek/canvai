@@ -12,12 +12,12 @@ const mailConfig = defineConfig({
   default: env.get('MAIL_MAILER', 'outbox'),
 
   from: {
-    address: env.get('MAIL_FROM_ADDRESS', 'no-reply@design-canvas.local'),
-    name: env.get('MAIL_FROM_NAME', 'Design Canvas'),
+    address: env.get('MAIL_FROM_ADDRESS', 'no-reply@canvai.dev'),
+    name: env.get('MAIL_FROM_NAME', 'canvai'),
   },
 
   globals: {
-    brandName: 'Design Canvas',
+    brandName: 'canvai',
   },
 
   mailers: {

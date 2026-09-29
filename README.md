@@ -1,4 +1,8 @@
-# Design Canvas
+# canvai
+
+Production: application at **https://app.canvai.dev**, product website at
+**https://canvai.dev** (static Astro site in [`landing/`](landing/README.md),
+deployed to Cloudflare Workers).
 
 An infinite canvas application (like Figma/Excalidraw) where users paste screenshots, images, graphics, and notes, and AI scans the board content to generate **DESIGN.md** documentation.
 

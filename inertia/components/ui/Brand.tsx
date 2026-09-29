@@ -1,6 +1,6 @@
 import { PenTool } from 'lucide-react'
 
-export const APP_NAME = 'Design Canvas'
+export const APP_NAME = 'canvai'
 
 /** Znak marki + nazwa. */
 export function Brand({ compact = false }: { compact?: boolean }) {

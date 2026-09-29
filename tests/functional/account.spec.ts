@@ -254,7 +254,7 @@ test.group('Account', (group) => {
         .redirects(0)
       assert.equal(
         String(messages.sent()[0].nodeMailerMessage.subject),
-        'Reset your password — Design Canvas'
+        'Reset your password — canvai'
       )
       assert.include(String(messages.sent()[0].nodeMailerMessage.text), 'Set a new password')
     } finally {
@@ -289,6 +289,12 @@ test.group('Account', (group) => {
         .headers({ cookie: cookies, accept: 'application/json' })
         .json({ locale: 'de' })
     ).assertStatus(422)
+  })
+
+  test('język: ?lang= z linku strony canvai.dev wygrywa i zapisuje cookie', async ({ client, assert }) => {
+    const res = await client.get('/signup?lang=en').header('accept-language', 'pl-PL')
+    assert.include(res.text(), 'lang="en"')
+    assert.match(String(res.headers()['set-cookie']), /dc_locale=en/)
   })
 
   test('język: przeglądarka w innym języku niż polski dostaje angielski', async ({ client, assert }) => {

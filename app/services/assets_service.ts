@@ -186,7 +186,7 @@ async function fetchLinkMeta(url: string): Promise<LinkMeta | null> {
     const res = await fetch(url, {
       redirect: 'follow',
       signal: AbortSignal.timeout(3000),
-      headers: { 'User-Agent': 'DesignCanvas/0.1 (+link-preview)' },
+      headers: { 'User-Agent': 'canvai/0.1 (+https://canvai.dev)' },
     })
     if (!res.ok) return null
     const contentType = res.headers.get('content-type') ?? ''
