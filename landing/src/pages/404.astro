@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro'
+import Lost from '../components/illos/Lost.astro'
 import { content } from '../i18n/content'
 const t = content.en
 const pl = content.pl
@@ -8,6 +9,7 @@ const pl = content.pl
 <Base t={t} title="404 — canvai" noindex>
   <section class="nf">
     <div class="container nf__inner">
+      <Lost />
       <div class="nf__code">404</div>
       <h1 class="h2">{t.notFound.title}</h1>
       <p class="muted">{t.notFound.text}</p>
@@ -22,7 +24,7 @@ const pl = content.pl
 
 <style>
   .nf {
-    padding: 120px 0;
+    padding: 72px 0 120px;
   }
   .nf__inner {
     display: flex;

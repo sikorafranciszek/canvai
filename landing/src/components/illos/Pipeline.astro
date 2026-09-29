@@ -1,0 +1,193 @@
+---
+/** CTA — materiały płyną do canvai, a z niego wychodzi DESIGN.md (na ciemnym tle). */
+import { icons } from '../icons'
+---
+
+<svg class="illo pipeline" data-anim viewBox="0 0 640 150" aria-hidden="true" focusable="false">
+  <!-- materiały -->
+  <g class="a float" style="--f:0">
+    <rect x="36" y="30" width="70" height="56" rx="8" fill="#3b3830" stroke="rgba(250,248,245,0.12)"></rect>
+    <rect x="43" y="37" width="56" height="30" rx="5" fill="#8f6a4a"></rect>
+    <circle cx="88" cy="46" r="5" fill="#e0a15e"></circle>
+    <rect x="43" y="73" width="34" height="5" rx="2.5" fill="rgba(250,248,245,0.3)"></rect>
+  </g>
+  <g class="a float" style="--f:1">
+    <rect x="96" y="74" width="62" height="50" rx="8" fill="#3b3830" stroke="rgba(250,248,245,0.12)"></rect>
+    <circle cx="113" cy="92" r="8" fill="#7fd1d6"></circle>
+    <circle cx="133" cy="92" r="8" fill="#e0a15e"></circle>
+    <rect x="106" y="108" width="38" height="5" rx="2.5" fill="rgba(250,248,245,0.3)"></rect>
+  </g>
+  <g class="a float" style="--f:2">
+    <rect x="22" y="96" width="56" height="44" rx="5" fill="#f3e6a8"></rect>
+    <rect x="30" y="106" width="36" height="4" rx="2" fill="#27251e" opacity="0.25"></rect>
+    <rect x="30" y="115" width="28" height="4" rx="2" fill="#27251e" opacity="0.25"></rect>
+    <rect x="30" y="124" width="32" height="4" rx="2" fill="#27251e" opacity="0.25"></rect>
+  </g>
+
+  <!-- przepływ do canvai -->
+  <path
+    class="a flow"
+    d="M170 78 C 205 78, 230 75, 272 75"
+    fill="none"
+    stroke="#7fd1d6"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-dasharray="2 9"></path>
+  <circle class="a packet" style="--q:0" r="4" fill="#7fd1d6">
+    <animateMotion dur="2.4s" repeatCount="indefinite" path="M170 78 C 205 78, 230 75, 272 75"></animateMotion>
+  </circle>
+  <circle class="a packet" style="--q:1" r="3" fill="#e0a15e">
+    <animateMotion dur="2.4s" begin="-1.2s" repeatCount="indefinite" path="M170 78 C 205 78, 230 75, 272 75"
+    ></animateMotion>
+  </circle>
+
+  <!-- canvai -->
+  <circle class="a ring" style="--r:0" cx="320" cy="75" r="38" fill="none" stroke="#7fd1d6" stroke-width="1.5"></circle>
+  <circle class="a ring" style="--r:1" cx="320" cy="75" r="38" fill="none" stroke="#7fd1d6" stroke-width="1.5"></circle>
+  <g class="a core">
+    <rect x="284" y="39" width="72" height="72" rx="20" fill="#faf8f5"></rect>
+    <svg
+      x="302"
+      y="57"
+      width="36"
+      height="36"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#27251e"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      set:html={icons.logo}
+    />
+  </g>
+
+  <!-- przepływ do DESIGN.md -->
+  <path
+    class="a flow"
+    d="M368 75 C 410 75, 430 75, 466 75"
+    fill="none"
+    stroke="#7fd1d6"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-dasharray="2 9"></path>
+  <circle class="a packet" r="4" fill="#faf8f5">
+    <animateMotion dur="2s" begin="-0.6s" repeatCount="indefinite" path="M368 75 C 410 75, 430 75, 466 75"
+    ></animateMotion>
+  </circle>
+
+  <!-- DESIGN.md -->
+  <g class="a out">
+    <rect x="474" y="18" width="136" height="116" rx="10" fill="#3b3830" stroke="rgba(250,248,245,0.14)"></rect>
+    <rect x="486" y="30" width="10" height="10" rx="2.5" fill="#7fd1d6"></rect>
+    <rect x="502" y="32" width="56" height="6" rx="3" fill="rgba(250,248,245,0.75)"></rect>
+    <rect class="a wline" style="--n:0" x="486" y="52" width="92" height="5" rx="2.5" fill="rgba(250,248,245,0.35)"></rect>
+    <rect class="a wline" style="--n:1" x="486" y="63" width="72" height="5" rx="2.5" fill="rgba(250,248,245,0.35)"></rect>
+    <circle class="a wtok" style="--n:0" cx="492" cy="84" r="6" fill="#7fd1d6"></circle>
+    <circle class="a wtok" style="--n:1" cx="508" cy="84" r="6" fill="#e0a15e"></circle>
+    <circle class="a wtok" style="--n:2" cx="524" cy="84" r="6" fill="#faf8f5"></circle>
+    <rect class="a wline" style="--n:2" x="486" y="102" width="100" height="5" rx="2.5" fill="rgba(250,248,245,0.35)"></rect>
+    <rect class="a wline" style="--n:3" x="486" y="113" width="64" height="5" rx="2.5" fill="rgba(250,248,245,0.35)"></rect>
+  </g>
+</svg>
+
+<style>
+  .pipeline {
+    max-width: 640px;
+    margin: 0 auto 8px;
+  }
+  .float {
+    animation: pipe-float 5s ease-in-out infinite;
+    animation-delay: calc(var(--f) * -1.6s);
+  }
+  @keyframes pipe-float {
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-6px) rotate(-1.5deg);
+    }
+  }
+  .flow {
+    animation: pipe-flow 1.2s linear infinite;
+  }
+  @keyframes pipe-flow {
+    to {
+      stroke-dashoffset: -11;
+    }
+  }
+  .ring {
+    animation: pipe-ring 2.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+    animation-delay: calc(var(--r) * -1.4s);
+  }
+  @keyframes pipe-ring {
+    0% {
+      transform: scale(0.95);
+      opacity: 0.7;
+    }
+    100% {
+      transform: scale(1.55);
+      opacity: 0;
+    }
+  }
+  .core {
+    animation: pipe-core 2.8s ease-in-out infinite;
+  }
+  @keyframes pipe-core {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    12% {
+      transform: scale(1.06, 0.95);
+    }
+    24% {
+      transform: scale(0.98, 1.02);
+    }
+    34% {
+      transform: scale(1);
+    }
+  }
+  .wline {
+    transform-origin: 0% 50%;
+    animation: pipe-write 5.6s cubic-bezier(0.22, 1, 0.36, 1) infinite both;
+    animation-delay: calc(var(--n) * 0.3s);
+  }
+  @keyframes pipe-write {
+    0% {
+      transform: scaleX(0);
+    }
+    10%,
+    80% {
+      transform: scaleX(1);
+      opacity: 1;
+    }
+    92%,
+    100% {
+      transform: scaleX(1);
+      opacity: 0;
+    }
+  }
+  .wtok {
+    animation: pipe-tok 5.6s cubic-bezier(0.34, 1.8, 0.64, 1) infinite both;
+    animation-delay: calc(0.5s + var(--n) * 0.12s);
+  }
+  @keyframes pipe-tok {
+    0% {
+      transform: scale(0);
+    }
+    8%,
+    78% {
+      transform: scale(1);
+    }
+    88%,
+    100% {
+      transform: scale(0);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .packet {
+      display: none;
+    }
+  }
+</style>

@@ -1,0 +1,123 @@
+---
+/** 404 — kursor szuka po pustej ramce na kanwie. */
+---
+
+<svg class="illo lost" data-anim viewBox="0 0 320 200" aria-hidden="true" focusable="false">
+  <defs>
+    <pattern id="lost-dots" width="12" height="12" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r="1" fill="#27251e" opacity="0.13"></circle>
+    </pattern>
+  </defs>
+  <rect x="0.5" y="0.5" width="319" height="199" rx="16" fill="#f4f1ec" stroke="#e6e3dd"></rect>
+  <rect x="1" y="1" width="318" height="198" rx="16" fill="url(#lost-dots)"></rect>
+
+  <!-- pusta ramka -->
+  <rect
+    class="a empty"
+    x="70"
+    y="44"
+    width="180"
+    height="112"
+    rx="12"
+    fill="rgba(253,251,250,0.6)"
+    stroke="#92918b"
+    stroke-width="1.5"
+    stroke-dasharray="6 7"></rect>
+  <text
+    class="a q"
+    x="160"
+    y="116"
+    text-anchor="middle"
+    font-family="Inter Variable, Inter, system-ui, sans-serif"
+    font-size="48"
+    font-weight="600"
+    fill="#d1d1cd">?</text>
+
+  <!-- zagubiona notatka -->
+  <g class="a note">
+    <rect x="236" y="120" width="56" height="56" rx="5" fill="#fdf3c9" stroke="#f0e2a6"></rect>
+    <rect x="245" y="132" width="36" height="4" rx="2" fill="#27251e" opacity="0.2"></rect>
+    <rect x="245" y="141" width="28" height="4" rx="2" fill="#27251e" opacity="0.2"></rect>
+  </g>
+
+  <!-- kursor -->
+  <g class="a seek">
+    <path
+      d="M0 0 L0 22 L6 16 L10 26 L14 24 L10 14 L18 14 Z"
+      fill="#27251e"
+      stroke="#fdfbfa"
+      stroke-width="1.5"
+      stroke-linejoin="round"></path>
+  </g>
+</svg>
+
+<style>
+  .lost {
+    max-width: 360px;
+    margin: 0 auto 16px;
+  }
+  .empty {
+    animation: lost-march 1.6s linear infinite;
+  }
+  @keyframes lost-march {
+    to {
+      stroke-dashoffset: -13;
+    }
+  }
+  .q {
+    animation: lost-bob 3s ease-in-out infinite;
+  }
+  @keyframes lost-bob {
+    0%,
+    100% {
+      transform: translateY(0) rotate(-6deg);
+    }
+    50% {
+      transform: translateY(-6px) rotate(6deg);
+    }
+  }
+  .note {
+    animation: lost-note 4s ease-in-out infinite;
+  }
+  @keyframes lost-note {
+    0%,
+    100% {
+      transform: rotate(6deg);
+    }
+    50% {
+      transform: rotate(-2deg) translateY(-4px);
+    }
+  }
+  .seek {
+    transform-box: view-box;
+    transform-origin: 0 0;
+    animation: lost-seek 7s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  }
+  @keyframes lost-seek {
+    0%,
+    100% {
+      transform: translate(46px, 150px);
+    }
+    22% {
+      transform: translate(96px, 60px);
+    }
+    30% {
+      transform: translate(96px, 60px) scale(0.9);
+    }
+    34% {
+      transform: translate(96px, 60px);
+    }
+    58% {
+      transform: translate(214px, 98px);
+    }
+    66% {
+      transform: translate(214px, 98px) scale(0.9);
+    }
+    70% {
+      transform: translate(214px, 98px);
+    }
+    86% {
+      transform: translate(140px, 170px);
+    }
+  }
+</style>

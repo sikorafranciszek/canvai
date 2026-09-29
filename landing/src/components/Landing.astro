@@ -2,6 +2,10 @@
 import type { Content } from '../i18n/content'
 import { appLink } from '../i18n/content'
 import Icon from './Icon.astro'
+import Collect from './illos/Collect.astro'
+import Arrange from './illos/Arrange.astro'
+import Generate from './illos/Generate.astro'
+import Pipeline from './illos/Pipeline.astro'
 import type { IconName } from './icons'
 
 interface Props {
@@ -12,7 +16,7 @@ const signup = appLink('/signup', t.lang)
 const login = appLink('/login', t.lang)
 
 const problemIcons: IconName[] = ['shuffle', 'puzzle', 'timer']
-const stepIcons: IconName[] = ['paste', 'frame', 'sparkles']
+const stepArt = [Collect, Arrange, Generate]
 const audienceIcons: IconName[] = ['briefcase', 'users', 'rocket']
 
 /** Fragment prawdziwego formatu dokumentu (angielski — dokument jest dla AI). */
@@ -136,18 +140,21 @@ const docLines = docExcerpt.split('\n')
     </div>
     <ol class="steps">
       {
-        t.how.steps.map((step, i) => (
+        t.how.steps.map((step, i) => {
+          const Art = stepArt[i]
+          return (
           <li class="step lift" data-reveal style={`--i:${i}`}>
-            <div class="step__top">
-              <span class="step__num">{i + 1}</span>
-              <div class="icon-tile">
-                <Icon name={stepIcons[i]} />
-              </div>
+            <div class="step__art">
+              <Art />
             </div>
-            <h3 class="h3">{step.title}</h3>
+            <h3 class="h3 step__title">
+              <span class="step__num">{i + 1}</span>
+              {step.title}
+            </h3>
             <p class="muted">{step.text}</p>
           </li>
-        ))
+          )
+        })
       }
     </ol>
   </div>
@@ -320,6 +327,7 @@ const docLines = docExcerpt.split('\n')
 <section class="section cta-section">
   <div class="container">
     <div class="cta" data-reveal="scale">
+      <Pipeline />
       <h2 class="h2">{t.cta.title}</h2>
       <p class="lead">{t.cta.text}</p>
       <div class="hero__ctas" style="justify-content:center">
@@ -443,18 +451,26 @@ const docLines = docExcerpt.split('\n')
     border: 1px solid var(--hairline);
     background: var(--soft-paper);
   }
-  .step__top {
+  .step__art {
+    margin: -8px -8px 6px;
+  }
+  .step__title {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 4px;
+    gap: 10px;
   }
   .step__num {
-    font-size: 44px;
-    line-height: 1;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 13px;
     font-weight: 600;
-    letter-spacing: -0.04em;
-    color: var(--warm-mist);
+    background: var(--hover);
+    color: var(--graphite);
   }
   @media (max-width: 720px) {
     .steps {
@@ -914,11 +930,14 @@ const docLines = docExcerpt.split('\n')
     transform: scaleX(1);
   }
   .step__num {
-    transition: color 600ms var(--ease);
+    transition:
+      background-color 500ms var(--ease),
+      color 500ms var(--ease);
     transition-delay: calc(var(--i, 0) * 260ms + 500ms);
   }
   .step:global(.is-in) .step__num {
-    color: var(--ink);
+    background: var(--teal);
+    color: #fff;
   }
 
   /* Checklista DESIGN.md: punkty kolejno */

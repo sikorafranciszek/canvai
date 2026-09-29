@@ -32,6 +32,15 @@ if (reduced || !('IntersectionObserver' in window)) {
   })
 }
 
+// Ilustracje grają tylko, gdy są widoczne.
+const animated = document.querySelectorAll<SVGElement>('[data-anim]')
+if (!reduced && 'IntersectionObserver' in window) {
+  const playIo = new IntersectionObserver((entries) => {
+    for (const entry of entries) entry.target.classList.toggle('is-playing', entry.isIntersecting)
+  })
+  animated.forEach((el) => playIo.observe(el))
+}
+
 const header = document.querySelector<HTMLElement>('.header')
 const stage = document.querySelector<HTMLElement>('[data-tilt]')
 const progress = document.querySelector<HTMLElement>('.progress')

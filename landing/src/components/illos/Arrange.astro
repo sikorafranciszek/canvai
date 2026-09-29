@@ -1,0 +1,182 @@
+---
+/** Krok 2 — „Ułóż”: ekrany wskakują na miejsce, rysuje się ramka i strzałka przepływu. */
+---
+
+<svg class="illo" data-anim viewBox="0 0 320 180" aria-hidden="true" focusable="false">
+  <defs>
+    <pattern id="arrange-dots" width="12" height="12" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r="1" fill="#27251e" opacity="0.13"></circle>
+    </pattern>
+  </defs>
+  <rect x="0.5" y="0.5" width="319" height="179" rx="14" fill="#f4f1ec" stroke="#e6e3dd"></rect>
+  <rect x="1" y="1" width="318" height="178" rx="14" fill="url(#arrange-dots)"></rect>
+
+  <!-- ramka grupująca -->
+  <rect
+    class="a frame"
+    x="22"
+    y="30"
+    width="276"
+    height="126"
+    rx="12"
+    fill="none"
+    stroke="#016a71"
+    stroke-width="1.5"
+    pathLength="1"></rect>
+  <g class="a tab">
+    <rect x="22" y="14" width="54" height="12" rx="4" fill="#016a71" opacity="0.12"></rect>
+    <rect x="28" y="18" width="34" height="4" rx="2" fill="#016a71"></rect>
+  </g>
+
+  <!-- ekran A -->
+  <g class="a screen-a">
+    <rect x="40" y="46" width="96" height="94" rx="9" fill="#fdfbfa" stroke="#e6e3dd"></rect>
+    <rect x="48" y="54" width="30" height="5" rx="2.5" fill="#27251e" opacity="0.7"></rect>
+    <rect x="98" y="54" width="30" height="5" rx="2.5" fill="#d1d1cd"></rect>
+    <rect x="48" y="66" width="80" height="36" rx="5" fill="#e8d3b7"></rect>
+    <rect x="48" y="108" width="56" height="5" rx="2.5" fill="#d1d1cd"></rect>
+    <rect x="48" y="120" width="36" height="12" rx="6" fill="#c8702a"></rect>
+  </g>
+
+  <!-- ekran B -->
+  <g class="a screen-b">
+    <rect x="184" y="46" width="96" height="94" rx="9" fill="#fdfbfa" stroke="#e6e3dd"></rect>
+    <rect x="192" y="54" width="80" height="44" rx="5" fill="#f4e4cf"></rect>
+    <circle cx="232" cy="76" r="13" fill="#c8702a"></circle>
+    <ellipse cx="232" cy="76" rx="5" ry="8" fill="#3a2a1f"></ellipse>
+    <rect x="192" y="104" width="48" height="5" rx="2.5" fill="#27251e" opacity="0.7"></rect>
+    <rect x="192" y="120" width="80" height="12" rx="6" fill="#c8702a"></rect>
+  </g>
+
+  <!-- strzałka przepływu -->
+  <path
+    class="a arrow"
+    d="M140 93 C152 93 164 93 176 93"
+    fill="none"
+    stroke="#27251e"
+    stroke-width="2"
+    stroke-linecap="round"
+    pathLength="1"></path>
+  <path
+    class="a head"
+    d="M170 87 L178 93 L170 99"
+    fill="none"
+    stroke="#27251e"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"></path>
+</svg>
+
+<style>
+  .screen-a {
+    animation: arrange-a 6s cubic-bezier(0.34, 1.4, 0.64, 1) infinite both;
+  }
+  .screen-b {
+    animation: arrange-b 6s cubic-bezier(0.34, 1.4, 0.64, 1) infinite both;
+  }
+  @keyframes arrange-a {
+    0% {
+      transform: translate(-6px, 22px) rotate(-9deg);
+    }
+    16%,
+    88% {
+      transform: none;
+    }
+    100% {
+      transform: translate(-6px, 22px) rotate(-9deg);
+    }
+  }
+  @keyframes arrange-b {
+    0% {
+      transform: translate(12px, -16px) rotate(8deg);
+    }
+    4% {
+      transform: translate(12px, -16px) rotate(8deg);
+    }
+    20%,
+    88% {
+      transform: none;
+    }
+    100% {
+      transform: translate(12px, -16px) rotate(8deg);
+    }
+  }
+  .frame {
+    stroke-dasharray: 1;
+    animation: arrange-draw-frame 6s ease-in-out infinite both;
+  }
+  @keyframes arrange-draw-frame {
+    0%,
+    22% {
+      stroke-dashoffset: 1;
+      opacity: 1;
+    }
+    42%,
+    86% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+    96%,
+    100% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+  }
+  .tab {
+    animation: arrange-tab 6s cubic-bezier(0.34, 1.56, 0.64, 1) infinite both;
+    transform-origin: 0% 100%;
+  }
+  @keyframes arrange-tab {
+    0%,
+    38% {
+      transform: scale(0);
+    }
+    46%,
+    86% {
+      transform: scale(1);
+    }
+    96%,
+    100% {
+      transform: scale(0);
+    }
+  }
+  .arrow {
+    stroke-dasharray: 1;
+    animation: arrange-draw-arrow 6s ease-out infinite both;
+  }
+  @keyframes arrange-draw-arrow {
+    0%,
+    46% {
+      stroke-dashoffset: 1;
+      opacity: 1;
+    }
+    58%,
+    86% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+    96%,
+    100% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+  }
+  .head {
+    animation: arrange-head 6s cubic-bezier(0.34, 1.56, 0.64, 1) infinite both;
+    transform-origin: 100% 50%;
+  }
+  @keyframes arrange-head {
+    0%,
+    56% {
+      transform: scale(0);
+    }
+    62%,
+    86% {
+      transform: scale(1);
+    }
+    96%,
+    100% {
+      transform: scale(0);
+    }
+  }
+</style>

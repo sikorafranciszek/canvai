@@ -83,3 +83,33 @@
     display: none;
   }
 }
+
+/* ------------------------------------------------------------ Ilustracje (styl Lottie) */
+
+/*
+ * Animowane SVG: płaskie kształty, sprężyste wejścia, pętle ~6 s.
+ * Grają tylko w viewporcie (`.is-playing` z motion.ts) — poza nim stoją,
+ * żeby nie palić CPU. Stan bez animacji to pełna, czytelna klatka.
+ */
+.illo {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.illo * {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* `!important`, bo skrót `animation` w komponentach resetuje play-state. */
+.js .illo:not(.is-playing) .a {
+  animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .illo :where(.a) {
+    animation: none !important;
+  }
+}
