@@ -5,11 +5,7 @@ import { vision } from '#config/ai'
 import { buildBoardContext, computeInputFingerprint } from '#services/design/board_context'
 import { findAssetRefs, renderDesignMd } from '#services/design/renderer'
 import { groundSpec, validateDesignSpec, type DesignSpec } from '#services/design/spec'
-import {
-  normalizeHex,
-  parseJsonObject,
-  validateAssetAnalysis,
-} from '#services/ai/schemas'
+import { normalizeHex, parseJsonObject, validateAssetAnalysis } from '#services/ai/schemas'
 import { DeepseekProvider, prepareImageForVision } from '#services/ai/deepseek_provider'
 import { AiProviderError, InvalidModelOutputError } from '#services/ai/types'
 import { fenceUntrusted } from '#services/design/prompts'
@@ -35,14 +31,36 @@ function rawSpec(overrides: Record<string, unknown> = {}): Record<string, unknow
       { name: 'Broken', hex: 'red' },
     ],
     typography: {
-      families: [{ name: 'Inter', weights: [400, 500], sizes: ['14px'], lineHeights: ['1.5'], role: 'UI', sources: [] }],
+      families: [
+        {
+          name: 'Inter',
+          weights: [400, 500],
+          sizes: ['14px'],
+          lineHeights: ['1.5'],
+          role: 'UI',
+          sources: [],
+        },
+      ],
       scale: [{ role: 'body', size: '14px', lineHeight: '1.43', weight: '400' }],
     },
-    spacing: { baseUnit: '4px', density: 'compact', scale: [{ name: '8', value: '8px' }], assumed: true },
+    spacing: {
+      baseUnit: '4px',
+      density: 'compact',
+      scale: [{ name: '8', value: '8px' }],
+      assumed: true,
+    },
     radii: [{ element: 'cards', value: '16px' }],
     shadows: [{ name: 'subtle', value: 'rgba(0,0,0,0.08) 0 1px 2px' }],
     layout: { pageMaxWidth: '900px', description: 'Centered column.' },
-    components: [{ name: 'Primary Button', role: 'CTA', description: 'Ink fill.', states: ['hover: darker'], sources: [2] }],
+    components: [
+      {
+        name: 'Primary Button',
+        role: 'CTA',
+        description: 'Ink fill.',
+        states: ['hover: darker'],
+        sources: [2],
+      },
+    ],
     screens: [{ name: 'Home', purpose: 'Landing', elements: ['hero'], sources: [1] }],
     flows: ['Home [A1] → Menu [A2]'],
     dos: ['Use parchment.'],
@@ -243,7 +261,9 @@ test.group('Design pipeline / spec & renderer', () => {
     assert.lengthOf(groundSpec(none, [1]), 1)
   })
 
-  test('renderDesignMd: format Style Reference, Quick Start spójny z tabelami, Sources z kodu', ({ assert }) => {
+  test('renderDesignMd: format Style Reference, Quick Start spójny z tabelami, Sources z kodu', ({
+    assert,
+  }) => {
     const sp = spec()
     groundSpec(sp, [1, 2, 3])
     const { markdown, sources } = renderDesignMd(
@@ -253,12 +273,34 @@ test.group('Design pipeline / spec & renderer', () => {
         { id: 2, filename: 'menu.png', kind: 'image', userNote: null },
         { id: 3, filename: 'unused.pdf', kind: 'pdf', userNote: null },
       ],
-      { boardTitle: 'Kawa\n# hack', version: 2, model: 'm', promptVersion: 'v2', generatedAt: 'now' }
+      {
+        boardTitle: 'Kawa\n# hack',
+        version: 2,
+        model: 'm',
+        promptVersion: 'v2',
+        generatedAt: 'now',
+      }
     )
 
-    assert.match(markdown, /^# Kawa — Style Reference\n\n> warm paper, espresso type\n\n\*\*Theme:\*\* light/)
+    assert.match(
+      markdown,
+      /^# Kawa — Style Reference\n\n> warm paper, espresso type\n\n\*\*Theme:\*\* light/
+    )
     assert.include(markdown, 'board „Kawa hack”')
-    for (const title of ['Tokens — Colors', 'Tokens — Typography', 'Tokens — Spacing & Shapes', 'Components', 'Screens & Flows', "Do's and Don'ts", 'Surfaces', 'Layout', 'Agent Prompt Guide', 'Quick Start', 'Open Questions', 'Sources']) {
+    for (const title of [
+      'Tokens — Colors',
+      'Tokens — Typography',
+      'Tokens — Spacing & Shapes',
+      'Components',
+      'Screens & Flows',
+      "Do's and Don'ts",
+      'Surfaces',
+      'Layout',
+      'Agent Prompt Guide',
+      'Quick Start',
+      'Open Questions',
+      'Sources',
+    ]) {
       assert.include(markdown, `\n## ${title}\n`)
     }
     assert.include(markdown, '| Parchment | `#faf8f5` | `--color-parchment` | canvas | [A1] |')
@@ -268,13 +310,16 @@ test.group('Design pipeline / spec & renderer', () => {
     assert.include(markdown, '**Base unit:** 4px †')
     // Quick Start = te same tokeny co tabele.
     assert.include(markdown, '  --color-parchment: #faf8f5;')
-    assert.include(markdown, "  --font-inter: Inter, ui-sans-serif, system-ui, sans-serif;")
+    assert.include(markdown, '  --font-inter: Inter, ui-sans-serif, system-ui, sans-serif;')
     assert.include(markdown, '  --text-body: 14px;\n  --leading-body: 1.43;')
     assert.include(markdown, '  --radius-cards: 16px;')
     assert.include(markdown, '@theme {')
     assert.include(markdown, '  --text-body--line-height: 1.43;')
     // Założenia trafiają do Open Questions.
-    assert.match(markdown, /Confirm assumed values †: color „Danger” \(#b42318\), font „Inter”, spacing scale/)
+    assert.match(
+      markdown,
+      /Confirm assumed values †: color „Danger” \(#b42318\), font „Inter”, spacing scale/
+    )
 
     assert.deepEqual(
       sources.map((s) => [s.assetId, s.sections]),
@@ -284,7 +329,10 @@ test.group('Design pipeline / spec & renderer', () => {
         [3, []],
       ]
     )
-    assert.include(markdown, '| A1 | home.png | image | Strona \\| główna | Colors, Screens, Overview, Flows |')
+    assert.include(
+      markdown,
+      '| A1 | home.png | image | Strona \\| główna | Colors, Screens, Overview, Flows |'
+    )
     assert.include(markdown, '| A3 | unused.pdf | pdf | — | not used |')
     assert.deepEqual(findAssetRefs('[A1][A2] i znów [A1]'), [1, 2])
   })
@@ -389,6 +437,61 @@ test.group('Design pipeline / deepseek provider', () => {
     const dataUrl: string = body.messages[1].content[1].image_url.url
     const meta = await sharp(Buffer.from(dataUrl.split(',')[1], 'base64')).metadata()
     assert.equal(Math.max(meta.width!, meta.height!), vision.maxEdgePx)
+  })
+
+  test('thinking wyłączony, ucięta odpowiedź ponawiana z podwojonym limitem', async ({
+    assert,
+  }) => {
+    const bodies: any[] = []
+    const truncated = new Response(
+      JSON.stringify({ choices: [{ message: { content: '{"role":' }, finish_reason: 'length' }] }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    )
+    const queue = [truncated, reply(analysisJson)]
+    const provider = new DeepseekProvider(config, {
+      fetch: (async (_url: string, init: RequestInit) => {
+        bodies.push(JSON.parse(init.body as string))
+        return queue.shift()!
+      }) as typeof fetch,
+      sleep: async () => {},
+    })
+    const input = {
+      assetId: 1,
+      kind: 'link' as const,
+      filename: 'https://x.dev',
+      mime: null,
+      width: null,
+      height: null,
+      linkMeta: null,
+      image: null,
+    }
+    const ok = await provider.analyzeAsset(input)
+    assert.equal(ok.data.summary, 'Ekran logowania')
+    assert.deepEqual(bodies[0].thinking, { type: 'disabled' })
+    assert.equal(bodies[1].max_tokens, bodies[0].max_tokens * 2)
+
+    // Na suficie limitu nie ma sensu ponawiać — czytelny błąd od razu.
+    let calls = 0
+    const capped = new DeepseekProvider(config, {
+      fetch: (async () => {
+        calls++
+        return new Response(
+          JSON.stringify({ choices: [{ message: { content: '{' }, finish_reason: 'length' }] }),
+          { status: 200 }
+        )
+      }) as typeof fetch,
+      sleep: async () => {},
+      limits: {
+        maxOutputTokens: 100,
+        maxComposeOutputTokens: 100,
+        maxOutputTokensCeiling: 100,
+        requestTimeoutMs: 1000,
+        composeTimeoutMs: 1000,
+        maxRetries: 3,
+      },
+    })
+    await assert.rejects(() => capped.analyzeAsset(input), /limit/)
+    assert.equal(calls, 1)
   })
 
   test('429 i niepoprawny JSON są ponawiane, 401 nie', async ({ assert }) => {

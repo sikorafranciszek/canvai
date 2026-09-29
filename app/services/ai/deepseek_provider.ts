@@ -27,7 +27,9 @@ import { t } from '#services/i18n'
  * - Obrazy wyłącznie w wiadomości roli `user` (blok `image_url`, data URL).
  * - Limity `vision` z `config/ai.ts` egzekwowane PRZED wywołaniem — dostawca
  *   odpowiada na ich przekroczenie 400, nie miękkim obcięciem.
- * - Ponowienia z backoffem na 429/5xx/timeout i na odpowiedź niezgodną ze schematem.
+ * - Ponowienia z backoffem na 429/5xx/timeout i na odpowiedź niezgodną ze schematem;
+ *   po ucięciu (`finish_reason: length`) kolejna próba dostaje podwojony limit.
+ * - Tryb „thinking” jawnie sterowany z konfiguracji (API ma go domyślnie włączony).
  * - Klucz API nigdy nie trafia do komunikatów błędów ani logów.
  */
 
@@ -46,7 +48,15 @@ type ChatMessage =
 export interface DeepseekDeps {
   fetch?: typeof fetch
   sleep?: (ms: number) => Promise<void>
-  limits?: Pick<typeof defaultLimits, 'maxOutputTokens' | 'requestTimeoutMs' | 'maxRetries'>
+  limits?: Record<
+    | 'maxOutputTokens'
+    | 'maxComposeOutputTokens'
+    | 'maxOutputTokensCeiling'
+    | 'requestTimeoutMs'
+    | 'composeTimeoutMs'
+    | 'maxRetries',
+    number
+  >
   vision?: typeof defaultVision
 }
 
@@ -133,7 +143,8 @@ export class DeepseekProvider implements AiProvider {
         { role: 'system', content: ANALYZE_SYSTEM_PROMPT },
         { role: 'user', content: userContent },
       ],
-      validateAssetAnalysis
+      validateAssetAnalysis,
+      { maxTokens: this.#limits.maxOutputTokens, timeoutMs: this.#limits.requestTimeoutMs }
     )
   }
 
@@ -144,38 +155,41 @@ export class DeepseekProvider implements AiProvider {
         { role: 'system', content: COMPOSE_SYSTEM_PROMPT },
         { role: 'user', content: buildComposeUserText(input) },
       ],
-      validateDesignSpec
+      validateDesignSpec,
+      { maxTokens: this.#limits.maxComposeOutputTokens, timeoutMs: this.#limits.composeTimeoutMs }
     )
   }
 
   async #chatJson<T>(
     model: string,
     messages: ChatMessage[],
-    validate: (value: unknown) => T
+    validate: (value: unknown) => T,
+    options: { maxTokens: number; timeoutMs: number }
   ): Promise<ProviderResult<T>> {
     if (!this.config.apiKey) {
-      throw new AiProviderError(
-        t('ai.noKeyDeepseek'),
-        false
-      )
+      throw new AiProviderError(t('ai.noKeyDeepseek'), false)
     }
 
     let lastError: AiProviderError | null = null
     const usage = { tokensIn: 0, tokensOut: 0 }
+    let maxTokens = options.maxTokens
 
     for (let attempt = 0; attempt <= this.#limits.maxRetries; attempt++) {
       if (attempt > 0) await this.#sleep(Math.min(8000, 500 * 2 ** (attempt - 1)))
 
       try {
-        const body = await this.#request(model, messages)
+        const body = await this.#request(model, messages, maxTokens, options.timeoutMs)
         usage.tokensIn += body.usage?.prompt_tokens ?? 0
         usage.tokensOut += body.usage?.completion_tokens ?? 0
 
         const choice = body.choices?.[0]
         if (choice?.finish_reason === 'length') {
-          throw new InvalidModelOutputError(
-            t('ai.truncated')
-          )
+          // Ta sama próba z tym samym limitem skończyłaby się tak samo.
+          if (maxTokens >= this.#limits.maxOutputTokensCeiling) {
+            throw new AiProviderError(t('ai.truncated'), false)
+          }
+          maxTokens = Math.min(maxTokens * 2, this.#limits.maxOutputTokensCeiling)
+          throw new InvalidModelOutputError(t('ai.truncated'))
         }
         const content = choice?.message?.content
         if (typeof content !== 'string' || !content.trim()) {
@@ -184,9 +198,7 @@ export class DeepseekProvider implements AiProvider {
         return { data: validate(parseJsonObject(content)), model, usage }
       } catch (error) {
         const err =
-          error instanceof AiProviderError
-            ? error
-            : new AiProviderError(t('ai.unexpected'), true)
+          error instanceof AiProviderError ? error : new AiProviderError(t('ai.unexpected'), true)
         if (!err.retryable) throw err
         lastError = err
       }
@@ -195,7 +207,8 @@ export class DeepseekProvider implements AiProvider {
     throw lastError ?? new AiProviderError(t('ai.noResponse'), false)
   }
 
-  async #request(model: string, messages: ChatMessage[]) {
+  async #request(model: string, messages: ChatMessage[], maxTokens: number, timeoutMs: number) {
+    const thinking = this.config.thinking ?? 'off'
     let res: Response
     try {
       res = await this.#fetch(`${this.config.baseUrl.replace(/\/$/, '')}/chat/completions`, {
@@ -207,20 +220,21 @@ export class DeepseekProvider implements AiProvider {
         body: JSON.stringify({
           model,
           messages,
-          max_tokens: this.#limits.maxOutputTokens,
+          max_tokens: maxTokens,
           temperature: 0.2,
+          thinking:
+            thinking === 'off'
+              ? { type: 'disabled' }
+              : { type: 'enabled', reasoning_effort: thinking },
           ...(this.config.capabilities.jsonMode
             ? { response_format: { type: 'json_object' } }
             : {}),
         }),
-        signal: AbortSignal.timeout(this.#limits.requestTimeoutMs),
+        signal: AbortSignal.timeout(timeoutMs),
       })
     } catch (error) {
       const timedOut = error instanceof Error && error.name === 'TimeoutError'
-      throw new AiProviderError(
-        timedOut ? t('ai.timeout') : t('ai.noConnection'),
-        true
-      )
+      throw new AiProviderError(timedOut ? t('ai.timeout') : t('ai.noConnection'), true)
     }
 
     if (!res.ok) {

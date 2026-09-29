@@ -41,6 +41,12 @@ export interface AiProviderConfig {
   /** Model do rozumowania nad strukturą dokumentu; może być ten sam. */
   reasoningModel: string
   capabilities: AiProviderCapabilities
+  /**
+   * Tryb „thinking” DeepSeek (domyślnie włączony po stronie API). Tokeny
+   * rozumowania wliczają się do `max_tokens`, więc przy ciasnym limicie
+   * wypierają właściwą odpowiedź JSON. `off` = szybko i przewidywalnie.
+   */
+  thinking?: 'off' | 'low' | 'high'
   /** Klucz API; `null` dla dostawcy `mock`. */
   apiKey: string | null
 }
@@ -65,6 +71,7 @@ export const providers: Record<AiProvider, AiProviderConfig> = {
     textModel: env.get('DEEPSEEK_TEXT_MODEL', 'deepseek-flash'),
     reasoningModel: env.get('DEEPSEEK_REASONING_MODEL', 'deepseek-v4-pro'),
     capabilities: { vision: true, jsonMode: true },
+    thinking: env.get('DEEPSEEK_THINKING', 'off'),
     apiKey: deepseekKey ?? null,
   },
 }
@@ -113,10 +120,22 @@ export const vision = {
  * bez ruszania logiki kolejki w M3.
  */
 export const limits = {
-  /** Maksymalna liczba tokenów odpowiedzi modelu. */
+  /** Maksymalna liczba tokenów odpowiedzi modelu przy analizie jednego assetu. */
   maxOutputTokens: 8000,
+  /**
+   * Limit tokenów odpowiedzi przy składaniu DESIGN.md — pełna specyfikacja
+   * (tokeny, komponenty, ekrany) to kilkanaście tysięcy tokenów JSON-a.
+   */
+  maxComposeOutputTokens: 32_000,
+  /**
+   * Sufit przy ponowieniu po ucięciu (`finish_reason: length`): każda próba
+   * podwaja limit, maksymalnie do tej wartości (DeepSeek przyjmuje do 384K).
+   */
+  maxOutputTokensCeiling: 128_000,
   /** Timeout jednego zapytania do modelu (ms). */
   requestTimeoutMs: 120_000,
+  /** Timeout zapytania składającego dokument — długa odpowiedź generuje się minutami. */
+  composeTimeoutMs: 360_000,
   /** Liczba ponowień przy błędzie 429/5xx. */
   maxRetries: 3,
   /** Maksymalna liczba assetów wysyłanych w jednym zadaniu analizy. */

@@ -26,6 +26,7 @@ services:
       # AI: mock (bez klucza) albo deepseek + DEEPSEEK_API_KEY.
       - AI_PROVIDER=${AI_PROVIDER:-mock}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - DEEPSEEK_THINKING=${DEEPSEEK_THINKING:-off}
       # Poczta (weryfikacja kont, reset hasła): resend + RESEND_API_KEY albo smtp + SMTP_*.
       - MAIL_MAILER=${MAIL_MAILER:-resend}
       - MAIL_FROM_NAME=${MAIL_FROM_NAME:-canvai}

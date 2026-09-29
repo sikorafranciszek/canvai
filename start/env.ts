@@ -41,6 +41,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   DEEPSEEK_VISION_MODEL: Env.schema.string.optional(),
   DEEPSEEK_TEXT_MODEL: Env.schema.string.optional(),
   DEEPSEEK_REASONING_MODEL: Env.schema.string.optional(),
+  DEEPSEEK_THINKING: Env.schema.enum.optional(['off', 'low', 'high'] as const),
 
   // Produkcja: trwałe ścieżki na wolumenie i zaufanie do reverse proxy.
   SQLITE_PATH: Env.schema.string.optional(),
