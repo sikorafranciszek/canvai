@@ -27,6 +27,16 @@ const dbConfig = defineConfig({
        * Required by Knex for SQLite defaults.
        */
       useNullAsDefault: true,
+      /**
+       * SQLite domyślnie NIE egzekwuje kluczy obcych — bez tego `ON DELETE
+       * CASCADE` nie działa (usunięcie tablicy zostawiało materiały i wersje).
+       */
+      pool: {
+        afterCreate: (conn: any, done: (err: Error | null, conn: any) => void) => {
+          conn.pragma('foreign_keys = ON')
+          done(null, conn)
+        },
+      },
 
       migrations: {
         /**
