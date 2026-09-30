@@ -62,7 +62,7 @@ export class AssetAnalysisSchema extends BaseModel {
 }
 
 export class AssetSchema extends BaseModel {
-  static $columns = ['analysisKey', 'boardId', 'createdAt', 'filename', 'height', 'id', 'kind', 'mime', 'position', 'sha256', 'size', 'source', 'storageKey', 'thumbKey', 'userNote', 'width'] as const
+  static $columns = ['analysisKey', 'boardId', 'createdAt', 'filename', 'height', 'id', 'inbox', 'kind', 'mime', 'position', 'sha256', 'size', 'source', 'storageKey', 'submittedBy', 'thumbKey', 'userNote', 'width'] as const
   $columns = AssetSchema.$columns
   @column()
   declare analysisKey: string | null
@@ -77,6 +77,8 @@ export class AssetSchema extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
   @column()
+  declare inbox: boolean
+  @column()
   declare kind: string
   @column()
   declare mime: string | null
@@ -90,6 +92,8 @@ export class AssetSchema extends BaseModel {
   declare source: string | null
   @column()
   declare storageKey: string | null
+  @column()
+  declare submittedBy: string | null
   @column()
   declare thumbKey: string | null
   @column()
@@ -115,6 +119,25 @@ export class BoardSceneSchema extends BaseModel {
   declare updatedAt: DateTime | null
   @column()
   declare version: number
+}
+
+export class BoardShareSchema extends BaseModel {
+  static $columns = ['allowUpload', 'boardId', 'createdAt', 'id', 'revokedAt', 'showDoc', 'token'] as const
+  $columns = BoardShareSchema.$columns
+  @column()
+  declare allowUpload: boolean
+  @column()
+  declare boardId: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column.dateTime()
+  declare revokedAt: DateTime | null
+  @column()
+  declare showDoc: boolean
+  @column()
+  declare token: string
 }
 
 export class BoardSchema extends BaseModel {
@@ -267,6 +290,27 @@ export class JobSchema extends BaseModel {
   declare type: string
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
+}
+
+export class PortalFeedbackSchema extends BaseModel {
+  static $columns = ['boardId', 'comment', 'createdAt', 'decision', 'designDocId', 'id', 'name', 'version'] as const
+  $columns = PortalFeedbackSchema.$columns
+  @column()
+  declare boardId: number
+  @column()
+  declare comment: string | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare decision: string
+  @column()
+  declare designDocId: number | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+  @column()
+  declare version: number | null
 }
 
 export class SubscriptionSchema extends BaseModel {

@@ -29,6 +29,7 @@ const UNLIMITED: PlanLimits = {
   exports: true,
   proReasoning: true,
   api: true,
+  portal: true,
 }
 
 export async function entitlementsFor(

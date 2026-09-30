@@ -25,6 +25,10 @@ import { sanitizePreviewHtml } from '#services/design/preview_template'
 import DesignPreview from '#models/design_preview'
 import ApiToken from '#models/api_token'
 import { createApiToken } from '#services/api_tokens'
+import mail from '@adonisjs/mail/services/main'
+import Asset from '#models/asset'
+import PortalFeedback from '#models/portal_feedback'
+import { pruneOrphanAssets } from '#services/assets_service'
 import { runPendingJobs } from '#services/queue'
 
 /**
@@ -763,5 +767,90 @@ test.group('Billing', (group) => {
     await client.delete(`/settings/api-tokens/${row.id}`).headers({ cookie: cookies }).redirects(0)
     await row.refresh()
     assert.isNotNull(row.revokedAt)
+  })
+
+  test('portal klienta: link, przesyłanie do skrzynki, akceptacja, odwołanie', async ({
+    client,
+    assert,
+  }) => {
+    const fake = mail.fake()
+    try {
+      const owner = await makeUser('owner')
+      const cookies = await login(client, owner)
+      const board = await createBoard(owner, 'Portal Test')
+
+      // Free → portal zablokowany.
+      ;(await client.put(`/api/boards/${board.id}/share`).headers({ cookie: cookies }).json({ enabled: true })).assertStatus(403)
+
+      ;(await webhook(client, orderPayload(owner, `ord-portal-${owner.id}`, VARIANTS.pack_s))).assertStatus(200)
+      const on = await client.put(`/api/boards/${board.id}/share`).headers({ cookie: cookies }).json({ enabled: true })
+      on.assertStatus(200)
+      const url: string = on.body().data.url
+      const path = new URL(url).pathname
+      assert.match(path, /^\/c\/[A-Za-z0-9_-]{20,}$/)
+
+      // Klient bez konta widzi portal.
+      ;(await client.get(path)).assertStatus(200)
+
+      // Przesłanie pliku z notatką → skrzynka właściciela + mail.
+      const sent = await client
+        .post(`${path}/materials`)
+        .field('name', 'Klient ACME')
+        .field('note', 'Nasze nowe logo')
+        .file('files[]', await png({ r: 10, g: 20, b: 30 }), { filename: 'logo.png', contentType: 'image/png' })
+        .redirects(0)
+      sent.assertStatus(302)
+      const inbox = await Asset.query().where('board_id', board.id).where('inbox', true)
+      assert.lengthOf(inbox, 1)
+      assert.equal(inbox[0].submittedBy, 'Klient ACME')
+      assert.equal(inbox[0].userNote, 'Nasze nowe logo')
+      fake.messages.assertSentCount(1)
+
+      // Ten sam plik ponownie (deduplikacja) nie tworzy nic nowego ani nie nadpisuje notatki.
+      ;(
+        await client
+          .post(`${path}/materials`)
+          .field('name', 'Ktoś inny')
+          .field('note', 'Inna notatka')
+          .file('files[]', await png({ r: 10, g: 20, b: 30 }), { filename: 'kopia.png', contentType: 'image/png' })
+          .redirects(0)
+      ).assertStatus(302)
+      await inbox[0].refresh()
+      assert.equal(inbox[0].userNote, 'Nasze nowe logo')
+      assert.equal(inbox[0].submittedBy, 'Klient ACME')
+      fake.messages.assertSentCount(2)
+      assert.equal(await PortalFeedback.query().where('board_id', board.id).where('decision', 'note').count('* as n').then((r) => Number(r[0].$extras.n)), 1)
+
+      // Sprzątanie sierot nie usuwa materiałów ze skrzynki.
+      await pruneOrphanAssets(board.id)
+      assert.lengthOf(await Asset.query().where('board_id', board.id), 1)
+
+      // Właściciel umieszcza materiał na płótnie.
+      const accepted = await client.post(`/api/assets/${inbox[0].id}/accept`).headers({ cookie: cookies })
+      accepted.assertStatus(200)
+      assert.isFalse(accepted.body().data.inbox)
+
+      // Akceptacja DESIGN.md.
+      await DesignDoc.create({ boardId: board.id, version: 1, status: 'ready', contentMd: '# Portal' })
+      ;(
+        await client
+          .post(`${path}/feedback`)
+          .json({ name: 'Klient ACME', decision: 'approved', version: 1 })
+          .redirects(0)
+      ).assertStatus(302)
+      const feedback = await PortalFeedback.query().where('board_id', board.id).where('decision', 'approved').firstOrFail()
+      assert.equal(feedback.version, 1)
+      fake.messages.assertSentCount(3)
+
+      // Nowy link: stary przestaje działać; wyłączenie: link znika.
+      const rotated = await client.post(`/api/boards/${board.id}/share/rotate`).headers({ cookie: cookies })
+      assert.notEqual(rotated.body().data.url, url)
+      ;(await client.get(path)).assertStatus(404)
+      const newPath = new URL(rotated.body().data.url).pathname
+      ;(await client.put(`/api/boards/${board.id}/share`).headers({ cookie: cookies }).json({ enabled: false })).assertStatus(200)
+      ;(await client.get(newPath)).assertStatus(404)
+    } finally {
+      mail.restore()
+    }
   })
 })

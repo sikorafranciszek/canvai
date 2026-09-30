@@ -142,6 +142,25 @@ export const pl = {
   'field.currentPassword': 'Obecne hasło',
   'field.token': 'Token',
 
+  // Portal klienta
+  'portal.locked': 'Portal klienta jest dostępny w płatnych planach.',
+  'portal.notFound': 'Ten link jest nieaktywny albo wygasł.',
+  'portal.uploadsOff': 'Właściciel wyłączył przesyłanie materiałów.',
+  'portal.rateLimited': 'Za dużo przesłań w krótkim czasie — spróbuj za kilka minut.',
+  'portal.tooMany': 'Najwyżej {max} plików naraz.',
+  'portal.nothing': 'Dodaj plik, link albo notatkę.',
+  'portal.noDoc': 'Nie ma jeszcze gotowego DESIGN.md do oceny.',
+  'portal.mail.button': 'Otwórz tablicę',
+  'portal.mail.materials.subject': '{name} przesłał(a) materiały do „{board}”',
+  'portal.mail.materials.heading': 'Nowe materiały od klienta',
+  'portal.mail.materials.intro': '{name} przesłał(a) {count} materiał(y) do tablicy „{board}”. Czekają w zakładce Materiały → Od klienta.',
+  'portal.mail.approved.subject': '{name} zaakceptował(a) DESIGN.md — „{board}”',
+  'portal.mail.approved.heading': 'DESIGN.md zaakceptowany',
+  'portal.mail.approved.intro': '{name} zaakceptował(a) wersję v{version} DESIGN.md tablicy „{board}”.',
+  'portal.mail.changes.subject': '{name} prosi o zmiany — „{board}”',
+  'portal.mail.changes.heading': 'Klient prosi o zmiany',
+  'portal.mail.changes.intro': '{name} prosi o zmiany w wersji v{version} DESIGN.md tablicy „{board}”:',
+
   // Rozliczenia
   'api.unauthorized': 'Brak lub nieprawidłowy token API (nagłówek Authorization: Bearer cvai_…)',
   'api.planRequired': 'API i serwer MCP są dostępne w płatnych planach (Pay as you go, Pro).',
@@ -300,6 +319,25 @@ export const en: Record<ServerMessageKey, string> = {
   'account.emailNotVerified': 'Confirm your email address to use the app.',
   'field.currentPassword': 'Current password',
   'field.token': 'Token',
+
+  // Client portal
+  'portal.locked': 'The client portal is available on paid plans.',
+  'portal.notFound': 'This link is inactive or has expired.',
+  'portal.uploadsOff': 'The owner has turned off uploads.',
+  'portal.rateLimited': 'Too many submissions in a short time — please try again in a few minutes.',
+  'portal.tooMany': 'At most {max} files at once.',
+  'portal.nothing': 'Add a file, a link or a note.',
+  'portal.noDoc': 'There is no ready DESIGN.md to review yet.',
+  'portal.mail.button': 'Open the board',
+  'portal.mail.materials.subject': '{name} sent materials to “{board}”',
+  'portal.mail.materials.heading': 'New materials from your client',
+  'portal.mail.materials.intro': '{name} sent {count} material(s) to the board “{board}”. They are waiting in Materials → From client.',
+  'portal.mail.approved.subject': '{name} approved the DESIGN.md — “{board}”',
+  'portal.mail.approved.heading': 'DESIGN.md approved',
+  'portal.mail.approved.intro': '{name} approved version v{version} of the DESIGN.md for “{board}”.',
+  'portal.mail.changes.subject': '{name} requested changes — “{board}”',
+  'portal.mail.changes.heading': 'Your client requested changes',
+  'portal.mail.changes.intro': '{name} requested changes to version v{version} of the DESIGN.md for “{board}”:',
 
   // Billing
   'api.unauthorized': 'Missing or invalid API token (Authorization: Bearer cvai_… header)',

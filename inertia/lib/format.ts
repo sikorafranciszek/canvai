@@ -35,6 +35,9 @@ export function formatDateTime(iso: string | null | undefined): string {
 /** Komunikaty frameworka (np. auth) w języku UI. */
 const FLASH_KEYS = {
   'Invalid user credentials': 'auth.login.invalid',
+  'portal.sent': 'portal.flash.sent',
+  'portal.approvedThanks': 'portal.flash.approved',
+  'portal.changesThanks': 'portal.flash.changes',
 } as const
 
 export function translateFlash(message: string): string {

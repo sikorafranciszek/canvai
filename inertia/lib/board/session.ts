@@ -33,6 +33,7 @@ import {
   uploadFiles,
   type AssetDto,
   pruneAssets,
+  acceptInboxAsset,
 } from './api'
 import { DEFAULTS } from '~/lib/scene/palette'
 import { translate } from '~/i18n'
@@ -70,6 +71,8 @@ interface BoardState {
   updateNote: (assetId: string, note: string) => Promise<void>
   deleteAsset: (assetId: string) => Promise<void>
   centerOnAsset: (assetId: string) => void
+  /** Umieszcza materiały od klienta (skrzynka portalu) obok zawartości płótna. */
+  placeInboxAssets: (assetIds: string[]) => Promise<void>
 }
 
 // Silnik autosave i subskrypcja żyją poza store'em (nie są serializowalne
@@ -307,6 +310,48 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
     } catch {
       toast.error(translate('session.deleteFailed'))
     }
+  },
+
+  async placeInboxAssets(assetIds) {
+    const store = useSceneStore.getState()
+    const assets = get().assets.filter((a) => assetIds.includes(String(a.id)))
+    if (!assets.length) return
+
+    // Na prawo od istniejącej zawartości, w jednym rzędzie.
+    const bounds = store.document.elements.map(getElementBounds)
+    const right = bounds.length ? Math.max(...bounds.map((b) => b.x + b.width)) : 0
+    const top = bounds.length ? Math.min(...bounds.map((b) => b.y)) : 0
+    let cursorX = bounds.length ? right + 160 : 0
+    for (const asset of assets) {
+      if (asset.kind === 'link') {
+        const title = asset.linkMeta?.title?.trim()
+        const el = createLinkSticky(title ? `${title}\n${asset.filename}` : asset.filename, { x: cursorX, y: top }, String(asset.id))
+        store.addElement(el)
+        cursorX += el.width + IMAGE_GAP
+        continue
+      }
+      const w = asset.width ?? 480
+      const h = asset.height ?? 320
+      const fit = Math.min(1, MAX_IMAGE_EDGE / Math.max(w, h, 1))
+      const el: SceneElement = {
+        id: createElementId(),
+        type: 'image',
+        assetId: String(asset.id),
+        x: cursorX,
+        y: top,
+        rotation: 0,
+        opacity: 1,
+        width: Math.round(w * fit),
+        height: Math.round(h * fit),
+      }
+      store.addElement(el)
+      cursorX += (el as { width: number }).width + IMAGE_GAP
+    }
+    await Promise.all(assets.map((a) => acceptInboxAsset(String(a.id)).catch(() => {})))
+    set({
+      assets: get().assets.map((a) => (assetIds.includes(String(a.id)) ? { ...a, inbox: false } : a)),
+    })
+    get().centerOnAsset(String(assets[0].id))
   },
 
   centerOnAsset(assetId) {

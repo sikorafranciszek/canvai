@@ -62,7 +62,12 @@ export default function Layout({ children }: { children: ReactElement<Data.Share
         </div>
       </div>
     )
-  } else if (component === 'boards/show' || component.startsWith('errors/') || !user) {
+  } else if (
+    component === 'boards/show' ||
+    component.startsWith('errors/') ||
+    component.startsWith('portal/') ||
+    !user
+  ) {
     content = children
   } else {
     content = (

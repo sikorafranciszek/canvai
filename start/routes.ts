@@ -77,6 +77,11 @@ router
   .prefix('/api/v1')
   .use(middleware.apiToken())
 
+/** Portal klienta — publiczny link tablicy (bez konta). */
+router.get('/c/:token', [controllers.Portal, 'show']).as('portal.show')
+router.post('/c/:token/materials', [controllers.Portal, 'materials']).as('portal.materials')
+router.post('/c/:token/feedback', [controllers.Portal, 'feedback']).as('portal.feedback')
+
 /** Webhooki Lemon Squeezy (podpis HMAC zamiast sesji i CSRF). */
 router.post('/webhooks/lemonsqueezy', [controllers.Webhooks, 'lemonsqueezy'])
 
@@ -142,6 +147,10 @@ router
     router.get('/boards/:id/design-doc/estimate', [controllers.DesignDocs, 'estimate'])
     router.get('/boards/:id/design-doc/export', [controllers.DesignDocs, 'export'])
     router.get('/boards/:id/design-doc/preview', [controllers.DesignPreviews, 'show'])
+    router.get('/boards/:id/share', [controllers.BoardShares, 'show'])
+    router.put('/boards/:id/share', [controllers.BoardShares, 'update'])
+    router.post('/boards/:id/share/rotate', [controllers.BoardShares, 'rotate'])
+    router.post('/assets/:id/accept', [controllers.BoardShares, 'accept'])
     router.post('/boards/:id/design-doc/preview', [controllers.DesignPreviews, 'store'])
 
     // Rozliczenia

@@ -5,6 +5,7 @@ import type React from 'react'
 import { ArrowLeft, PanelRight } from 'lucide-react'
 import { SaveStatus } from '~/components/canvas/SaveStatus'
 import { GenerateDesignDocButton, SidePanel } from '~/components/design/SidePanel'
+import { ShareButton } from '~/components/boards/ShareDialog'
 import { useDesignStore, useEstimateSync } from '~/lib/board/design'
 import { useBillingStore } from '~/lib/billing'
 import { useUiStore } from '~/lib/ui'
@@ -98,6 +99,7 @@ const BoardsShow: React.FC<{ board: Board; user?: SharedUser }> = ({ board, user
             <PanelRight />
           </button>
           <LanguageSwitcher compact />
+          <ShareButton boardId={board.id} />
           <GenerateDesignDocButton />
           {user ? (
             <span className="avatar" title={user.fullName ?? user.email} aria-hidden>

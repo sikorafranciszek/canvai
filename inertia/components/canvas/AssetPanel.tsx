@@ -4,7 +4,17 @@
  * miniaturę lub nazwę wyśrodkowuje i zaznacza element na płótnie.
  */
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
-import { Check, File, FileText, ImagePlus, Link2, Search, Trash2 } from 'lucide-react'
+import {
+  ArrowDownToLine,
+  Check,
+  File,
+  FileText,
+  ImagePlus,
+  Inbox,
+  Link2,
+  Search,
+  Trash2,
+} from 'lucide-react'
 import { useBoardStore, useCanvasAssets } from '~/lib/board/session'
 import { formatBytes } from '@shared/asset-utils'
 import { useT } from '~/i18n'
@@ -31,6 +41,9 @@ export function AssetPanel() {
   }, [assets, query])
 
   const withoutNote = assets.filter((a) => !a.userNote?.trim()).length
+  const allAssets = useBoardStore((s) => s.assets)
+  const inbox = useMemo(() => allAssets.filter((a) => a.inbox), [allAssets])
+  const placeInboxAssets = useBoardStore((s) => s.placeInboxAssets)
 
   return (
     <div
@@ -62,6 +75,59 @@ export function AssetPanel() {
       ) : null}
 
       <div className="panel-scroll">
+        {inbox.length > 0 ? (
+          <div className="inbox" data-testid="asset-inbox">
+            <div className="inbox__head">
+              <Inbox size={15} />
+              <span>{t('assets.inbox.title', { n: inbox.length })}</span>
+              <button
+                type="button"
+                className="btn btn--sm btn--primary"
+                style={{ marginLeft: 'auto' }}
+                onClick={() => void placeInboxAssets(inbox.map((a) => String(a.id)))}
+                data-testid="inbox-place-all"
+              >
+                <ArrowDownToLine />
+                {t('assets.inbox.placeAll')}
+              </button>
+            </div>
+            {inbox.map((asset) => (
+              <div key={asset.id} className="inbox__item">
+                {asset.urls.thumb ? (
+                  <img src={asset.urls.thumb} alt="" className="inbox__thumb" />
+                ) : (
+                  <span className="inbox__thumb inbox__thumb--icon">
+                    {asset.kind === 'link' ? <Link2 size={16} /> : <File size={16} />}
+                  </span>
+                )}
+                <div className="inbox__text">
+                  <span className="t-truncate">{asset.linkMeta?.title || asset.filename}</span>
+                  <span className="t-small t-faint t-truncate">
+                    {t('assets.inbox.from', { name: asset.submittedBy ?? '—' })}
+                    {asset.userNote ? ` · „${asset.userNote}”` : ''}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn--quiet btn--icon btn--sm"
+                  aria-label={t('assets.inbox.place')}
+                  data-tip={t('assets.inbox.place')}
+                  onClick={() => void placeInboxAssets([String(asset.id)])}
+                >
+                  <ArrowDownToLine />
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--quiet btn--icon btn--sm"
+                  aria-label={t('common.delete')}
+                  onClick={() => setDeleting(asset)}
+                >
+                  <Trash2 />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
         {!initialized || loading ? (
           <div
             data-testid="asset-panel-loading"
@@ -82,7 +148,9 @@ export function AssetPanel() {
             <div className="empty-state__icon">
               <ImagePlus />
             </div>
-            <div style={{ color: 'var(--color-ink)', fontWeight: 500 }}>{t('assets.empty.title')}</div>
+            <div style={{ color: 'var(--color-ink)', fontWeight: 500 }}>
+              {t('assets.empty.title')}
+            </div>
             <p>{t('assets.empty.body', { keys: 'Ctrl+V' })}</p>
           </div>
         ) : visible.length === 0 ? (

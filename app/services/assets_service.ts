@@ -349,6 +349,8 @@ export function serializeAsset(asset: Asset) {
     height: asset.height,
     source: asset.source,
     userNote: asset.userNote,
+    inbox: Boolean(asset.inbox),
+    submittedBy: asset.submittedBy ?? null,
     linkMeta:
       asset.kind === 'link' ? ((asset.position as { link?: LinkMeta } | null)?.link ?? null) : null,
     createdAt: asset.createdAt?.toISO() ?? null,
@@ -383,7 +385,8 @@ export async function pruneOrphanAssets(boardId: number): Promise<number[]> {
   const scene = await BoardScene.query().where('board_id', boardId).first()
   if (!scene) return []
   const referenced = referencedAssetIds(scene.document)
-  const orphans = (await Asset.query().where('board_id', boardId)).filter(
+  // Materiały od klienta (skrzynka portalu) czekają na właściciela — nie są sierotami.
+  const orphans = (await Asset.query().where('board_id', boardId).where('inbox', false)).filter(
     (a) => !referenced.has(a.id)
   )
   for (const asset of orphans) {

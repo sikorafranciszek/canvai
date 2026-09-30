@@ -2719,3 +2719,246 @@ input.title-edit {
   min-width: 0;
   font-size: 14px;
 }
+
+/* ------------------------------------------------------------------ Skrzynka „Od klienta” */
+
+.inbox {
+  margin: 12px 12px 4px;
+  padding: 10px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-deep-teal);
+  background: var(--color-teal-tint);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inbox__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-deep-teal);
+}
+
+.inbox__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: var(--radius-md);
+  background: var(--color-soft-paper);
+}
+
+.inbox__thumb {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--color-hover);
+}
+
+.inbox__thumb--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-graphite);
+}
+
+.inbox__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------------ Portal klienta */
+
+.portal {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-parchment);
+}
+
+.portal__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px clamp(16px, 4vw, 40px);
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.portal__main {
+  width: min(1180px, 100% - 32px);
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 48px) 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.portal__hero {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 720px;
+}
+
+.portal__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.portal__grid > :only-child {
+  grid-column: 1 / -1;
+}
+
+.portal__card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: clamp(18px, 3vw, 28px);
+}
+
+.portal__card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.portal__card-title svg {
+  color: var(--color-deep-teal);
+}
+
+.dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 120px;
+  padding: 16px;
+  border: 1.5px dashed var(--color-warm-mist);
+  border-radius: var(--radius-lg);
+  background: var(--color-sidebar);
+  color: var(--color-graphite);
+  font-size: 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 140ms var(--ease), background-color 140ms var(--ease);
+}
+
+.dropzone:hover,
+.dropzone:focus-within {
+  border-color: var(--color-deep-teal);
+  background: var(--color-teal-tint);
+}
+
+.dropzone input[type='file'] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.textarea {
+  height: auto;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  resize: vertical;
+}
+
+.portal__md {
+  max-height: 520px;
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--color-parchment);
+}
+
+.portal__decide {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.portal__footer {
+  padding: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-ash);
+}
+
+.portal__footer a:hover {
+  color: var(--color-deep-teal);
+}
+
+@media (max-width: 900px) {
+  .portal__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.share {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.share__toggle,
+.share__option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.share__toggle {
+  font-weight: 500;
+}
+
+.share__option input {
+  accent-color: var(--color-deep-teal);
+}
+
+.share__feedback ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.share__feedback li {
+  display: flex;
+  gap: 10px;
+  font-size: 13.5px;
+}
+
+.share__feedback li > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.share__ok {
+  color: var(--color-deep-teal);
+}
+
+.share__warn {
+  color: var(--color-danger);
+}

@@ -25,6 +25,9 @@ export interface AssetDto {
   height: number | null
   source: string | null
   userNote: string | null
+  /** Materiał od klienta (portal) czekający na umieszczenie na płótnie. */
+  inbox?: boolean
+  submittedBy?: string | null
   linkMeta: { title?: string; description?: string; ogImage?: string } | null
   createdAt: string | null
   urls: { raw: string; thumb: string | null; content: string }
@@ -189,6 +192,15 @@ export async function updateAssetNote(assetId: string, note: string): Promise<As
   if (!res.ok) throw new Error(translate('api.noteFailed', { status: res.status }))
   const body = await parseJson<{ data: AssetDto }>(res)
   return body.data
+}
+
+/** Materiał od klienta trafił na płótno — zdejmij go ze skrzynki. */
+export async function acceptInboxAsset(assetId: string): Promise<void> {
+  await fetch(`/api/assets/${assetId}/accept`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', ...csrfHeaders() },
+    credentials: 'same-origin',
+  })
 }
 
 export async function deleteAsset(assetId: string): Promise<void> {

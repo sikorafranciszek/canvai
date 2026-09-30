@@ -47,6 +47,14 @@ export default class Asset extends BaseModel {
   @column()
   declare userNote: string | null
 
+  /** Materiał od klienta (portal), czeka na umieszczenie na płótnie przez właściciela. */
+  @column({ consume: (v) => Boolean(v) })
+  declare inbox: boolean
+
+  /** Kto przysłał materiał przez portal klienta. */
+  @column()
+  declare submittedBy: string | null
+
   @column({ prepare: jsonPrepare, consume: jsonConsume })
   declare position: Record<string, unknown> | null
 

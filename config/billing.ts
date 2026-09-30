@@ -28,6 +28,8 @@ export interface PlanLimits {
   proReasoning: boolean
   /** API (REST v1) i serwer MCP dla Cursora / Claude Code. */
   api: boolean
+  /** Portal klienta: link do przesyłania materiałów i akceptacji DESIGN.md. */
+  portal: boolean
 }
 
 const PAID: PlanLimits = {
@@ -38,6 +40,7 @@ const PAID: PlanLimits = {
   exports: true,
   proReasoning: true,
   api: true,
+  portal: true,
 }
 
 export const plans: Record<PlanId, PlanLimits> = {
@@ -49,6 +52,7 @@ export const plans: Record<PlanId, PlanLimits> = {
     exports: false,
     proReasoning: false,
     api: false,
+    portal: false,
   },
   payg: PAID,
   pro: PAID,
