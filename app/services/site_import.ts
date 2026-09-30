@@ -183,7 +183,9 @@ export function extractFonts(css: string, html: string, limit = 4): string[] {
     const fam = block[1].match(/font-family\s*:\s*([^;]+)/i)
     if (fam) add(fam[1].trim().replace(/\s+Fallback(['"]?)$/i, '$1'), 2)
   }
-  for (const m of css.matchAll(/font-family\s*:\s*([^;}{]+)/gi)) add(m[1].split(',')[0])
+  // Deklaracje użycia (bez bloków @font-face — te policzone wyżej, z wyższą wagą).
+  const usage = css.replace(/@font-face\s*{[^}]*}/gi, '')
+  for (const m of usage.matchAll(/font-family\s*:\s*([^;}{]+)/gi)) add(m[1].split(',')[0])
   for (const m of css.matchAll(/--[\w-]*font[\w-]*\s*:\s*([^;}{]+)/gi)) add(m[1].split(',')[0])
   for (const m of html.matchAll(/fonts\.googleapis\.com\/css2?\?([^"'\s>]+)/gi)) {
     for (const fam of decodeEntities(m[1]).matchAll(/family=([^&:]+)/g))
