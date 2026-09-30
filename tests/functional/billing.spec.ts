@@ -29,6 +29,8 @@ import mail from '@adonisjs/mail/services/main'
 import Asset from '#models/asset'
 import PortalFeedback from '#models/portal_feedback'
 import { pruneOrphanAssets } from '#services/assets_service'
+import { safeFetchTesting } from '#services/safe_fetch'
+import http from 'node:http'
 import { runPendingJobs } from '#services/queue'
 
 /**
@@ -883,5 +885,59 @@ test.group('Billing', (group) => {
     ;(await client.delete(`/api/brand-kits/${kit.id}`).headers({ cookie: cookies })).assertStatus(204)
     const list = await client.get('/api/brand-kits').headers({ cookie: cookies })
     assert.lengthOf(list.body().data, 0)
+  })
+
+  test('import strony: styl z HTML i CSS, obraz og:image, blokada adresów prywatnych', async ({
+    client,
+    assert,
+  }) => {
+    const user = await makeUser()
+    const cookies = await login(client, user)
+    const board = await createBoard(user)
+
+    // Bez wyjątku testowego adres lokalny jest odrzucany (SSRF).
+    const blocked = await client
+      .post(`/api/boards/${board.id}/import-site`)
+      .headers({ cookie: cookies })
+      .json({ url: 'http://127.0.0.1:9/' })
+    blocked.assertStatus(422)
+
+    const og = await png({ r: 1, g: 106, b: 113 })
+    const server = http.createServer((req, res) => {
+      if (req.url === '/style.css') {
+        res.writeHead(200, { 'content-type': 'text/css' })
+        return res.end(':root{--accent:#c8702a} body{color:#27251e;font-family:"Fraunces",serif} a{color:#c8702a}')
+      }
+      if (req.url === '/og.png') {
+        res.writeHead(200, { 'content-type': 'image/png' })
+        return res.end(og)
+      }
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+      res.end(`<!doctype html><html><head><title>Ziarno</title><meta name="theme-color" content="#3a2a1f">
+        <meta property="og:image" content="/og.png"><link rel="stylesheet" href="/style.css"></head>
+        <body><h1>Freshly roasted</h1><h2>Our beans</h2></body></html>`)
+    })
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
+    const port = (server.address() as { port: number }).port
+    safeFetchTesting.allowPrivate = true
+    try {
+      const res = await client
+        .post(`/api/boards/${board.id}/import-site`)
+        .headers({ cookie: cookies })
+        .json({ url: `http://127.0.0.1:${port}/` })
+      res.assertStatus(201)
+      const { assets, note, summary } = res.body().data
+      assert.lengthOf(assets, 2, 'link + obraz og:image')
+      assert.equal(assets[0].kind, 'link')
+      assert.equal(assets[1].kind, 'image')
+      assert.include(note, '#c8702a --accent')
+      assert.include(note, 'Theme color: #3a2a1f')
+      assert.include(note, 'Fraunces')
+      assert.include(note, 'Freshly roasted')
+      assert.include(summary.fonts, 'Fraunces')
+    } finally {
+      safeFetchTesting.allowPrivate = false
+      server.close()
+    }
   })
 })

@@ -34,6 +34,7 @@ import {
   type AssetDto,
   pruneAssets,
   acceptInboxAsset,
+  importSite as apiImportSite,
 } from './api'
 import { DEFAULTS } from '~/lib/scene/palette'
 import { translate } from '~/i18n'
@@ -75,6 +76,8 @@ interface BoardState {
   addBrandKitNote: (text: string) => void
   /** Umieszcza materiały od klienta (skrzynka portalu) obok zawartości płótna. */
   placeInboxAssets: (assetIds: string[]) => Promise<void>
+  /** Import strony z URL: link + obraz + notatka ze stylem na płótnie. */
+  importSite: (url: string) => Promise<boolean>
 }
 
 // Silnik autosave i subskrypcja żyją poza store'em (nie są serializowalne
@@ -331,6 +334,29 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
     const vw = Math.max(1, root?.width ?? window.innerWidth - PANEL_WIDTH)
     const vh = Math.max(1, root?.height ?? window.innerHeight - CHROME_HEIGHT)
     store.setCamera({ x: vw / 2 - (x + el.width / 2), y: vh / 2 - (y + el.height / 2), scale: 1 })
+  },
+
+  async importSite(url) {
+    const boardId = get().boardId
+    if (boardId == null) return false
+    try {
+      const result = await apiImportSite(boardId, url)
+      await get().refreshAssets()
+      const ids = result.assets.map((a) => String(a.id))
+      await get().placeInboxAssets(ids)
+      get().addBrandKitNote(result.note)
+      toast.success(
+        translate('siteImport.done', {
+          host: result.summary.host,
+          colors: result.summary.colors,
+          fonts: result.summary.fonts.join(', ') || '—',
+        })
+      )
+      return true
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : translate('siteImport.failedShort'))
+      return false
+    }
   },
 
   async placeInboxAssets(assetIds) {

@@ -134,6 +134,7 @@ router
     router.get('/boards/:id/assets', [controllers.Assets, 'index'])
     router.post('/boards/:id/assets', [controllers.Assets, 'store'])
     router.post('/boards/:id/assets/prune', [controllers.Assets, 'prune'])
+    router.post('/boards/:id/import-site', [controllers.SiteImport, 'store'])
     router.patch('/assets/:id', [controllers.Assets, 'update'])
     router.delete('/assets/:id', [controllers.Assets, 'destroy'])
     router.get('/assets/:id/raw', [controllers.Assets, 'raw']).as('api.assets.raw')

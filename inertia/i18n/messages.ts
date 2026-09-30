@@ -345,6 +345,15 @@ export const pl = {
 
   // Rozliczenia
   'nav.billing': 'Rozliczenia',
+  'siteImport.button': 'Z adresu',
+  'siteImport.hint': 'Zaimportuj styl strony z adresu URL',
+  'siteImport.title': 'Import strony',
+  'siteImport.desc': 'Pobierzemy kolory i fonty z CSS strony, nagłówki i obraz podglądu — trafią na tablicę jako materiały dla AI.',
+  'siteImport.url': 'Adres strony',
+  'siteImport.submit': 'Importuj',
+  'siteImport.working': 'Analizujemy…',
+  'siteImport.done': 'Zaimportowano {host}: {colors} kolorów, fonty: {fonts}',
+  'siteImport.failedShort': 'Nie udało się zaimportować strony.',
   'nav.brandKits': 'Brand kity',
   'brandKits.insert': 'Wstaw brand kit',
   'brandKits.manage': 'Zarządzaj brand kitami',
@@ -883,6 +892,15 @@ export const en: Record<MessageKey, string> = {
 
   // Billing
   'nav.billing': 'Billing',
+  'siteImport.button': 'From URL',
+  'siteImport.hint': 'Import a website’s style from its URL',
+  'siteImport.title': 'Import a website',
+  'siteImport.desc': 'We fetch colors and fonts from the site’s CSS, its headlines and preview image — they land on the board as materials for the AI.',
+  'siteImport.url': 'Website address',
+  'siteImport.submit': 'Import',
+  'siteImport.working': 'Analysing…',
+  'siteImport.done': 'Imported {host}: {colors} colors, fonts: {fonts}',
+  'siteImport.failedShort': 'Could not import the website.',
   'nav.brandKits': 'Brand kits',
   'brandKits.insert': 'Insert brand kit',
   'brandKits.manage': 'Manage brand kits',

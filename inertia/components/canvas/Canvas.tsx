@@ -14,6 +14,7 @@ import {
 import { useBoardStore } from '~/lib/board/session'
 import { SceneElementNode } from './SceneElementNode'
 import { TextEditor } from './TextEditor'
+import { SiteImportButton } from './SiteImportDialog'
 import { ClipboardPaste, MousePointer2, Upload, UploadCloud } from 'lucide-react'
 import { GRAPHITE, INK, SELECTION, SELECTION_TINT } from '~/lib/scene/palette'
 import { useT } from '~/i18n'
@@ -816,6 +817,7 @@ export function Canvas({ boardId }: { boardId: number }) {
           <Upload />
           {t('canvas.uploadShort')}
         </button>
+        <SiteImportButton />
       </div>
       <input
         ref={fileInputRef}

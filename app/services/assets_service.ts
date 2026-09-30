@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { safeFetch } from '#services/safe_fetch'
 import { readFile } from 'node:fs/promises'
 import { Exception } from '@adonisjs/core/exceptions'
 import type { MultipartFile } from '@adonisjs/core/bodyparser'
@@ -184,16 +185,12 @@ async function processImage(buffer: Buffer, baseKey: string) {
  */
 async function fetchLinkMeta(url: string): Promise<LinkMeta | null> {
   try {
-    const res = await fetch(url, {
-      redirect: 'follow',
-      signal: AbortSignal.timeout(3000),
-      headers: { 'User-Agent': 'canvai/0.1 (+https://canvai.dev)' },
-    })
-    if (!res.ok) return null
-    const contentType = res.headers.get('content-type') ?? ''
-    if (!contentType.includes('text/html')) return null
+    // Bez SSRF: adresy prywatne/wewnętrzne są odrzucane przy łączeniu.
+    const res = await safeFetch(url, { timeoutMs: 3000, maxBytes: 1024 * 1024 })
+    if (res.status < 200 || res.status >= 300) return null
+    if (!res.contentType.includes('text/html')) return null
 
-    const html = await res.text()
+    const html = res.text()
     const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim()
 
     const meta = (prop: string): string | undefined => {
@@ -245,11 +242,35 @@ export async function storeUploadedFile(
       : (file.headers?.['content-type'] ?? 'application/octet-stream')
   )
 
+  const buffer = await readFile(file.tmpPath)
+  return storeBuffer(
+    boardId,
+    { buffer, mime, clientName: file.clientName, extname: file.extname, size: file.size },
+    source
+  )
+}
+
+/**
+ * Zapis pliku z bufora (upload albo pobranie z sieci, np. obraz og:image przy
+ * imporcie strony): walidacja typu i zawartości, dedup, miniatury.
+ */
+export async function storeBuffer(
+  boardId: number,
+  input: { buffer: Buffer; mime: string; clientName: string; extname?: string; size: number },
+  source: AssetSource
+): Promise<Asset> {
+  const { buffer, mime } = input
+  const file = { clientName: input.clientName, extname: input.extname, size: input.size }
+  if (file.size > maxUploadSizeBytes) {
+    throw new Exception(t('asset.tooLarge', { name: file.clientName }), {
+      status: 422,
+      code: 'E_ASSET_TOO_LARGE',
+    })
+  }
+
   // Rzuca 422 dla typów zakazanych (HTML/JS).
   const kind = classifyMime(mime)
   const ext = extForFile(mime, file.extname)
-
-  const buffer = await readFile(file.tmpPath)
 
   // Rzuca 422, gdy bajty nie odpowiadają zadeklarowanemu MIME (tylko obrazy).
   if (kind === 'image') {

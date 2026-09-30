@@ -194,6 +194,24 @@ export async function updateAssetNote(assetId: string, note: string): Promise<As
   return body.data
 }
 
+export interface SiteImportResult {
+  assets: AssetDto[]
+  note: string
+  summary: { host: string; colors: number; fonts: string[] }
+}
+
+/** Import strony z URL (karta linku, obraz og:image, notatka ze stylem). */
+export async function importSite(boardId: number, url: string): Promise<SiteImportResult> {
+  const res = await fetch(`/api/boards/${boardId}/import-site`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...csrfHeaders() },
+    credentials: 'same-origin',
+    body: JSON.stringify({ url }),
+  })
+  if (!res.ok) throw new Error(await extractErrorMessage(res, translate('siteImport.failedShort')))
+  return ((await res.json()) as { data: SiteImportResult }).data
+}
+
 /** Materiał od klienta trafił na płótno — zdejmij go ze skrzynki. */
 export async function acceptInboxAsset(assetId: string): Promise<void> {
   await fetch(`/api/assets/${assetId}/accept`, {

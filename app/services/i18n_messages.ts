@@ -142,6 +142,11 @@ export const pl = {
   'field.currentPassword': 'Obecne hasło',
   'field.token': 'Token',
 
+  // Import strony
+  'siteImport.failed': 'Nie udało się pobrać tej strony (niedostępna, blokuje roboty albo to nie HTML).',
+  'siteImport.linkNote': 'Strona referencyjna klienta — styl, kolory i fonty z tej witryny',
+  'siteImport.imageNote': 'Obraz podglądu strony {host}',
+
   // Brand kity
   'brandKits.locked': 'Brand kity są dostępne w płatnych planach.',
   'brandKits.limit': 'Możesz mieć najwyżej {max} brand kitów.',
@@ -323,6 +328,11 @@ export const en: Record<ServerMessageKey, string> = {
   'account.emailNotVerified': 'Confirm your email address to use the app.',
   'field.currentPassword': 'Current password',
   'field.token': 'Token',
+
+  // Site import
+  'siteImport.failed': 'Could not fetch this page (unavailable, blocks bots, or not HTML).',
+  'siteImport.linkNote': 'Client reference website — style, colors and fonts of this site',
+  'siteImport.imageNote': 'Preview image of {host}',
 
   // Brand kits
   'brandKits.locked': 'Brand kits are available on paid plans.',
