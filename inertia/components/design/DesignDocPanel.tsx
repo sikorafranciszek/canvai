@@ -14,9 +14,15 @@ import {
   FileText,
   GitCompare,
   Layers,
+  Coins,
+  FileCode2,
+  Lock,
   RefreshCw,
   Sparkles,
 } from 'lucide-react'
+import { router } from '@inertiajs/react'
+import { Menu } from '~/components/ui/Menu'
+import { exportUrl, useBillingStore } from '~/lib/billing'
 import { diffLines, diffStats } from '@shared/line-diff'
 import { designDocDownloadUrl, type DesignDocDto } from '~/lib/board/api'
 import { progressLabel, progressRatio, useDesignStore } from '~/lib/board/design'
@@ -48,6 +54,8 @@ export function DesignDocPanel() {
   const reusedNotice = useDesignStore((s) => s.reusedNotice)
   const selectVersion = useDesignStore((s) => s.selectVersion)
   const generate = useDesignStore((s) => s.generate)
+  const hiddenVersions = useDesignStore((s) => s.hiddenVersions)
+  const limits = useBillingStore((s) => s.summary?.limits)
 
   const { t } = useT()
   const assets = useBoardStore((s) => s.assets)
@@ -140,6 +148,30 @@ export function DesignDocPanel() {
               >
                 <Copy />
               </button>
+              <Menu
+                label={limits?.exports === false ? t('doc.export.locked') : t('doc.export.label')}
+                testId="design-doc-export"
+                triggerClassName="btn btn--quiet btn--icon btn--sm"
+                trigger={limits?.exports === false ? <Lock /> : <FileCode2 />}
+                actions={
+                  limits?.exports === false
+                    ? [
+                        {
+                          label: t('doc.export.locked'),
+                          icon: <Lock size={14} />,
+                          onSelect: () => router.visit('/billing'),
+                        },
+                      ]
+                    : (['css', 'tailwind', 'tokens'] as const).map((format) => ({
+                        label: t(`doc.export.${format}`),
+                        icon: <FileCode2 size={14} />,
+                        testId: `design-doc-export-${format}`,
+                        onSelect: () => {
+                          window.location.href = exportUrl(boardId, format, current!.version)
+                        },
+                      }))
+                }
+              />
               <a
                 className="btn btn--icon btn--sm"
                 data-testid="design-doc-download"
@@ -153,6 +185,18 @@ export function DesignDocPanel() {
             </>
           ) : null}
         </div>
+      ) : null}
+
+      {hiddenVersions > 0 ? (
+        <button
+          type="button"
+          className="panel-note"
+          onClick={() => router.visit('/billing')}
+          data-testid="design-doc-hidden-versions"
+        >
+          <Lock size={13} />
+          {t('doc.hiddenVersions', { n: hiddenVersions })}
+        </button>
       ) : null}
 
       {active ? <GenerationProgress doc={active} /> : null}
@@ -175,7 +219,9 @@ export function DesignDocPanel() {
               <AlertCircle />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div>
-                  <div style={{ fontWeight: 500 }}>{t('doc.failedTitle', { version: current.version })}</div>
+                  <div style={{ fontWeight: 500 }}>
+                    {t('doc.failedTitle', { version: current.version })}
+                  </div>
                   <div>{current.error ?? t('doc.unknownError')}</div>
                 </div>
                 <div>
@@ -253,6 +299,7 @@ export function DesignDocPanel() {
           </>
         )}
       </div>
+      <GenerationOptions />
     </div>
   )
 }
@@ -276,7 +323,9 @@ function GenerationProgress({ doc }: { doc: DesignDocDto }) {
     >
       <div className="doc-status__row">
         <span className="spinner" />
-        <span style={{ fontWeight: 500 }}>{t('doc.generatingVersion', { version: doc.version })}</span>
+        <span style={{ fontWeight: 500 }}>
+          {t('doc.generatingVersion', { version: doc.version })}
+        </span>
         <span className="t-muted" style={{ marginLeft: 'auto', fontSize: 12 }}>
           {progressLabel(doc)}
         </span>
@@ -367,10 +416,19 @@ function DocMeta({ doc }: { doc: DesignDocDto }) {
         <>
           <span>
             <Layers />
-            {t('doc.meta.materials', { materials: tp('count.materials', u.assets), cached: u.cached })}
+            {t('doc.meta.materials', {
+              materials: tp('count.materials', u.assets),
+              cached: u.cached,
+            })}
           </span>
           <span>{t('doc.meta.tokens', { n: u.tokensIn + u.tokensOut })}</span>
           <span>{(u.durationMs / 1000).toFixed(1)} s</span>
+          {doc.creditsCharged ? (
+            <span>
+              <Coins />
+              {t('doc.meta.credits', { credits: tp('count.credits', doc.creditsCharged) })}
+            </span>
+          ) : null}
         </>
       ) : null}
     </div>
@@ -405,6 +463,49 @@ function DiffView({
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+/** Pasek pod dokumentem: koszt następnej generacji i przełącznik Pro reasoning. */
+function GenerationOptions() {
+  const { t, tp } = useT()
+  const estimate = useDesignStore((s) => s.estimate)
+  const proMode = useDesignStore((s) => s.proMode)
+  const setProMode = useDesignStore((s) => s.setProMode)
+  const summary = useBillingStore((s) => s.summary)
+  if (!summary?.enforced) return null
+
+  const allowed = summary.limits.proReasoning
+  return (
+    <div className="gen-options" data-testid="generation-options">
+      <span className="gen-options__cost">
+        <Coins size={14} />
+        {estimate
+          ? estimate.unchanged
+            ? t('doc.costUnchanged')
+            : t('doc.cost', {
+                credits: tp('count.credits', estimate.credits),
+                balance: estimate.balance,
+              })
+          : '…'}
+      </span>
+      <label
+        className="gen-options__pro"
+        data-tip={allowed ? t('doc.pro.hint') : t('doc.pro.locked')}
+        data-tip-side="top"
+      >
+        <input
+          type="checkbox"
+          className="switch"
+          checked={proMode && allowed}
+          disabled={!allowed}
+          onChange={(e) => setProMode(e.target.checked)}
+          data-testid="pro-mode-toggle"
+        />
+        {allowed ? null : <Lock size={12} />}
+        {t('doc.pro.label')}
+      </label>
     </div>
   )
 }

@@ -66,7 +66,9 @@ export function buildAnalyzeUserText(input: AnalyzeAssetInput): string {
     ? 'Analyse the attached image.'
     : 'No image — rely on the metadata. If nothing can be said about visuals, leave palette/typography empty.'
 
-  return [meta.join('\n'), fenceUntrusted('asset-metadata', untrusted.join('\n')), task].join('\n\n')
+  return [meta.join('\n'), fenceUntrusted('asset-metadata', untrusted.join('\n')), task].join(
+    '\n\n'
+  )
 }
 
 /** Kształt odpowiedzi etapu 2 — pokazywany modelowi dosłownie. */
@@ -106,7 +108,7 @@ export const COMPOSE_SYSTEM_PROMPT = [
   'WRITE IN ENGLISH. Be concrete and executable: exact hex values, px/rem sizes, weights, radii, paddings, states.',
   'Name tokens semantically (--color-parchment, --text-body, --radius-cards). Give colors evocative but clear names.',
   'Write like a sharp design critic: an evocative tagline, an overview that explains how the interface READS, component',
-  'descriptions precise enough to rebuild them, and Do/Don\'t rules that protect the visual identity.',
+  "descriptions precise enough to rebuild them, and Do/Don't rules that protect the visual identity.",
   'GROUNDING RULES:',
   '- Every color, font, component and screen lists the board assets it comes from in "sources" (numeric ids).',
   '- In free text you may cite assets inline as [A<id>]. Only ids from the provided list are allowed.',

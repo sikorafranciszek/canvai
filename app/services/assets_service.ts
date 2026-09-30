@@ -117,10 +117,10 @@ const SHARP_FORMAT_BY_MIME: Record<string, string> = {
  */
 async function assertContentMatchesMime(buffer: Buffer, mime: string, filename: string) {
   const reject = (detail: string): never => {
-    throw new Exception(
-      t('asset.mismatch', { name: filename, mime, detail }),
-      { status: 422, code: 'E_ASSET_CONTENT_MISMATCH' }
-    )
+    throw new Exception(t('asset.mismatch', { name: filename, mime, detail }), {
+      status: 422,
+      code: 'E_ASSET_CONTENT_MISMATCH',
+    })
   }
 
   if (mime === 'image/svg+xml') {
@@ -139,7 +139,8 @@ async function assertContentMatchesMime(buffer: Buffer, mime: string, filename: 
   } catch {
     reject(t('asset.mismatch.unreadable'))
   }
-  if (format !== expected) reject(t('asset.mismatch.detected', { format: format ?? t('asset.mismatch.unknown') }))
+  if (format !== expected)
+    reject(t('asset.mismatch.detected', { format: format ?? t('asset.mismatch.unknown') }))
 }
 
 /**
@@ -324,7 +325,14 @@ export async function deleteAssetFiles(asset: Asset): Promise<void> {
   const keys = [asset.storageKey, asset.thumbKey, asset.analysisKey].filter(
     (key): key is string => typeof key === 'string' && key.length > 0
   )
-  await Promise.all(keys.map((key) => drive.use().delete(key).catch(() => {})))
+  await Promise.all(
+    keys.map((key) =>
+      drive
+        .use()
+        .delete(key)
+        .catch(() => {})
+    )
+  )
 }
 
 /** Serializuje asset do kształtu odpowiedzi API. */
@@ -341,7 +349,8 @@ export function serializeAsset(asset: Asset) {
     height: asset.height,
     source: asset.source,
     userNote: asset.userNote,
-    linkMeta: asset.kind === 'link' ? ((asset.position as { link?: LinkMeta } | null)?.link ?? null) : null,
+    linkMeta:
+      asset.kind === 'link' ? ((asset.position as { link?: LinkMeta } | null)?.link ?? null) : null,
     createdAt: asset.createdAt?.toISO() ?? null,
     urls: {
       raw: `/api/assets/${asset.id}/raw`,
@@ -374,7 +383,9 @@ export async function pruneOrphanAssets(boardId: number): Promise<number[]> {
   const scene = await BoardScene.query().where('board_id', boardId).first()
   if (!scene) return []
   const referenced = referencedAssetIds(scene.document)
-  const orphans = (await Asset.query().where('board_id', boardId)).filter((a) => !referenced.has(a.id))
+  const orphans = (await Asset.query().where('board_id', boardId)).filter(
+    (a) => !referenced.has(a.id)
+  )
   for (const asset of orphans) {
     await deleteAssetFiles(asset)
     await asset.delete()

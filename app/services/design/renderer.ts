@@ -69,7 +69,13 @@ function bullets(items: string[]): string {
 }
 
 function headerLine(value: string): string {
-  return value.replace(/[\r\n#]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200) || 'Untitled'
+  return (
+    value
+      .replace(/[\r\n#]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 200) || 'Untitled'
+  )
 }
 
 function slug(value: string): string {
@@ -92,7 +98,9 @@ function fontStack(name: string, substitute: string): string {
 }
 
 function withPrefix(tokenName: string, prefix: string): string {
-  return tokenName.startsWith(`--${prefix}-`) ? tokenName : `--${prefix}-${tokenName.replace(/^--/, '')}`
+  return tokenName.startsWith(`--${prefix}-`)
+    ? tokenName
+    : `--${prefix}-${tokenName.replace(/^--/, '')}`
 }
 
 const WEIGHT_NAMES: Record<number, string> = {
@@ -135,7 +143,9 @@ function layoutEntries(spec: DesignSpec): [string, string][] {
 }
 
 export function renderCssVariables(spec: DesignSpec): string {
-  const weights = [...new Set(spec.typography.families.flatMap((f) => f.weights))].sort((a, b) => a - b)
+  const weights = [...new Set(spec.typography.families.flatMap((f) => f.weights))].sort(
+    (a, b) => a - b
+  )
   return block(':root {', [
     ['Colors', spec.colors.map((c) => [c.token, c.hex])],
     [
@@ -145,10 +155,18 @@ export function renderCssVariables(spec: DesignSpec): string {
     [
       'Typography — Scale',
       spec.typography.scale.flatMap((r): [string, string][] =>
-        r.lineHeight === '—' ? [[r.token, r.size]] : [[r.token, r.size], [leadingToken(r.token), r.lineHeight]]
+        r.lineHeight === '—'
+          ? [[r.token, r.size]]
+          : [
+              [r.token, r.size],
+              [leadingToken(r.token), r.lineHeight],
+            ]
       ),
     ],
-    ['Typography — Weights', weights.map((w) => [`--font-weight-${WEIGHT_NAMES[w] ?? w}`, String(w)])],
+    [
+      'Typography — Weights',
+      weights.map((w) => [`--font-weight-${WEIGHT_NAMES[w] ?? w}`, String(w)]),
+    ],
     [
       'Spacing',
       [
@@ -168,13 +186,21 @@ export function renderTailwindTheme(spec: DesignSpec): string {
     ['Colors', spec.colors.map((c) => [withPrefix(c.token, 'color'), c.hex])],
     [
       'Typography',
-      spec.typography.families.map((f) => [withPrefix(f.token, 'font'), fontStack(f.name, f.substitute)]),
+      spec.typography.families.map((f) => [
+        withPrefix(f.token, 'font'),
+        fontStack(f.name, f.substitute),
+      ]),
     ],
     [
       'Typography — Scale',
       spec.typography.scale.flatMap((r): [string, string][] => {
         const t = withPrefix(r.token, 'text')
-        return r.lineHeight === '—' ? [[t, r.size]] : [[t, r.size], [`${t}--line-height`, r.lineHeight]]
+        return r.lineHeight === '—'
+          ? [[t, r.size]]
+          : [
+              [t, r.size],
+              [`${t}--line-height`, r.lineHeight],
+            ]
       }),
     ],
     ['Spacing', spec.spacing.scale.map((s) => [`--spacing-${slug(s.name)}`, s.value])],
@@ -205,7 +231,10 @@ export function renderDesignMd(
   const sources = buildSources(spec, assets)
   const out: string[] = []
   const section = (title: string, ...parts: string[]) => {
-    const body = parts.filter((p) => p && p.trim()).join('\n\n').trim()
+    const body = parts
+      .filter((p) => p && p.trim())
+      .join('\n\n')
+      .trim()
     if (body) out.push(`## ${title}\n\n${body}`)
   }
 
@@ -286,7 +315,10 @@ export function renderDesignMd(
         )}`
       : '',
     spec.radii.length
-      ? `### Border Radius\n\n${table(['Element', 'Value'], spec.radii.map((r) => [r.name, r.value]))}`
+      ? `### Border Radius\n\n${table(
+          ['Element', 'Value'],
+          spec.radii.map((r) => [r.name, r.value])
+        )}`
       : '',
     spec.shadows.length
       ? `### Shadows\n\n${table(
@@ -368,7 +400,9 @@ export function renderDesignMd(
   if (spec.similarBrands.length) {
     section(
       'Similar Brands',
-      spec.similarBrands.map((b) => `- **${b.name}**${b.reason ? ` — ${inline(b.reason)}` : ''}`).join('\n')
+      spec.similarBrands
+        .map((b) => `- **${b.name}**${b.reason ? ` — ${inline(b.reason)}` : ''}`)
+        .join('\n')
     )
   }
 
@@ -389,7 +423,9 @@ export function renderDesignMd(
     'Open Questions',
     bullets([
       ...spec.openQuestions,
-      ...(assumedItems.length ? [`Confirm assumed values ${ASSUMED}: ${assumedItems.join(', ')}.`] : []),
+      ...(assumedItems.length
+        ? [`Confirm assumed values ${ASSUMED}: ${assumedItems.join(', ')}.`]
+        : []),
     ])
   )
 

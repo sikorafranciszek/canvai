@@ -5,7 +5,8 @@ import type React from 'react'
 import { ArrowLeft, PanelRight } from 'lucide-react'
 import { SaveStatus } from '~/components/canvas/SaveStatus'
 import { GenerateDesignDocButton, SidePanel } from '~/components/design/SidePanel'
-import { useDesignStore } from '~/lib/board/design'
+import { useDesignStore, useEstimateSync } from '~/lib/board/design'
+import { useBillingStore } from '~/lib/billing'
 import { useUiStore } from '~/lib/ui'
 import { useT } from '~/i18n'
 import { LanguageSwitcher } from '~/components/ui/LanguageSwitcher'
@@ -32,6 +33,12 @@ const BoardsShow: React.FC<{ board: Board; user?: SharedUser }> = ({ board, user
     void design.init(board.id)
     return () => design.dispose()
   }, [board.id])
+
+  // Koszt następnej generacji i saldo (plan decyduje o trybie Pro i eksportach).
+  useEstimateSync()
+  useEffect(() => {
+    void useBillingStore.getState().load()
+  }, [])
 
   const sidePanelOpen = useUiStore((s) => s.sidePanelOpen)
   const { t } = useT()

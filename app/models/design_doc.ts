@@ -3,6 +3,7 @@ import { BaseModel, belongsTo, column } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Board from '#models/board'
 import { jsonConsume, jsonPrepare } from '#models/json_columns'
+import type { DesignSpec } from '#services/design/spec'
 
 export type DesignDocStatus = 'queued' | 'running' | 'ready' | 'failed'
 
@@ -59,6 +60,17 @@ export default class DesignDoc extends BaseModel {
 
   @column({ prepare: jsonPrepare, consume: jsonConsume })
   declare sources: DesignDocSource[] | null
+
+  /** Ustrukturyzowany wynik kompozycji — źródło eksportów (CSS, Tailwind, JSON). */
+  @column({ prepare: jsonPrepare, consume: jsonConsume, serializeAs: null })
+  declare spec: DesignSpec | null
+
+  /** Kredyty faktycznie pobrane za tę wersję (null = bez rozliczenia). */
+  @column()
+  declare creditsCharged: number | null
+
+  @column({ consume: (v) => Boolean(v) })
+  declare proMode: boolean
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime | null

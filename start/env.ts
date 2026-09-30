@@ -43,6 +43,21 @@ export default await Env.create(new URL('../', import.meta.url), {
   DEEPSEEK_REASONING_MODEL: Env.schema.string.optional(),
   DEEPSEEK_THINKING: Env.schema.enum.optional(['off', 'low', 'high'] as const),
 
+  /*
+  |----------------------------------------------------------
+  | Rozliczenia — Lemon Squeezy
+  |----------------------------------------------------------
+  */
+  BILLING_ENFORCED: Env.schema.boolean.optional(),
+  LEMONSQUEEZY_API_KEY: Env.schema.string.optional(),
+  LEMONSQUEEZY_STORE_ID: Env.schema.string.optional(),
+  LEMONSQUEEZY_WEBHOOK_SECRET: Env.schema.string.optional(),
+  LEMONSQUEEZY_TEST_MODE: Env.schema.boolean.optional(),
+  LEMONSQUEEZY_VARIANT_PACK_S: Env.schema.string.optional(),
+  LEMONSQUEEZY_VARIANT_PACK_M: Env.schema.string.optional(),
+  LEMONSQUEEZY_VARIANT_PACK_L: Env.schema.string.optional(),
+  LEMONSQUEEZY_VARIANT_PRO: Env.schema.string.optional(),
+
   // Produkcja: trwałe ścieżki na wolumenie i zaufanie do reverse proxy.
   SQLITE_PATH: Env.schema.string.optional(),
   STORAGE_PATH: Env.schema.string.optional(),

@@ -83,6 +83,11 @@ async function findCached(cacheKey: string, model: string): Promise<AssetAnalysi
   }
 }
 
+/** Czy analiza assetu jest już w cache (ponowna generacja nie płaci za nią). */
+export async function isAnalysisCached(asset: Asset, model: string): Promise<boolean> {
+  return (await findCached(analysisCacheKey(asset), model)) !== null
+}
+
 /** Prosta pula: co najwyżej `concurrency` zadań naraz, kolejność wyników zachowana. */
 async function pool<T>(items: T[], concurrency: number, worker: (item: T) => Promise<void>) {
   let next = 0

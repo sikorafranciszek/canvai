@@ -2,7 +2,7 @@
  * Prawy panel tablicy z zakładkami „Materiały” i „DESIGN.md” + przycisk
  * generacji używany w górnym pasku edytora.
  */
-import { Sparkles } from 'lucide-react'
+import { Coins, Sparkles } from 'lucide-react'
 import { AssetPanel } from '~/components/canvas/AssetPanel'
 import { DesignDocPanel } from '~/components/design/DesignDocPanel'
 import { useDesignStore, type SidePanelTab } from '~/lib/board/design'
@@ -31,48 +31,48 @@ export function SidePanel({ open = true }: { open?: boolean }) {
       inert={!open}
       aria-hidden={!open}
     >
-    <aside
-      className="side-panel"
-      data-testid="side-panel"
-      aria-label={t('panel.label')}
-      style={{ width, minWidth: width }}
-    >
-      <div className="side-panel__tabs" role="tablist" aria-label={t('panel.tabs')}>
-        <button
-          type="button"
-          role="tab"
-          className="chip"
-          aria-selected={tab === 'assets'}
-          data-testid="tab-assets"
-          onClick={() => setTab('assets')}
-        >
-          {t('panel.materials')}
-          <span style={{ opacity: 0.7 }}>{assetCount}</span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          className="chip"
-          aria-selected={tab === 'design'}
-          data-testid="tab-design"
-          onClick={() => setTab('design')}
-        >
-          DESIGN.md
-          {pending ? (
-            <span
-              className="spinner"
-              style={{ width: 10, height: 10, borderWidth: 1.5 }}
-              aria-label={t('panel.generating')}
-            />
-          ) : latest ? (
-            <span style={{ opacity: 0.7 }}>v{latest.version}</span>
-          ) : null}
-        </button>
-      </div>
-      <div className="side-panel__body" role="tabpanel">
-        {tab === 'assets' ? <AssetPanel /> : <DesignDocPanel />}
-      </div>
-    </aside>
+      <aside
+        className="side-panel"
+        data-testid="side-panel"
+        aria-label={t('panel.label')}
+        style={{ width, minWidth: width }}
+      >
+        <div className="side-panel__tabs" role="tablist" aria-label={t('panel.tabs')}>
+          <button
+            type="button"
+            role="tab"
+            className="chip"
+            aria-selected={tab === 'assets'}
+            data-testid="tab-assets"
+            onClick={() => setTab('assets')}
+          >
+            {t('panel.materials')}
+            <span style={{ opacity: 0.7 }}>{assetCount}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            className="chip"
+            aria-selected={tab === 'design'}
+            data-testid="tab-design"
+            onClick={() => setTab('design')}
+          >
+            DESIGN.md
+            {pending ? (
+              <span
+                className="spinner"
+                style={{ width: 10, height: 10, borderWidth: 1.5 }}
+                aria-label={t('panel.generating')}
+              />
+            ) : latest ? (
+              <span style={{ opacity: 0.7 }}>v{latest.version}</span>
+            ) : null}
+          </button>
+        </div>
+        <div className="side-panel__body" role="tabpanel">
+          {tab === 'assets' ? <AssetPanel /> : <DesignDocPanel />}
+        </div>
+      </aside>
     </div>
   )
 }
@@ -83,6 +83,9 @@ export function GenerateDesignDocButton() {
   const starting = useDesignStore((s) => s.starting)
   const pending = useDesignStore((s) => Boolean(s.active))
   const busy = starting || pending
+  const estimate = useDesignStore((s) => s.estimate)
+  const { tp } = useT()
+  const showCost = estimate?.enforced && !busy
 
   return (
     <button
@@ -93,10 +96,22 @@ export function GenerateDesignDocButton() {
       onClick={() => void generate()}
       disabled={busy}
       aria-busy={busy}
-      title={t('editor.generateHint')}
+      title={
+        showCost
+          ? `${t('editor.generateHint')} — ${
+              estimate.unchanged ? t('doc.costUnchanged') : tp('count.credits', estimate.credits)
+            }`
+          : t('editor.generateHint')
+      }
     >
       {busy ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Sparkles />}
       {busy ? t('editor.generating') : t('editor.generate')}
+      {showCost && !estimate.unchanged ? (
+        <span className="gen-cost" data-testid="generate-cost">
+          <Coins />
+          {estimate.credits}
+        </span>
+      ) : null}
     </button>
   )
 }

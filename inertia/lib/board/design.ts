@@ -2,8 +2,11 @@
  * Store generacji DESIGN.md: aktywna zakładka panelu, historia wersji,
  * wybrana wersja z treścią, stan generacji i polling statusu (co 1,5 s).
  */
+import { useEffect } from 'react'
 import { create } from 'zustand'
 import { toast } from 'sonner'
+import { router } from '@inertiajs/react'
+import { fetchEstimate, useBillingStore, type CostEstimate } from '~/lib/billing'
 import {
   DesignDocRequestError,
   generateDesignDoc,
@@ -22,6 +25,12 @@ interface DesignState {
   boardId: number | null
   tab: SidePanelTab
   versions: DesignDocDto[]
+  /** Wersje ukryte przez limit historii planu Free. */
+  hiddenVersions: number
+  /** Tryb Pro reasoning dla następnej generacji. */
+  proMode: boolean
+  /** Koszt następnej generacji (odświeżany po zmianach tablicy). */
+  estimate: CostEstimate | null
   /** Wybrana wersja (z treścią). */
   current: DesignDocDto | null
   /** Treść poprzedniej gotowej wersji — do diffu. */
@@ -36,6 +45,7 @@ interface DesignState {
   init: (boardId: number) => Promise<void>
   dispose: () => void
   setTab: (tab: SidePanelTab) => void
+  setProMode: (on: boolean) => void
   selectVersion: (version: number) => Promise<void>
   generate: (opts?: { force?: boolean }) => Promise<void>
 }
@@ -54,8 +64,8 @@ function isPending(doc: DesignDocDto | null | undefined): boolean {
 
 export const useDesignStore = create<DesignState>()((set, get) => {
   async function refreshVersions(boardId: number) {
-    const versions = await listDesignDocs(boardId)
-    if (get().boardId === boardId) set({ versions })
+    const { versions, hiddenVersions } = await listDesignDocs(boardId)
+    if (get().boardId === boardId) set({ versions, hiddenVersions })
     return versions
   }
 
@@ -81,6 +91,8 @@ export const useDesignStore = create<DesignState>()((set, get) => {
         }
 
         set({ active: null, current: doc })
+        // Saldo zmienia się po rozliczeniu (albo zwrocie) generacji.
+        void useBillingStore.getState().load()
         await refreshVersions(boardId)
         await loadPrevious(boardId, doc)
         if (doc.status === 'ready') toast.success(translate('doc.ready', { version: doc.version }))
@@ -96,6 +108,9 @@ export const useDesignStore = create<DesignState>()((set, get) => {
     boardId: null,
     tab: 'assets',
     versions: [],
+    hiddenVersions: 0,
+    proMode: false,
+    estimate: null,
     current: null,
     previous: null,
     active: null,
@@ -142,6 +157,10 @@ export const useDesignStore = create<DesignState>()((set, get) => {
       set({ tab })
     },
 
+    setProMode(on) {
+      set({ proMode: on })
+    },
+
     async selectVersion(version) {
       const boardId = get().boardId
       if (boardId == null) return
@@ -167,7 +186,8 @@ export const useDesignStore = create<DesignState>()((set, get) => {
         const board = useBoardStore.getState()
         if (board.saveStatus === 'dirty' || board.saveStatus === 'error') await board.saveNow()
 
-        const result = await generateDesignDoc(boardId, opts)
+        const result = await generateDesignDoc(boardId, { ...opts, proMode: get().proMode })
+        void useBillingStore.getState().load()
         if (result.kind === 'reused') {
           set({ current: result.doc, reusedNotice: true })
           await loadPrevious(boardId, result.doc)
@@ -183,6 +203,20 @@ export const useDesignStore = create<DesignState>()((set, get) => {
           schedulePoll(boardId, error.doc.version, seq)
           return
         }
+        // Brak kredytów / funkcja planu — komunikat z przejściem do rozliczeń.
+        if (
+          error instanceof DesignDocRequestError &&
+          (error.status === 402 || error.status === 403)
+        ) {
+          toast.error(error.message, {
+            duration: 8000,
+            action: {
+              label: translate(error.status === 402 ? 'billing.topUp' : 'billing.upgrade'),
+              onClick: () => router.visit('/billing'),
+            },
+          })
+          return
+        }
         toast.error(error instanceof Error ? error.message : translate('doc.startFailed'))
       } finally {
         set({ starting: false })
@@ -196,7 +230,8 @@ export function progressLabel(doc: DesignDocDto | null): string {
   if (doc.status === 'queued') return doc.error ?? translate('doc.progress.queued')
   const p = doc.progress
   if (!p) return translate('doc.progress.preparing')
-  if (p.stage === 'analyze') return translate('doc.progress.analyze', { done: p.done, total: p.total })
+  if (p.stage === 'analyze')
+    return translate('doc.progress.analyze', { done: p.done, total: p.total })
   if (p.stage === 'compose') return translate('doc.progress.compose')
   return translate('doc.progress.render')
 }
@@ -207,4 +242,33 @@ export function progressRatio(doc: DesignDocDto | null): number {
   if (p.stage === 'analyze') return 0.05 + 0.7 * (p.total > 0 ? p.done / p.total : 1)
   if (p.stage === 'compose') return 0.8
   return 0.95
+}
+
+/**
+ * Utrzymuje `estimate` w store: odświeża koszt po zapisie sceny, zmianie
+ * materiałów, przełączeniu trybu Pro i po każdej nowej wersji. Montowany raz
+ * (strona tablicy), żeby nie dublować zapytań.
+ */
+export function useEstimateSync() {
+  const boardId = useDesignStore((s) => s.boardId)
+  const proMode = useDesignStore((s) => s.proMode)
+  const versionKey = useDesignStore((s) => `${s.current?.version ?? 0}:${s.active?.status ?? ''}`)
+  const assetsKey = useBoardStore((s) =>
+    s.assets.map((a) => `${a.id}:${a.userNote ?? ''}`).join(',')
+  )
+  const saved = useBoardStore((s) => s.saveStatus === 'saved')
+
+  useEffect(() => {
+    if (boardId == null || !saved) return
+    let alive = true
+    const timer = setTimeout(async () => {
+      const estimate = await fetchEstimate(boardId, proMode)
+      if (alive && useDesignStore.getState().boardId === boardId)
+        useDesignStore.setState({ estimate })
+    }, 400)
+    return () => {
+      alive = false
+      clearTimeout(timer)
+    }
+  }, [boardId, proMode, versionKey, assetsKey, saved])
 }

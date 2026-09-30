@@ -258,7 +258,7 @@ const docLines = docExcerpt.split('\n')
             <div class="plan__head">
               <h3 class="plan__name">{plan.name}</h3>
               <span class:list={['badge', plan.status === 'available' ? 'badge--accent' : 'badge--muted']}>
-                {plan.status === 'available' ? t.pricing.availableBadge : t.pricing.soonBadge}
+                {plan.badge ?? (plan.status === 'available' ? t.pricing.availableBadge : t.pricing.soonBadge)}
               </span>
             </div>
             <div class="plan__price">

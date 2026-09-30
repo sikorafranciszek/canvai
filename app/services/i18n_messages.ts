@@ -103,21 +103,25 @@ export const pl = {
   'mail.footer': 'Wiadomość wysłana automatycznie przez canvai. Nie odpowiadaj na nią.',
   'mail.verify.subject': 'Potwierdź adres e-mail — canvai',
   'mail.verify.heading': 'Potwierdź adres e-mail',
-  'mail.verify.intro': 'Dziękujemy za założenie konta w canvai. Kliknij przycisk, aby potwierdzić, że ten adres należy do Ciebie.',
+  'mail.verify.intro':
+    'Dziękujemy za założenie konta w canvai. Kliknij przycisk, aby potwierdzić, że ten adres należy do Ciebie.',
   'mail.verify.button': 'Potwierdź adres e-mail',
   'mail.verify.expires': 'Link jest ważny przez 24 godziny.',
   'mail.verify.ignore': 'Jeśli to nie Ty zakładałeś konto, zignoruj tę wiadomość.',
   'mail.reset.subject': 'Reset hasła — canvai',
   'mail.reset.heading': 'Ustaw nowe hasło',
-  'mail.reset.intro': 'Otrzymaliśmy prośbę o zresetowanie hasła do Twojego konta. Kliknij przycisk, aby ustawić nowe hasło.',
+  'mail.reset.intro':
+    'Otrzymaliśmy prośbę o zresetowanie hasła do Twojego konta. Kliknij przycisk, aby ustawić nowe hasło.',
   'mail.reset.button': 'Ustaw nowe hasło',
   'mail.reset.expires': 'Link jest ważny przez 60 minut i można go użyć tylko raz.',
-  'mail.reset.ignore': 'Jeśli to nie Ty prosiłeś o reset, zignoruj tę wiadomość — hasło pozostanie bez zmian.',
+  'mail.reset.ignore':
+    'Jeśli to nie Ty prosiłeś o reset, zignoruj tę wiadomość — hasło pozostanie bez zmian.',
   'mail.passwordChanged.subject': 'Hasło zostało zmienione — canvai',
   'mail.passwordChanged.heading': 'Hasło zostało zmienione',
   'mail.passwordChanged.intro': 'Hasło do Twojego konta canvai zostało właśnie zmienione.',
   'mail.passwordChanged.button': 'Przejdź do logowania',
-  'mail.passwordChanged.ignore': 'Jeśli to nie Ty zmieniłeś hasło, natychmiast je zresetuj przez „Nie pamiętasz hasła?”.',
+  'mail.passwordChanged.ignore':
+    'Jeśli to nie Ty zmieniłeś hasło, natychmiast je zresetuj przez „Nie pamiętasz hasła?”.',
 
   // Konto: komunikaty
   'account.verifySent': 'Wysłaliśmy link weryfikacyjny na adres {email}.',
@@ -125,7 +129,8 @@ export const pl = {
   'account.verified': 'Adres e-mail został potwierdzony. Witaj w canvai!',
   'account.alreadyVerified': 'Adres e-mail jest już potwierdzony.',
   'account.verifyInvalid': 'Link weryfikacyjny jest nieprawidłowy lub wygasł. Wyślij nowy.',
-  'account.resetSent': 'Jeśli konto z tym adresem istnieje, wysłaliśmy na nie link do ustawienia nowego hasła.',
+  'account.resetSent':
+    'Jeśli konto z tym adresem istnieje, wysłaliśmy na nie link do ustawienia nowego hasła.',
   'account.resetDone': 'Hasło zostało zmienione. Zaloguj się nowym hasłem.',
   'account.resetInvalid': 'Link do resetu hasła jest nieprawidłowy lub wygasł. Poproś o nowy.',
   'account.passwordChanged': 'Hasło zostało zmienione.',
@@ -136,6 +141,26 @@ export const pl = {
   'account.emailNotVerified': 'Potwierdź adres e-mail, aby korzystać z aplikacji.',
   'field.currentPassword': 'Obecne hasło',
   'field.token': 'Token',
+
+  // Rozliczenia
+  'billing.insufficient':
+    'Za mało kredytów: ta generacja kosztuje {needed}, a masz {balance}. Dokup kredyty w zakładce Rozliczenia.',
+  'billing.proOnly': 'Tryb Pro reasoning jest dostępny w płatnych planach.',
+  'billing.versionLocked':
+    'Plan Free przechowuje tylko ostatnie wersje. Przejdź na płatny plan, aby otworzyć starsze.',
+  'billing.exportsLocked': 'Eksport tokenów jest dostępny w płatnych planach.',
+  'billing.exportNeedsRegen':
+    'Ta wersja powstała przed wprowadzeniem eksportów — wygeneruj DESIGN.md ponownie.',
+  'billing.boardLimit':
+    'Plan Free obejmuje {limit} tablicę. Dokup kredyty albo przejdź na Pro, aby tworzyć kolejne.',
+  'billing.materialsLimit':
+    'Limit planu: {limit} materiałów na tablicę. Usuń część albo przejdź na płatny plan.',
+  'billing.checkoutUnavailable': 'Płatności nie są jeszcze skonfigurowane. Spróbuj później.',
+  'billing.checkoutFailed': 'Nie udało się otworzyć płatności. Spróbuj ponownie za chwilę.',
+  'billing.alreadySubscribed': 'Masz już aktywną subskrypcję — zarządzaj nią w portalu klienta.',
+  'billing.noSubscription': 'Nie masz subskrypcji.',
+  'billing.portalFailed': 'Nie udało się otworzyć portalu klienta. Spróbuj ponownie za chwilę.',
+  'billing.watermark': 'Wygenerowano w canvai (plan Free) — https://canvai.dev',
 } as const
 
 export type ServerMessageKey = keyof typeof pl
@@ -228,28 +253,33 @@ export const en: Record<ServerMessageKey, string> = {
   'mail.footer': 'This message was sent automatically by canvai. Please do not reply.',
   'mail.verify.subject': 'Confirm your email — canvai',
   'mail.verify.heading': 'Confirm your email address',
-  'mail.verify.intro': 'Thanks for creating a canvai account. Click the button to confirm this address belongs to you.',
+  'mail.verify.intro':
+    'Thanks for creating a canvai account. Click the button to confirm this address belongs to you.',
   'mail.verify.button': 'Confirm email address',
   'mail.verify.expires': 'The link is valid for 24 hours.',
   'mail.verify.ignore': 'If you did not create an account, you can ignore this email.',
   'mail.reset.subject': 'Reset your password — canvai',
   'mail.reset.heading': 'Set a new password',
-  'mail.reset.intro': 'We received a request to reset the password for your account. Click the button to set a new password.',
+  'mail.reset.intro':
+    'We received a request to reset the password for your account. Click the button to set a new password.',
   'mail.reset.button': 'Set a new password',
   'mail.reset.expires': 'The link is valid for 60 minutes and can be used only once.',
-  'mail.reset.ignore': 'If you did not request a reset, ignore this email — your password stays unchanged.',
+  'mail.reset.ignore':
+    'If you did not request a reset, ignore this email — your password stays unchanged.',
   'mail.passwordChanged.subject': 'Your password was changed — canvai',
   'mail.passwordChanged.heading': 'Your password was changed',
   'mail.passwordChanged.intro': 'The password for your canvai account has just been changed.',
   'mail.passwordChanged.button': 'Go to log in',
-  'mail.passwordChanged.ignore': 'If you did not change it, reset your password right away via “Forgot password?”.',
+  'mail.passwordChanged.ignore':
+    'If you did not change it, reset your password right away via “Forgot password?”.',
 
   'account.verifySent': 'We sent a verification link to {email}.',
   'account.verifyCooldown': 'Please wait a moment before requesting another link.',
   'account.verified': 'Your email is confirmed. Welcome to canvai!',
   'account.alreadyVerified': 'Your email is already confirmed.',
   'account.verifyInvalid': 'The verification link is invalid or has expired. Send a new one.',
-  'account.resetSent': 'If an account with this email exists, we sent it a link to set a new password.',
+  'account.resetSent':
+    'If an account with this email exists, we sent it a link to set a new password.',
   'account.resetDone': 'Your password was changed. Log in with the new password.',
   'account.resetInvalid': 'The password reset link is invalid or has expired. Request a new one.',
   'account.passwordChanged': 'Your password was changed.',
@@ -260,4 +290,25 @@ export const en: Record<ServerMessageKey, string> = {
   'account.emailNotVerified': 'Confirm your email address to use the app.',
   'field.currentPassword': 'Current password',
   'field.token': 'Token',
+
+  // Billing
+  'billing.insufficient':
+    'Not enough credits: this generation costs {needed} and you have {balance}. Top up in Billing.',
+  'billing.proOnly': 'Pro reasoning is available on paid plans.',
+  'billing.versionLocked':
+    'The Free plan keeps only the latest versions. Upgrade to open older ones.',
+  'billing.exportsLocked': 'Token export is available on paid plans.',
+  'billing.exportNeedsRegen':
+    'This version was created before exports existed — generate DESIGN.md again.',
+  'billing.boardLimit':
+    'The Free plan includes {limit} board. Buy credits or upgrade to Pro to create more.',
+  'billing.materialsLimit':
+    'Plan limit: {limit} materials per board. Remove some or upgrade to a paid plan.',
+  'billing.checkoutUnavailable': 'Payments are not configured yet. Please try again later.',
+  'billing.checkoutFailed': 'Could not open checkout. Please try again in a moment.',
+  'billing.alreadySubscribed':
+    'You already have an active subscription — manage it in the customer portal.',
+  'billing.noSubscription': 'You have no subscription.',
+  'billing.portalFailed': 'Could not open the customer portal. Please try again in a moment.',
+  'billing.watermark': 'Generated with canvai (Free plan) — https://canvai.dev',
 }

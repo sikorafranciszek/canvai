@@ -34,7 +34,10 @@ function buildProvider(locale: Locale) {
   const tr = (key: ServerMessageKey) => translator.t(locale, key)
   // VineJS podstawia {{ field }}, {{ min }}, {{ max }}.
   const vineTemplate = (key: ServerMessageKey) =>
-    tr(key).replace('{field}', '{{ field }}').replace('{min}', '{{ min }}').replace('{max}', '{{ max }}')
+    tr(key)
+      .replace('{field}', '{{ field }}')
+      .replace('{min}', '{{ min }}')
+      .replace('{max}', '{{ max }}')
   return new SimpleMessagesProvider(
     {
       'required': tr('validation.required'),
@@ -61,7 +64,10 @@ function buildProvider(locale: Locale) {
 }
 
 const translator = createTranslator({ pl, en })
-const providers: Record<Locale, SimpleMessagesProvider> = { pl: buildProvider('pl'), en: buildProvider('en') }
+const providers: Record<Locale, SimpleMessagesProvider> = {
+  pl: buildProvider('pl'),
+  en: buildProvider('en'),
+}
 
 class LocaleMessagesProvider implements MessagesProviderContact {
   getMessage(...args: Parameters<MessagesProviderContact['getMessage']>) {

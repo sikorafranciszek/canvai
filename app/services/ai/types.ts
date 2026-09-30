@@ -83,6 +83,8 @@ export interface ComposeInput {
   context: import('#services/design/board_context').BoardContext
   /** Błędy poprzedniej próby — dostawca może je wykorzystać przy ponowieniu. */
   previousErrors?: string[]
+  /** Tryb Pro reasoning — model rozumuje dłużej (droższy, dokładniejszy). */
+  reasoning?: boolean
 }
 
 export interface ProviderUsage {

@@ -3,6 +3,7 @@ import db from '@adonisjs/lucid/services/db'
 import logger from '@adonisjs/core/services/logger'
 import { limits } from '#config/ai'
 import DesignDoc from '#models/design_doc'
+import { releaseAll } from '#services/billing/credits'
 import Job from '#models/job'
 import { AiProviderError } from '#services/ai/types'
 import { runGeneration } from '#services/design/generator'
@@ -42,9 +43,10 @@ const handlers: Record<string, JobHandler> = {
       await runGeneration(doc, (p) => ctx.progress(p as unknown as Record<string, unknown>))
     },
     async onFailed(job, message) {
-      await DesignDoc.query()
-        .where('id', job.payload.designDocId as number)
-        .update({ status: 'failed', error: message })
+      const docId = job.payload.designDocId as number
+      await DesignDoc.query().where('id', docId).update({ status: 'failed', error: message })
+      // Nieudana generacja nic nie kosztuje — rezerwacja wraca w całości.
+      await releaseAll(docId)
     },
     async onRetry(job, message) {
       await DesignDoc.query()
@@ -114,8 +116,7 @@ async function runJobInner(job: Job): Promise<void> {
     job.merge({ status: 'done', lastError: null, lockedAt: null })
     await job.save()
   } catch (error) {
-    const message =
-      error instanceof Error && error.message ? error.message : t('gen.unexpected')
+    const message = error instanceof Error && error.message ? error.message : t('gen.unexpected')
     const retryable = error instanceof AiProviderError && error.retryable
 
     if (!(error instanceof AiProviderError)) {

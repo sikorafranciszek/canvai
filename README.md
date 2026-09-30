@@ -264,6 +264,45 @@ API:
 | GET    | `/api/boards/:id/design-doc/download?version=`| `DESIGN.md` file                                   |
 | GET    | `/api/jobs/:id`                               | Job status and progress                            |
 
+## Billing: credits & plans (Lemon Squeezy)
+
+Users pay for DESIGN.md generations with **credits** (`config/billing.ts`):
+
+| Action | Cost |
+|---|---|
+| New or changed material (analysis) | 1 credit |
+| Composing the document | 4 credits |
+| Pro reasoning mode | ×2 |
+| Cached materials / regeneration with no changes | 0 |
+| Failed generation | full refund |
+
+The estimate shown before generating is exactly what is charged: credits are
+reserved when the job is queued and released in full if it fails.
+
+Plans are derived from state: an active subscription → `pro`; any purchased
+pack → `payg`; otherwise `free` (1 board, 10 materials, last 2 versions,
+footer in DESIGN.md, no exports / Pro reasoning). Free users get 30 welcome
+credits and 10 each month (lazily granted). Credits live in pools with an expiry
+(`credit_grants`); spending takes the soonest-expiring first. Every change is
+logged in `credit_transactions`.
+
+**Lemon Squeezy setup** (merchant of record — handles VAT):
+
+1. Create products: three single-payment packs (100 / 300 / 1000 credits) and
+   a monthly subscription (Pro, 300 credits). Put their **variant IDs** in
+   `LEMONSQUEEZY_VARIANT_PACK_S|M|L` and `LEMONSQUEEZY_VARIANT_PRO`.
+2. `LEMONSQUEEZY_API_KEY` (Settings → API) and `LEMONSQUEEZY_STORE_ID`.
+3. Webhook: `https://app.canvai.dev/webhooks/lemonsqueezy`, signing secret in
+   `LEMONSQUEEZY_WEBHOOK_SECRET`, events: `order_created`, `order_refunded`,
+   `subscription_created`, `subscription_updated`, `subscription_cancelled`,
+   `subscription_resumed`, `subscription_expired`, `subscription_paused`,
+   `subscription_unpaused`, `subscription_payment_success`,
+   `subscription_payment_refunded`.
+
+Webhooks are verified (HMAC-SHA256) and idempotent. Without the API key the
+Billing page shows buy buttons as “soon” while plan limits still apply.
+`BILLING_ENFORCED=false` disables limits and charging (self-hosting, tests).
+
 ## Linting & Type Checking
 
 ```bash

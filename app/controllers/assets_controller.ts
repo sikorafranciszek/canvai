@@ -12,6 +12,7 @@ import {
   storeUploadedFile,
 } from '#services/assets_service'
 import { t } from '#services/i18n'
+import { entitlementsFor } from '#services/billing/plans'
 
 /** Czyści nazwę pliku pod nagłówek Content-Disposition. */
 function safeAttachmentName(name: string | null | undefined, fallback: string): string {
@@ -48,6 +49,19 @@ export default class AssetsController {
     const payload = await request.validateUsing(uploadAssetsValidator)
     const source = payload.source ?? 'upload'
 
+    // Limit materiałów planu (liczone razem z tym, co właśnie przychodzi).
+    const { limits } = await entitlementsFor(user.id)
+    if (Number.isFinite(limits.materialsPerBoard)) {
+      const [{ $extras }] = await Asset.query().where('board_id', board.id).count('* as total')
+      const incoming = source === 'url' ? 1 : request.files('files').length
+      if (Number($extras.total) + incoming > limits.materialsPerBoard) {
+        throw new Exception(t('billing.materialsLimit', { limit: limits.materialsPerBoard }), {
+          status: 402,
+          code: 'E_PLAN_LIMIT',
+        })
+      }
+    }
+
     if (source === 'url') {
       if (!payload.url) {
         throw new Exception(t('asset.urlRequired'), {
@@ -68,9 +82,7 @@ export default class AssetsController {
       throw new Exception(t('asset.noFiles'), { status: 422, code: 'E_ASSET_NO_FILES' })
     }
 
-    const assets = await Promise.all(
-      files.map((file) => storeUploadedFile(board.id, file, source))
-    )
+    const assets = await Promise.all(files.map((file) => storeUploadedFile(board.id, file, source)))
     return response.status(201).json({ data: assets.map(serializeAsset) })
   }
 

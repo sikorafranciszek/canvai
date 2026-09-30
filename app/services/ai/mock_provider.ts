@@ -136,7 +136,8 @@ function guessRole(input: AnalyzeAssetInput): AssetRole {
   if (/mood|inspir/.test(name)) return 'moodboard'
   if (/diagram|flow|przep/.test(name)) return 'diagram'
   if (/button|btn|card|input|icon|component|komponent/.test(name)) return 'component'
-  if (/screen|screenshot|zrzut|page|strona|ekran|home|login|dashboard|checkout/.test(name)) return 'screen'
+  if (/screen|screenshot|zrzut|page|strona|ekran|home|login|dashboard|checkout/.test(name))
+    return 'screen'
   if (input.width && input.height && input.width >= 800 && input.height >= 500) return 'screen'
   return 'other'
 }
@@ -157,7 +158,10 @@ const ROLE_LABEL: Record<AssetRole, string> = {
 /** „home-screen_v2.png” → „Home Screen V2” */
 function humanize(filename: string): string {
   const base = filename.replace(/^https?:\/\//, '').replace(/\.[a-z0-9]{2,4}$/i, '')
-  const words = base.split(/[-_\s./]+/).filter(Boolean).slice(0, 5)
+  const words = base
+    .split(/[-_\s./]+/)
+    .filter(Boolean)
+    .slice(0, 5)
   return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || 'Screen'
 }
 
@@ -236,7 +240,11 @@ export class MockProvider implements AiProvider {
   async composeDocument(input: ComposeInput): Promise<ProviderResult<DesignSpec>> {
     this.lastComposePrompt = buildComposeUserText(input)
     const spec = buildMockSpec(input)
-    return { data: validateDesignSpec(spec), model: this.compositionModel, usage: { tokensIn: 0, tokensOut: 0 } }
+    return {
+      data: validateDesignSpec(spec),
+      model: this.compositionModel,
+      usage: { tokensIn: 0, tokensOut: 0 },
+    }
   }
 }
 
@@ -273,7 +281,14 @@ function buildMockSpec(input: ComposeInput): Record<string, unknown> {
   entries.sort((x, y) => y.weight - x.weight || x.hex.localeCompare(y.hex))
   const top = entries.slice(0, 8)
 
-  type C = { name: string; hex: string; token: string; role: string; sources: number[]; assumed: boolean }
+  type C = {
+    name: string
+    hex: string
+    token: string
+    role: string
+    sources: number[]
+    assumed: boolean
+  }
   const colors: C[] = []
   const used = new Set<string>()
   const addColor = (
@@ -311,25 +326,67 @@ function buildMockSpec(input: ComposeInput): Record<string, unknown> {
   // Kolory pochodne (mieszanki canvas/ink) dziedziczą źródła kolorów bazowych.
   const derived = [...(canvasEntry?.sources ?? []), ...(inkEntry?.sources ?? [])]
   const derivedAssumed = derived.length === 0
-  addColor(canvasEntry, canvasHex, 'canvas', 'Page canvas and base surface — the background every screen sits on', !canvasEntry)
+  addColor(
+    canvasEntry,
+    canvasHex,
+    'canvas',
+    'Page canvas and base surface — the background every screen sits on',
+    !canvasEntry
+  )
   // Powierzchnia o krok od płótna: jaśniejsza, a przy prawie białym płótnie lekko przyciemniona.
-  const surfaceHex = luminance(canvasHex) > 0.96 ? mix(canvasHex, inkHex, 0.035) : mix(canvasHex, '#ffffff', 0.5)
-  addColor(derived, surfaceHex, 'surface', 'Surface for cards, panels and inputs — one tonal step away from the canvas (derived)', derivedAssumed, `Soft ${colorName(canvasHex).replace(/^(Warm|Cool) /, '')}`)
+  const surfaceHex =
+    luminance(canvasHex) > 0.96 ? mix(canvasHex, inkHex, 0.035) : mix(canvasHex, '#ffffff', 0.5)
+  addColor(
+    derived,
+    surfaceHex,
+    'surface',
+    'Surface for cards, panels and inputs — one tonal step away from the canvas (derived)',
+    derivedAssumed,
+    `Soft ${colorName(canvasHex).replace(/^(Warm|Cool) /, '')}`
+  )
   addColor(inkEntry, inkHex, 'ink', 'Primary text, icons and the solid button fill', !inkEntry)
-  addColor(derived, mix(inkHex, canvasHex, 0.45), 'text-secondary', 'Secondary text, helper labels and inactive navigation (derived: ink softened toward the canvas)', derivedAssumed)
-  addColor(derived, mix(inkHex, canvasHex, 0.82), 'border', 'Hairline borders and dividers, 1px (derived)', derivedAssumed)
+  addColor(
+    derived,
+    mix(inkHex, canvasHex, 0.45),
+    'text-secondary',
+    'Secondary text, helper labels and inactive navigation (derived: ink softened toward the canvas)',
+    derivedAssumed
+  )
+  addColor(
+    derived,
+    mix(inkHex, canvasHex, 0.82),
+    'border',
+    'Hairline borders and dividers, 1px (derived)',
+    derivedAssumed
+  )
 
   const chromatic = top
     .filter((e) => e !== lightest && e !== darkest)
     .sort((x, y) => hsl(y.hex).s - hsl(x.hex).s)
   const accent = chromatic.find((e) => hsl(e.hex).s > 0.25) ?? null
   if (accent) {
-    addColor(accent, accent.hex, 'accent', 'Brand accent — primary actions, active states and key highlights; use sparingly')
+    addColor(
+      accent,
+      accent.hex,
+      'accent',
+      'Brand accent — primary actions, active states and key highlights; use sparingly'
+    )
   } else {
-    addColor(null, '#016a71', 'accent', 'Accent for primary actions and active states (no saturated color found in the materials)', true)
+    addColor(
+      null,
+      '#016a71',
+      'accent',
+      'Accent for primary actions and active states (no saturated color found in the materials)',
+      true
+    )
   }
   for (const e of chromatic.filter((c) => c !== accent).slice(0, 3)) {
-    addColor(e, e.hex, slug(colorName(e.hex)), 'Supporting brand color observed in the materials — illustrations, tags, secondary highlights')
+    addColor(
+      e,
+      e.hex,
+      slug(colorName(e.hex)),
+      'Supporting brand color observed in the materials — illustrations, tags, secondary highlights'
+    )
   }
   addColor(null, '#b42318', 'danger', 'Errors and destructive actions', true)
 
@@ -383,8 +440,12 @@ function buildMockSpec(input: ComposeInput): Record<string, unknown> {
   const overviewParts = [
     `${boardTitle} reads as a ${theme === 'light' ? 'light' : 'dark'}, ${accent ? 'brand-led' : 'restrained'} interface built from ${assets.length} client material(s) ${refs(assets)}.`,
     `The base is ${c('canvas').name} (${canvasHex}) with ${c('ink').name} (${inkHex}) text${accent ? `, and ${accentColor.name} (${accentColor.hex}) carries emphasis for actions and active states` : ''}.`,
-    withNotes.length ? `Client intent: ${withNotes.map((a) => `„${oneLine(a.userNote!, 120)}” [A${a.id}]`).join('; ')}.` : '',
-    canvasNotes.length ? `Board notes: ${canvasNotes.map((n) => `„${oneLine(n.text!, 120)}”`).join('; ')}.` : '',
+    withNotes.length
+      ? `Client intent: ${withNotes.map((a) => `„${oneLine(a.userNote!, 120)}” [A${a.id}]`).join('; ')}.`
+      : '',
+    canvasNotes.length
+      ? `Board notes: ${canvasNotes.map((n) => `„${oneLine(n.text!, 120)}”`).join('; ')}.`
+      : '',
     `Components stay flat with hairline ${border.name} borders and a single subtle shadow, so content — not chrome — leads.`,
   ]
 
@@ -421,7 +482,10 @@ function buildMockSpec(input: ComposeInput): Record<string, unknown> {
     spacing: {
       baseUnit: '4px',
       density: mobile && !desktop ? 'compact' : 'comfortable',
-      scale: ['4', '8', '12', '16', '24', '32', '48', '64'].map((n) => ({ name: n, value: `${n}px` })),
+      scale: ['4', '8', '12', '16', '24', '32', '48', '64'].map((n) => ({
+        name: n,
+        value: `${n}px`,
+      })),
       assumed: true,
     },
     radii: [
@@ -436,21 +500,39 @@ function buildMockSpec(input: ComposeInput): Record<string, unknown> {
       sectionGap: desktop ? '64px' : '32px',
       cardPadding: '20px',
       elementGap: '12px',
-      description: [
-        desktop ? 'Desktop-first layout with a centered content column; collapse to a single column below 768px.' : '',
-        mobile ? 'Mobile screens are present — design touch targets of at least 44px and a bottom-reachable primary action.' : '',
-        screens.length ? `Screen order follows the board: ${context.readingOrder.filter((r) => refName.has(r)).map(label).join(' → ') || screenSpecs.map((s) => s.name).join(' → ')}.` : '',
-        context.frames.length ? `The board groups materials into ${context.frames.length} frame(s); keep those groups as sections or steps of the same flow.` : '',
-      ]
-        .filter(Boolean)
-        .join(' ') || 'Single centered column with generous whitespace between sections.',
+      description:
+        [
+          desktop
+            ? 'Desktop-first layout with a centered content column; collapse to a single column below 768px.'
+            : '',
+          mobile
+            ? 'Mobile screens are present — design touch targets of at least 44px and a bottom-reachable primary action.'
+            : '',
+          screens.length
+            ? `Screen order follows the board: ${
+                context.readingOrder
+                  .filter((r) => refName.has(r))
+                  .map(label)
+                  .join(' → ') || screenSpecs.map((s) => s.name).join(' → ')
+              }.`
+            : '',
+          context.frames.length
+            ? `The board groups materials into ${context.frames.length} frame(s); keep those groups as sections or steps of the same flow.`
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' ') || 'Single centered column with generous whitespace between sections.',
     },
     components: [
       {
         name: 'Primary Button',
         role: 'High-emphasis action (submit, buy, continue)',
         description: `${accentColor.name} (${accentColor.hex}) background, ${surface.name} (${surface.hex}) text, no border, 8px radius, 10px vertical / 16px horizontal padding, 15px weight 500. One per view.`,
-        states: [`hover: darken the fill by ~8%`, `focus: 2px ${accentColor.hex} outline with 2px offset`, 'disabled: 45% opacity, no pointer'],
+        states: [
+          `hover: darken the fill by ~8%`,
+          `focus: 2px ${accentColor.hex} outline with 2px offset`,
+          'disabled: 45% opacity, no pointer',
+        ],
         sources: componentSources,
         assumed: assumedComponents,
       },
@@ -466,7 +548,10 @@ function buildMockSpec(input: ComposeInput): Record<string, unknown> {
         name: 'Text Input',
         role: 'Form field',
         description: `${surface.name} (${surface.hex}) background, 1px ${border.name} border, 10px radius, 44px height, 14px horizontal padding, placeholder in ${secondary.name} (${secondary.hex}); label 13px weight 500 above the field.`,
-        states: [`focus: ${accentColor.hex} border + soft ring`, `error: ${c('danger').hex} border with message below`],
+        states: [
+          `focus: ${accentColor.hex} border + soft ring`,
+          `error: ${c('danger').hex} border with message below`,
+        ],
         sources: [],
         assumed: true,
       },
@@ -498,10 +583,14 @@ function buildMockSpec(input: ComposeInput): Record<string, unknown> {
     screens: screenSpecs,
     flows,
     voice: {
-      tone: withNotes.length || canvasNotes.length
-        ? `Derive the voice from the client's own words: ${[...withNotes.map((a) => `„${oneLine(a.userNote!, 80)}”`), ...canvasNotes.map((n) => `„${oneLine(n.text!, 80)}”`)].join(', ')}. Keep copy short, concrete and in the client's language.`
-        : 'No copy in the materials — use short, plain, action-first labels.',
-      examples: [...withNotes.map((a) => oneLine(a.userNote!, 80)), ...canvasNotes.map((n) => oneLine(n.text!, 80))].slice(0, 8),
+      tone:
+        withNotes.length || canvasNotes.length
+          ? `Derive the voice from the client's own words: ${[...withNotes.map((a) => `„${oneLine(a.userNote!, 80)}”`), ...canvasNotes.map((n) => `„${oneLine(n.text!, 80)}”`)].join(', ')}. Keep copy short, concrete and in the client's language.`
+          : 'No copy in the materials — use short, plain, action-first labels.',
+      examples: [
+        ...withNotes.map((a) => oneLine(a.userNote!, 80)),
+        ...canvasNotes.map((n) => oneLine(n.text!, 80)),
+      ].slice(0, 8),
     },
     dos: [
       `Use ${c('canvas').name} (${canvasHex}) as the page background and ${surface.name} (${surface.hex}) for raised surfaces.`,
@@ -513,18 +602,29 @@ function buildMockSpec(input: ComposeInput): Record<string, unknown> {
     ],
     donts: [
       `Don't introduce accent colors beyond ${accentColor.name}${chromatic.length > 1 ? ' and the supporting brand colors' : ''}.`,
-      'Don\'t use pure black text or pure white surfaces — stay within the palette.',
+      "Don't use pure black text or pure white surfaces — stay within the palette.",
       "Don't stack shadows; one subtle shadow is the only elevation.",
       "Don't use more than one primary button per view.",
-      'Don\'t go below 13px for any readable text.',
+      "Don't go below 13px for any readable text.",
     ],
     surfaces: [
       { level: 0, name: 'Page Canvas', value: canvasHex, purpose: 'Full-viewport background' },
       { level: 1, name: 'Card Surface', value: surface.hex, purpose: 'Cards, panels, inputs' },
-      { level: 2, name: 'Accent', value: accentColor.hex, purpose: 'Primary action and active state fill' },
-      { level: 3, name: 'Ink Fill', value: inkHex, purpose: 'Solid dark fills and high-contrast elements' },
+      {
+        level: 2,
+        name: 'Accent',
+        value: accentColor.hex,
+        purpose: 'Primary action and active state fill',
+      },
+      {
+        level: 3,
+        name: 'Ink Fill',
+        value: inkHex,
+        purpose: 'Solid dark fills and high-contrast elements',
+      },
     ],
-    elevation: 'Flat by design: surfaces separate by tone and 1px hairlines. The only shadow is a subtle 1px shadow on cards and floating menus.',
+    elevation:
+      'Flat by design: surfaces separate by tone and 1px hairlines. The only shadow is a subtle 1px shadow on cards and floating menus.',
     imagery: byRole('photo', 'illustration').length
       ? `Imagery from the materials ${refs(byRole('photo', 'illustration'))} sets the tone — reuse its crop, color grading and style.`
       : byRole('logo').length
@@ -549,9 +649,15 @@ function buildMockSpec(input: ComposeInput): Record<string, unknown> {
     openQuestions: [
       'Which typeface does the brand use? Inter is a placeholder until confirmed.',
       'Confirm the spacing scale and radii against real screens.',
-      ...(screens.length === 0 ? ['No interface screenshots — which screens should the product have?'] : []),
-      ...(context.flows.length === 0 ? ['No arrows on the board — what is the order of screens / the user flow?'] : []),
-      ...(withNotes.length === 0 ? ['No notes on materials — what should each item represent?'] : []),
+      ...(screens.length === 0
+        ? ['No interface screenshots — which screens should the product have?']
+        : []),
+      ...(context.flows.length === 0
+        ? ['No arrows on the board — what is the order of screens / the user flow?']
+        : []),
+      ...(withNotes.length === 0
+        ? ['No notes on materials — what should each item represent?']
+        : []),
       ...(accent ? [] : ['No saturated brand color found — confirm the accent color.']),
     ],
   }

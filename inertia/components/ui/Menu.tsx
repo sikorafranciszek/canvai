@@ -18,9 +18,19 @@ interface MenuProps {
   label: string
   align?: 'left' | 'right'
   testId?: string
+  /** Własna zawartość przycisku (domyślnie ikona „…”). */
+  trigger?: ReactNode
+  triggerClassName?: string
 }
 
-export function Menu({ actions, label, align = 'right', testId }: MenuProps) {
+export function Menu({
+  actions,
+  label,
+  align = 'right',
+  testId,
+  trigger,
+  triggerClassName = 'btn btn--quiet btn--icon btn--sm',
+}: MenuProps) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
 
@@ -56,7 +66,7 @@ export function Menu({ actions, label, align = 'right', testId }: MenuProps) {
     <div ref={root} style={{ position: 'relative' }}>
       <button
         type="button"
-        className="btn btn--quiet btn--icon btn--sm"
+        className={triggerClassName}
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -67,7 +77,7 @@ export function Menu({ actions, label, align = 'right', testId }: MenuProps) {
           setOpen((v) => !v)
         }}
       >
-        <MoreHorizontal />
+        {trigger ?? <MoreHorizontal />}
       </button>
       {open ? (
         <div

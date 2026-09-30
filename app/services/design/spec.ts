@@ -335,11 +335,15 @@ export function validateDesignSpec(input: unknown): DesignSpec {
       quickColors: list(agent.quickColors, (q) => nameValue(q, 'label')),
       componentPrompts: strList(agent.componentPrompts, 10, 800),
     },
-    similarBrands: list(v.similarBrands, (b) => {
-      if (!isObject(b)) return null
-      const name = str(b.name, 60)
-      return name ? { name, reason: str(b.reason, 300) } : null
-    }, 8),
+    similarBrands: list(
+      v.similarBrands,
+      (b) => {
+        if (!isObject(b)) return null
+        const name = str(b.name, 60)
+        return name ? { name, reason: str(b.reason, 300) } : null
+      },
+      8
+    ),
     openQuestions: strList(v.openQuestions, 20),
   }
 

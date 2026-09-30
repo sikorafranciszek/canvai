@@ -113,8 +113,52 @@ export class BoardSchema extends BaseModel {
   declare userId: number
 }
 
+export class CreditGrantSchema extends BaseModel {
+  static $columns = ['amount', 'createdAt', 'expiresAt', 'externalId', 'id', 'remaining', 'revokedAt', 'source', 'userId'] as const
+  $columns = CreditGrantSchema.$columns
+  @column()
+  declare amount: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column.dateTime()
+  declare expiresAt: DateTime | null
+  @column()
+  declare externalId: string | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare remaining: number
+  @column.dateTime()
+  declare revokedAt: DateTime | null
+  @column()
+  declare source: string
+  @column()
+  declare userId: number
+}
+
+export class CreditTransactionSchema extends BaseModel {
+  static $columns = ['amount', 'createdAt', 'designDocId', 'grantId', 'id', 'kind', 'note', 'userId'] as const
+  $columns = CreditTransactionSchema.$columns
+  @column()
+  declare amount: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare designDocId: number | null
+  @column()
+  declare grantId: number | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare kind: string
+  @column()
+  declare note: string | null
+  @column()
+  declare userId: number
+}
+
 export class DesignDocSchema extends BaseModel {
-  static $columns = ['boardId', 'contentMd', 'createdAt', 'error', 'generatedAt', 'id', 'inputFingerprint', 'jobId', 'model', 'promptVersion', 'sources', 'status', 'usage', 'version'] as const
+  static $columns = ['boardId', 'contentMd', 'createdAt', 'creditsCharged', 'error', 'generatedAt', 'id', 'inputFingerprint', 'jobId', 'model', 'proMode', 'promptVersion', 'sources', 'spec', 'status', 'usage', 'version'] as const
   $columns = DesignDocSchema.$columns
   @column()
   declare boardId: number
@@ -122,6 +166,8 @@ export class DesignDocSchema extends BaseModel {
   declare contentMd: string | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime | null
+  @column()
+  declare creditsCharged: number | null
   @column()
   declare error: string | null
   @column.dateTime()
@@ -135,9 +181,13 @@ export class DesignDocSchema extends BaseModel {
   @column()
   declare model: string | null
   @column()
+  declare proMode: boolean
+  @column()
   declare promptVersion: string | null
   @column()
   declare sources: any | null
+  @column()
+  declare spec: any | null
   @column()
   declare status: string
   @column()
@@ -169,6 +219,35 @@ export class JobSchema extends BaseModel {
   declare type: string
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
+}
+
+export class SubscriptionSchema extends BaseModel {
+  static $columns = ['createdAt', 'customerId', 'endsAt', 'externalId', 'id', 'plan', 'provider', 'renewsAt', 'status', 'updatedAt', 'userId', 'variantId'] as const
+  $columns = SubscriptionSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare customerId: string | null
+  @column.dateTime()
+  declare endsAt: DateTime | null
+  @column()
+  declare externalId: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare plan: string
+  @column()
+  declare provider: string
+  @column.dateTime()
+  declare renewsAt: DateTime | null
+  @column()
+  declare status: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number
+  @column()
+  declare variantId: string | null
 }
 
 export class UserTokenSchema extends BaseModel {

@@ -5,6 +5,8 @@ import BoardScene from '#models/board_scene'
 import DesignDoc from '#models/design_doc'
 import { createBoardValidator, updateBoardValidator } from '#validators/board'
 import type { HttpContext } from '@adonisjs/core/http'
+import { entitlementsFor } from '#services/billing/plans'
+import { t } from '#services/i18n'
 
 export default class BoardController {
   async index({ auth, inertia }: HttpContext) {
@@ -57,9 +59,18 @@ export default class BoardController {
     return inertia.render('boards/create' as any, {} as any)
   }
 
-  async store({ auth, request, response }: HttpContext) {
+  async store({ auth, request, response, session }: HttpContext) {
     const { title } = await request.validateUsing(createBoardValidator)
     const user = auth.user!
+
+    const { limits } = await entitlementsFor(user.id)
+    if (limits.boards != null) {
+      const [{ $extras }] = await Board.query().where('user_id', user.id).count('* as total')
+      if (Number($extras.total) >= limits.boards) {
+        session.flash('error', t('billing.boardLimit', { limit: limits.boards }))
+        return response.redirect().toPath('/billing')
+      }
+    }
 
     const slug =
       title

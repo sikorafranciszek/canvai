@@ -18,7 +18,10 @@ router.get('/health', async ({ response }) => {
   return response.json({ status: 'ok' })
 })
 
-router.get('/', [controllers.Board, 'index']).as('home').use([middleware.auth(), middleware.verified()])
+router
+  .get('/', [controllers.Board, 'index'])
+  .as('home')
+  .use([middleware.auth(), middleware.verified()])
 
 router
   .get('/boards', [controllers.Board, 'index'])
@@ -58,6 +61,9 @@ router
   .get('/verify-email/:token', [controllers.EmailVerification, 'verify'])
   .as('verification.verify')
 
+/** Webhooki Lemon Squeezy (podpis HMAC zamiast sesji i CSRF). */
+router.post('/webhooks/lemonsqueezy', [controllers.Webhooks, 'lemonsqueezy'])
+
 /** Wybór języka (cookie + konto zalogowanego). */
 router.post('/locale', [controllers.Locale, 'update']).as('locale.update')
 
@@ -74,8 +80,17 @@ router
 
     // Ustawienia konta
     router.get('/settings', [controllers.Settings, 'show']).as('settings.show')
-    router.patch('/settings/profile', [controllers.Settings, 'updateProfile']).as('settings.profile')
-    router.put('/settings/password', [controllers.Settings, 'updatePassword']).as('settings.password')
+    router
+      .patch('/settings/profile', [controllers.Settings, 'updateProfile'])
+      .as('settings.profile')
+    router
+      .put('/settings/password', [controllers.Settings, 'updatePassword'])
+      .as('settings.password')
+
+    // Rozliczenia
+    router.get('/billing', [controllers.Billing, 'show']).as('billing.show')
+    router.post('/billing/checkout', [controllers.Billing, 'checkout']).as('billing.checkout')
+    router.get('/billing/portal', [controllers.Billing, 'portal']).as('billing.portal')
   })
   .use([middleware.auth(), middleware.verified()])
 
@@ -103,6 +118,11 @@ router
     router.get('/boards/:id/design-doc', [controllers.DesignDocs, 'show'])
     router.get('/boards/:id/design-doc/download', [controllers.DesignDocs, 'download'])
     router.get('/boards/:id/design-docs', [controllers.DesignDocs, 'index'])
+    router.get('/boards/:id/design-doc/estimate', [controllers.DesignDocs, 'estimate'])
+    router.get('/boards/:id/design-doc/export', [controllers.DesignDocs, 'export'])
+
+    // Rozliczenia
+    router.get('/billing', [controllers.Billing, 'summary'])
     router.get('/jobs/:id', [controllers.DesignDocs, 'job'])
   })
   .prefix('/api')

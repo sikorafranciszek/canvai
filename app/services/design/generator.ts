@@ -23,6 +23,8 @@ import { renderDesignMd } from '#services/design/renderer'
 import { groundSpec } from '#services/design/spec'
 import type { SceneDocument } from '#shared/scene'
 import { t } from '#services/i18n'
+import { entitlementsFor } from '#services/billing/plans'
+import { chargedFor } from '#services/billing/credits'
 
 /**
  * Orkiestracja generacji DESIGN.md:
@@ -56,8 +58,8 @@ export async function prepareGeneration(
   // Tylko materiały obecne na płótnie — usunięty element nie trafia do DESIGN.md,
   // nawet jeśli jego asset jeszcze czeka na sprzątnięcie.
   const onCanvas = referencedAssetIds(scene?.document ?? null)
-  const assets = (await Asset.query().where('board_id', board.id).orderBy('id', 'asc')).filter((a) =>
-    onCanvas.has(a.id)
+  const assets = (await Asset.query().where('board_id', board.id).orderBy('id', 'asc')).filter(
+    (a) => onCanvas.has(a.id)
   )
 
   const fingerprint = computeInputFingerprint({
@@ -137,6 +139,7 @@ export async function runGeneration(
       assets: composeAssets,
       context,
       previousErrors: previousErrors.length ? previousErrors : undefined,
+      reasoning: doc.proMode,
     })
     usage.tokensIn += result.usage.tokensIn
     usage.tokensOut += result.usage.tokensOut
@@ -147,9 +150,7 @@ export async function runGeneration(
     else previousErrors = problems
   }
   if (!spec) {
-    throw new InvalidModelOutputError(
-      t('gen.notGrounded', { errors: previousErrors.join('; ') })
-    )
+    throw new InvalidModelOutputError(t('gen.notGrounded', { errors: previousErrors.join('; ') }))
   }
 
   // Render
@@ -167,8 +168,16 @@ export async function runGeneration(
     }
   )
 
+  // Plan Free: stopka z linkiem (darmowa reklama); płatne plany — bez niej.
+  const { limits: planLimits } = await entitlementsFor(board.userId)
+  const content = planLimits.watermark
+    ? `${markdown.trimEnd()}\n\n---\n\n_${t('billing.watermark')}_\n`
+    : markdown
+
   doc.status = 'ready'
-  doc.contentMd = markdown
+  doc.contentMd = content
+  doc.spec = spec
+  doc.creditsCharged = await chargedFor(doc.id)
   doc.sources = sources
   doc.generatedAt = generatedAt
   doc.usage = {

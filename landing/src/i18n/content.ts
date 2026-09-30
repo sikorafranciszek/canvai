@@ -2,9 +2,8 @@
  * Treści canvai.dev (EN/PL). Jedno źródło prawdy dla obu wersji językowych —
  * komponenty dostają obiekt dla bieżącego języka.
  *
- * Plany cenowe: `plans` — na razie tylko early access jest dostępny, pozostałe
- * mają status `soon` (bez cen). Gdy model sprzedaży będzie gotowy, wystarczy
- * uzupełnić `price` / `features` / `status` tutaj.
+ * Plany cenowe: `plans` — Free, Pay as you go (pakiety kredytów) i Pro.
+ * Liczby muszą zgadzać się z `config/billing.ts` aplikacji (tam jest prawda).
  */
 
 export const APP_URL = 'https://app.canvai.dev'
@@ -22,6 +21,8 @@ export interface Plan {
   features: string[]
   cta: string
   highlighted?: boolean
+  /** Własna etykieta odznaki (domyślnie wg statusu). */
+  badge?: string
 }
 
 const en = {
@@ -49,7 +50,7 @@ const en = {
       'canvai is an infinite canvas for screenshots, logos, links and notes. Arrange them, add context, and generate a grounded design specification — colors, type, components and flows — ready for v0, Lovable, Cursor or Claude.',
     primary: 'Start for free',
     secondary: 'Log in',
-    note: 'Free during early access · No credit card',
+    note: '40 free credits · No credit card',
     imageAlt: 'canvai editor: client screenshots on an infinite canvas next to the generated DESIGN.md',
   },
   problem: {
@@ -168,47 +169,60 @@ const en = {
   },
   pricing: {
     eyebrow: 'Pricing',
-    title: 'Free while in early access',
-    subtitle: 'We are shaping plans together with the first users. Everything available today is free.',
+    title: 'Pay only for what you generate',
+    subtitle:
+      'Credits, not seats: 1 credit per new material, 4 to compose the document. Nothing changed? It costs 0 — and failed generations are refunded. Team plan coming soon.',
     soonBadge: 'Coming soon',
     availableBadge: 'Available now',
     plans: [
       {
-        id: 'early-access',
-        name: 'Early access',
+        id: 'free',
+        name: 'Free',
         status: 'available',
-        price: 'Free',
-        priceNote: 'during early access',
-        description: 'Full access to canvai while we build it with you.',
+        price: '$0',
+        priceNote: 'forever',
+        badge: 'Start here',
+        description: '40 credits in your first month, then 10 every month — enough to try the full flow.',
         features: [
-          'Unlimited boards',
-          'Paste, drop and upload materials',
-          'DESIGN.md generation with versions and diff',
-          'CSS & Tailwind Quick Start',
-          'Polish and English',
+          '30 welcome credits + 10 credits / month',
+          '1 board, up to 10 materials',
+          'Last 2 DESIGN.md versions',
+          'CSS & Tailwind Quick Start in the document',
         ],
         cta: 'Start for free',
+      },
+      {
+        id: 'payg',
+        name: 'Pay as you go',
+        status: 'available',
+        price: 'from $9',
+        priceNote: 'per credit pack',
+        badge: 'No subscription',
+        description: 'Buy credits when you need them: 100 for $9, 300 for $24, 1000 for $69. Valid for 12 months.',
+        features: [
+          'Unlimited boards, 40 materials each',
+          'Token export: CSS, Tailwind v4, W3C JSON',
+          'Pro reasoning mode',
+          'Full version history, no canvai footer',
+        ],
+        cta: 'Get started',
+      },
+      {
+        id: 'pro',
+        name: 'Pro',
+        status: 'available',
+        price: '$19',
+        priceNote: 'per month',
+        badge: 'Best value',
+        description: '300 credits every month at the lowest price per credit. Unused credits roll over a month.',
+        features: [
+          'Everything in Pay as you go',
+          '300 credits / month',
+          'Top up with packs any time',
+          'Cancel any time',
+        ],
+        cta: 'Go Pro',
         highlighted: true,
-      },
-      {
-        id: 'individual',
-        name: 'Individual',
-        status: 'soon',
-        price: '—',
-        priceNote: 'pricing to be announced',
-        description: 'For freelancers and solo builders working on many client projects.',
-        features: [],
-        cta: 'Coming soon',
-      },
-      {
-        id: 'team',
-        name: 'Team',
-        status: 'soon',
-        price: '—',
-        priceNote: 'pricing to be announced',
-        description: 'For agencies and product teams sharing boards and specs.',
-        features: [],
-        cta: 'Coming soon',
       },
     ] satisfies Plan[],
   },
@@ -238,7 +252,7 @@ const en = {
       },
       {
         q: 'How much does it cost?',
-        a: 'canvai is free during early access. Paid plans will be announced before anything changes.',
+        a: 'Start free with 40 credits (then 10 a month). After that, buy credit packs from $9 without a subscription, or go Pro for $19/month with 300 credits. A typical board with 10 materials costs about 14 credits; regenerating after small changes costs only what changed.',
       },
     ],
   },
@@ -288,7 +302,7 @@ const pl: Content = {
       'canvai to nieskończone płótno na zrzuty ekranów, logo, linki i notatki. Ułóż je, dodaj kontekst i wygeneruj ugruntowaną specyfikację designu — kolory, typografię, komponenty i przepływy — gotową dla v0, Lovable, Cursora czy Claude.',
     primary: 'Zacznij za darmo',
     secondary: 'Zaloguj się',
-    note: 'Bezpłatnie we wczesnym dostępie · Bez karty',
+    note: '40 kredytów za darmo · Bez karty',
     imageAlt: 'Edytor canvai: zrzuty ekranów klienta na nieskończonym płótnie obok wygenerowanego DESIGN.md',
   },
   problem: {
@@ -407,49 +421,62 @@ const pl: Content = {
   },
   pricing: {
     eyebrow: 'Cennik',
-    title: 'Za darmo we wczesnym dostępie',
-    subtitle: 'Plany tworzymy razem z pierwszymi użytkownikami. Wszystko, co jest dostępne dziś, jest bezpłatne.',
+    title: 'Płacisz tylko za to, co generujesz',
+    subtitle:
+      'Kredyty zamiast licencji: 1 kredyt za nowy materiał, 4 za złożenie dokumentu. Bez zmian na tablicy — 0, a nieudane generacje zwracamy. Plan Team wkrótce.',
     soonBadge: 'Wkrótce',
     availableBadge: 'Dostępne teraz',
     plans: [
       {
-        id: 'early-access',
-        name: 'Wczesny dostęp',
+        id: 'free',
+        name: 'Free',
         status: 'available',
-        price: '0 zł',
-        priceNote: 'we wczesnym dostępie',
-        description: 'Pełny dostęp do canvai, który rozwijamy razem z Tobą.',
+        price: '$0',
+        priceNote: 'na zawsze',
+        badge: 'Na start',
+        description: '40 kredytów w pierwszym miesiącu, potem 10 co miesiąc — wystarczy, by przejść cały proces.',
         features: [
-          'Nielimitowane tablice',
-          'Wklejanie, przeciąganie i upload materiałów',
-          'Generowanie DESIGN.md z wersjami i porównaniem',
-          'Quick Start w CSS i Tailwind',
-          'Polski i angielski',
+          '30 kredytów powitalnych + 10 kredytów / mies.',
+          '1 tablica, do 10 materiałów',
+          '2 ostatnie wersje DESIGN.md',
+          'Quick Start w CSS i Tailwind w dokumencie',
         ],
         cta: 'Zacznij za darmo',
+      },
+      {
+        id: 'payg',
+        name: 'Pay as you go',
+        status: 'available',
+        price: 'od $9',
+        priceNote: 'za pakiet kredytów',
+        badge: 'Bez abonamentu',
+        description: 'Kupujesz kredyty, gdy ich potrzebujesz: 100 za $9, 300 za $24, 1000 za $69. Ważne 12 miesięcy.',
+        features: [
+          'Tablice bez limitu, do 40 materiałów',
+          'Eksport tokenów: CSS, Tailwind v4, JSON (W3C)',
+          'Tryb Pro reasoning',
+          'Pełna historia wersji, bez stopki canvai',
+        ],
+        cta: 'Zaczynam',
+      },
+      {
+        id: 'pro',
+        name: 'Pro',
+        status: 'available',
+        price: '$19',
+        priceNote: 'miesięcznie',
+        badge: 'Najlepsza cena',
+        description: '300 kredytów co miesiąc w najniższej cenie za kredyt. Niewykorzystane przechodzą na kolejny miesiąc.',
+        features: [
+          'Wszystko z Pay as you go',
+          '300 kredytów / mies.',
+          'Dokupowanie pakietów w każdej chwili',
+          'Anulujesz, kiedy chcesz',
+        ],
+        cta: 'Przejdź na Pro',
         highlighted: true,
       },
-      {
-        id: 'individual',
-        name: 'Indywidualny',
-        status: 'soon',
-        price: '—',
-        priceNote: 'cena wkrótce',
-        description: 'Dla freelancerów i osób prowadzących wiele projektów klientów.',
-        features: [],
-        cta: 'Wkrótce',
-      },
-      {
-        id: 'team',
-        name: 'Zespół',
-        status: 'soon',
-        price: '—',
-        priceNote: 'cena wkrótce',
-        description: 'Dla agencji i zespołów produktowych, które współdzielą tablice i specyfikacje.',
-        features: [],
-        cta: 'Wkrótce',
-      },
-    ],
+    ] satisfies Plan[],
   },
   faq: {
     eyebrow: 'FAQ',
@@ -477,7 +504,7 @@ const pl: Content = {
       },
       {
         q: 'Ile to kosztuje?',
-        a: 'We wczesnym dostępie canvai jest bezpłatne. O planach płatnych poinformujemy, zanim cokolwiek się zmieni.',
+        a: 'Zaczynasz za darmo z 40 kredytami (potem 10 miesięcznie). Dalej kupujesz pakiety od $9 bez abonamentu albo przechodzisz na Pro za $19/mies. z 300 kredytami. Typowa tablica z 10 materiałami to ok. 14 kredytów, a ponowna generacja po drobnych zmianach kosztuje tylko to, co się zmieniło.',
       },
     ],
   },

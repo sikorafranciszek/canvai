@@ -156,7 +156,11 @@ export class DeepseekProvider implements AiProvider {
         { role: 'user', content: buildComposeUserText(input) },
       ],
       validateDesignSpec,
-      { maxTokens: this.#limits.maxComposeOutputTokens, timeoutMs: this.#limits.composeTimeoutMs }
+      {
+        maxTokens: this.#limits.maxComposeOutputTokens,
+        timeoutMs: this.#limits.composeTimeoutMs,
+        thinking: input.reasoning ? 'high' : undefined,
+      }
     )
   }
 
@@ -164,7 +168,7 @@ export class DeepseekProvider implements AiProvider {
     model: string,
     messages: ChatMessage[],
     validate: (value: unknown) => T,
-    options: { maxTokens: number; timeoutMs: number }
+    options: { maxTokens: number; timeoutMs: number; thinking?: 'off' | 'low' | 'high' }
   ): Promise<ProviderResult<T>> {
     if (!this.config.apiKey) {
       throw new AiProviderError(t('ai.noKeyDeepseek'), false)
@@ -178,7 +182,13 @@ export class DeepseekProvider implements AiProvider {
       if (attempt > 0) await this.#sleep(Math.min(8000, 500 * 2 ** (attempt - 1)))
 
       try {
-        const body = await this.#request(model, messages, maxTokens, options.timeoutMs)
+        const body = await this.#request(
+          model,
+          messages,
+          maxTokens,
+          options.timeoutMs,
+          options.thinking ?? this.config.thinking ?? 'off'
+        )
         usage.tokensIn += body.usage?.prompt_tokens ?? 0
         usage.tokensOut += body.usage?.completion_tokens ?? 0
 
@@ -207,8 +217,13 @@ export class DeepseekProvider implements AiProvider {
     throw lastError ?? new AiProviderError(t('ai.noResponse'), false)
   }
 
-  async #request(model: string, messages: ChatMessage[], maxTokens: number, timeoutMs: number) {
-    const thinking = this.config.thinking ?? 'off'
+  async #request(
+    model: string,
+    messages: ChatMessage[],
+    maxTokens: number,
+    timeoutMs: number,
+    thinking: 'off' | 'low' | 'high'
+  ) {
     let res: Response
     try {
       res = await this.#fetch(`${this.config.baseUrl.replace(/\/$/, '')}/chat/completions`, {

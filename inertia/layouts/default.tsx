@@ -3,7 +3,8 @@ import { toast, Toaster } from 'sonner'
 import { usePage } from '@inertiajs/react'
 import { type ReactElement, type ReactNode, useEffect } from 'react'
 import { Form, Link } from '@adonisjs/inertia/react'
-import { LayoutGrid, LogOut, Plus, Settings } from 'lucide-react'
+import { Coins, CreditCard, LayoutGrid, LogOut, Plus, Settings } from 'lucide-react'
+import { useBillingStore } from '~/lib/billing'
 import { Brand } from '~/components/ui/Brand'
 import { CreateBoardDialog } from '~/components/boards/CreateBoardDialog'
 import { useUiStore } from '~/lib/ui'
@@ -102,8 +103,14 @@ function AppShell({
   children: ReactNode
 }) {
   const openCreateBoard = useUiStore((s) => s.openCreateBoard)
-  const { t } = useT()
+  const { t, tp } = useT()
   const onBoards = component === 'boards/index'
+  const billing = useBillingStore((s) => s.summary)
+
+  // Saldo odświeżane przy każdej zmianie strony (zakup, generacja).
+  useEffect(() => {
+    void useBillingStore.getState().load()
+  }, [component])
 
   return (
     <div className="shell">
@@ -133,6 +140,15 @@ function AppShell({
             {t('nav.boards')}
           </Link>
           <Link
+            route="billing.show"
+            className="nav__item"
+            aria-current={component === 'billing/index' ? 'page' : undefined}
+            data-testid="nav-billing"
+          >
+            <CreditCard />
+            {t('nav.billing')}
+          </Link>
+          <Link
             route="settings.show"
             className="nav__item"
             aria-current={component === 'settings/index' ? 'page' : undefined}
@@ -144,6 +160,13 @@ function AppShell({
         </nav>
 
         <div className="sidebar__footer">
+          {billing?.enforced ? (
+            <Link route="billing.show" className="credits-pill" data-testid="credits-pill">
+              <Coins />
+              <span>{tp('count.credits', billing.balance)}</span>
+              <span className="credits-pill__plan">{t(`plan.${billing.plan}`)}</span>
+            </Link>
+          ) : null}
           <div style={{ padding: '0 8px' }}>
             <LanguageSwitcher />
           </div>

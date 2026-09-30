@@ -242,6 +242,9 @@ export interface DesignDocDto {
     durationMs: number
   } | null
   sources: { assetId: number; filename: string; kind: string; sections: string[] }[] | null
+  creditsCharged?: number | null
+  proMode?: boolean
+  hasSpec?: boolean
   createdAt: string | null
   generatedAt: string | null
   jobId: number | null
@@ -265,12 +268,12 @@ export type GenerateDesignDocResult =
 
 export async function generateDesignDoc(
   boardId: number,
-  opts: { force?: boolean } = {}
+  opts: { force?: boolean; proMode?: boolean } = {}
 ): Promise<GenerateDesignDocResult> {
   const res = await fetch(`/api/boards/${boardId}/design-doc`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-    body: JSON.stringify({ force: opts.force ?? false }),
+    body: JSON.stringify({ force: opts.force ?? false, proMode: opts.proMode ?? false }),
     credentials: 'same-origin',
   })
   const body = await parseJson<{
@@ -304,11 +307,13 @@ export async function getDesignDoc(
   return body.data
 }
 
-export async function listDesignDocs(boardId: number): Promise<DesignDocDto[]> {
+export async function listDesignDocs(
+  boardId: number
+): Promise<{ versions: DesignDocDto[]; hiddenVersions: number }> {
   const res = await fetch(`/api/boards/${boardId}/design-docs`, { credentials: 'same-origin' })
   if (!res.ok) throw new Error(translate('api.docsLoad', { status: res.status }))
-  const body = await parseJson<{ data: DesignDocDto[] }>(res)
-  return body.data
+  const body = await parseJson<{ data: DesignDocDto[]; meta?: { hiddenVersions?: number } }>(res)
+  return { versions: body.data, hiddenVersions: body.meta?.hiddenVersions ?? 0 }
 }
 
 export function designDocDownloadUrl(boardId: number, version?: number): string {

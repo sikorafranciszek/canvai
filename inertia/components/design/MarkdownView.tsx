@@ -60,7 +60,11 @@ function InlineNodes({ nodes, ctx }: { nodes: Inline[]; ctx: Ctx }) {
                 className="ref-chip"
                 data-testid={`design-ref-${node.assetId}`}
                 onClick={() => ctx.onAssetRef?.(node.assetId)}
-                title={label ? translate('doc.refTitle', { name: label }) : translate('assets.showOnCanvas')}
+                title={
+                  label
+                    ? translate('doc.refTitle', { name: label })
+                    : translate('assets.showOnCanvas')
+                }
               >
                 A{node.assetId}
               </button>

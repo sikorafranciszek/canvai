@@ -28,7 +28,10 @@ const jsonLd = {
   'url': SITE_URL,
   'description': description,
   'inLanguage': t.lang,
-  'offers': { '@type': 'Offer', 'price': '0', 'priceCurrency': 'USD', 'description': 'Early access' },
+  'offers': [
+    { '@type': 'Offer', 'name': 'Free', 'price': '0', 'priceCurrency': 'USD' },
+    { '@type': 'Offer', 'name': 'Pro', 'price': '19', 'priceCurrency': 'USD' },
+  ],
   'sameAs': [APP_URL],
 }
 ---
