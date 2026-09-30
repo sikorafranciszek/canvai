@@ -3,7 +3,7 @@ import { DateTime } from 'luxon'
 import { test } from '@japa/runner'
 import testUtils from '@adonisjs/core/services/test_utils'
 import sharp from 'sharp'
-import { billing, costs, freeCredits, lemonSqueezy, products } from '#config/billing'
+import { billing, costs, freeCredits, polar, products } from '#config/billing'
 import Board from '#models/board'
 import CreditGrant from '#models/credit_grant'
 import DesignDoc from '#models/design_doc'
@@ -35,11 +35,12 @@ import { runPendingJobs } from '#services/queue'
 
 /**
  * Rozliczenia: kredyty, limity planów, naliczanie przy generacji i webhooki
- * Lemon Squeezy (podpis HMAC, idempotencja, zwroty).
+ * Polar.sh (podpis Standard Webhooks, idempotencja, zwroty).
  */
 
-const SECRET = 'test-webhook-secret'
-const VARIANTS = { pack_s: 'v-pack-s', pro: 'v-pro' }
+/** Sekret w formacie Standard Webhooks (Polar od 2026-09-08): `whsec_` + base64. */
+const SECRET = `whsec_${Buffer.from('polar-test-signing-key-0123456789').toString('base64')}`
+const VARIANTS = { pack_s: 'prod-pack-s', pro: 'prod-pro' }
 
 let seq = 0
 async function makeUser(prefix = 'billing') {
@@ -109,26 +110,54 @@ async function seedBoard(client: any, cookies: any, board: Board) {
   return ids
 }
 
-function sign(body: string) {
-  return createHmac('sha256', SECRET).update(body).digest('hex')
+let webhookSeq = 0
+
+/** Podpis Standard Webhooks: HMAC-SHA256(`id.timestamp.body`), klucz = base64 po `whsec_`. */
+function sign(
+  id: string,
+  timestamp: number,
+  body: string,
+  key: Buffer = Buffer.from(SECRET.slice(6), 'base64')
+) {
+  return `v1,${createHmac('sha256', key).update(`${id}.${timestamp}.${body}`).digest('base64')}`
 }
 
-function webhook(client: any, payload: unknown, signature?: string) {
+function webhook(
+  client: any,
+  payload: unknown,
+  opts: { signature?: string; timestamp?: number; key?: Buffer } = {}
+) {
   const body = JSON.stringify(payload)
+  const id = `msg_${++webhookSeq}`
+  const timestamp = opts.timestamp ?? Math.floor(Date.now() / 1000)
   return client
-    .post('/webhooks/lemonsqueezy')
+    .post('/webhooks/polar')
     .header('content-type', 'application/json')
-    .header('x-signature', signature ?? sign(body))
+    .header('webhook-id', id)
+    .header('webhook-timestamp', String(timestamp))
+    .header('webhook-signature', opts.signature ?? sign(id, timestamp, body, opts.key))
     .json(payload)
 }
 
-function orderPayload(user: User, orderId: string, variantId: string, status = 'paid') {
+function orderPayload(
+  user: User,
+  orderId: string,
+  productId: string,
+  extra: Record<string, unknown> = {}
+) {
   return {
-    meta: { event_name: 'order_created', custom_data: { user_id: String(user.id) } },
+    type: 'order.paid',
+    timestamp: new Date().toISOString(),
     data: {
       id: orderId,
-      type: 'orders',
-      attributes: { status, user_email: user.email, first_order_item: { variant_id: variantId } },
+      status: 'paid',
+      billing_reason: 'purchase',
+      product_id: productId,
+      subscription_id: null,
+      customer_id: `cus-${user.id}`,
+      customer: { id: `cus-${user.id}`, external_id: String(user.id), email: user.email },
+      metadata: {},
+      ...extra,
     },
   }
 }
@@ -136,24 +165,24 @@ function orderPayload(user: User, orderId: string, variantId: string, status = '
 test.group('Billing', (group) => {
   const saved = {
     enforced: billing.enforced,
-    secret: lemonSqueezy.webhookSecret,
-    packS: products.pack_s.variantId,
-    pro: products.pro.variantId,
+    secret: polar.webhookSecret,
+    packS: products.pack_s.polarProductId,
+    pro: products.pro.polarProductId,
   }
 
   group.each.setup(() => {
     billing.enforced = true
-    lemonSqueezy.webhookSecret = SECRET
-    products.pack_s.variantId = VARIANTS.pack_s
-    products.pro.variantId = VARIANTS.pro
+    polar.webhookSecret = SECRET
+    products.pack_s.polarProductId = VARIANTS.pack_s
+    products.pro.polarProductId = VARIANTS.pro
     setProviderOverride(new MockProvider())
     return testUtils.db().withGlobalTransaction()
   })
   group.each.teardown(() => {
     billing.enforced = saved.enforced
-    lemonSqueezy.webhookSecret = saved.secret
-    products.pack_s.variantId = saved.packS
-    products.pro.variantId = saved.pro
+    polar.webhookSecret = saved.secret
+    products.pack_s.polarProductId = saved.packS
+    products.pro.polarProductId = saved.pro
     setProviderOverride(null)
   })
 
@@ -348,21 +377,23 @@ test.group('Billing', (group) => {
     exp.assertStatus(403)
   })
 
-  test('webhook: zły podpis → 401; zakup pakietu nalicza raz i daje plan PAYG', async ({
+  test('webhook: zły podpis / stary znacznik czasu → 403; zakup pakietu nalicza raz i daje PAYG', async ({
     client,
     assert,
   }) => {
     const user = await makeUser()
     const payload = orderPayload(user, 'ord-1', VARIANTS.pack_s)
 
-    const bad = await webhook(client, payload, 'deadbeef')
-    bad.assertStatus(401)
+    ;(await webhook(client, payload, { signature: 'v1,ZGVhZGJlZWY=' })).assertStatus(403)
+    ;(
+      await webhook(client, payload, { timestamp: Math.floor(Date.now() / 1000) - 600 })
+    ).assertStatus(403)
     assert.equal(await planFor(user.id), 'free')
 
     const ok = await webhook(client, payload)
-    ok.assertStatus(200)
+    ok.assertStatus(202)
     const replay = await webhook(client, payload)
-    replay.assertStatus(200)
+    replay.assertStatus(202)
 
     const packs = await CreditGrant.query().where('user_id', user.id).where('source', 'pack')
     assert.lengthOf(packs, 1, 'powtórzony webhook nie nalicza drugi raz')
@@ -371,65 +402,89 @@ test.group('Billing', (group) => {
 
     // Zwrot płatności cofa niewykorzystane kredyty i plan.
     const refund = await webhook(client, {
-      ...payload,
-      meta: { ...payload.meta, event_name: 'order_refunded' },
+      type: 'order.refunded',
+      data: { ...payload.data, status: 'refunded' },
     })
-    refund.assertStatus(200)
+    refund.assertStatus(202)
     await packs[0].refresh()
     assert.equal(packs[0].remaining, 0)
     assert.equal(await planFor(user.id), 'free')
   })
 
-  test('webhook: subskrypcja Pro → plan pro, kredyty za każdą opłaconą fakturę', async ({
+  test('webhook: subskrypcja Pro → plan pro, kredyty za każde opłacone zamówienie', async ({
     client,
     assert,
   }) => {
     const user = await makeUser()
-    const custom = { user_id: String(user.id) }
-    const subAttrs = {
-      customer_id: 77,
-      variant_id: VARIANTS.pro,
+    const customer = { id: `cus-${user.id}`, external_id: String(user.id), email: user.email }
+    const sub = {
+      id: 'sub-9',
       status: 'active',
-      renews_at: DateTime.utc().plus({ months: 1 }).toISO(),
+      product_id: VARIANTS.pro,
+      customer_id: customer.id,
+      customer,
+      current_period_end: DateTime.utc().plus({ months: 1 }).toISO(),
+      cancel_at_period_end: false,
       ends_at: null,
-      user_email: user.email,
+      ended_at: null,
+      metadata: {},
     }
-    ;(
-      await webhook(client, {
-        meta: { event_name: 'subscription_created', custom_data: custom },
-        data: { id: 'sub-9', type: 'subscriptions', attributes: subAttrs },
-      })
-    ).assertStatus(200)
+    ;(await webhook(client, { type: 'subscription.created', data: sub })).assertStatus(202)
     assert.equal(await planFor(user.id), 'pro')
 
-    for (const invoice of ['inv-1', 'inv-1', 'inv-2']) {
+    const orders: [string, string][] = [
+      ['ord-s1', 'subscription_create'],
+      ['ord-s1', 'subscription_create'],
+      ['ord-s2', 'subscription_cycle'],
+      ['ord-s3', 'subscription_update'],
+    ]
+    for (const [id, reason] of orders) {
       ;(
-        await webhook(client, {
-          meta: { event_name: 'subscription_payment_success', custom_data: custom },
-          data: {
-            id: invoice,
-            type: 'subscription-invoices',
-            attributes: { subscription_id: 'sub-9', status: 'paid', user_email: user.email },
-          },
-        })
-      ).assertStatus(200)
+        await webhook(
+          client,
+          orderPayload(user, id, VARIANTS.pro, { billing_reason: reason, subscription_id: 'sub-9' })
+        )
+      ).assertStatus(202)
     }
-    const subs = await CreditGrant.query().where('user_id', user.id).where('source', 'subscription')
-    assert.lengthOf(subs, 2)
-    assert.equal(subs[0].amount, products.pro.credits)
+    const grants = await CreditGrant.query()
+      .where('user_id', user.id)
+      .where('source', 'subscription')
+    assert.lengthOf(grants, 2, 'create + cycle; powtórka i proracja bez kredytów')
+    assert.equal(grants[0].amount, products.pro.credits)
 
-    // Wygasła subskrypcja → z powrotem Free.
+    // Anulowana na koniec okresu — dostęp do końca opłaconego okresu.
     ;(
       await webhook(client, {
-        meta: { event_name: 'subscription_expired', custom_data: custom },
+        type: 'subscription.canceled',
+        data: { ...sub, cancel_at_period_end: true },
+      })
+    ).assertStatus(202)
+    assert.equal(await planFor(user.id), 'pro')
+
+    // Odebrana (koniec okresu) → z powrotem Free.
+    ;(
+      await webhook(client, {
+        type: 'subscription.revoked',
         data: {
-          id: 'sub-9',
-          type: 'subscriptions',
-          attributes: { ...subAttrs, status: 'expired' },
+          ...sub,
+          status: 'canceled',
+          ended_at: DateTime.utc().minus({ minutes: 1 }).toISO(),
         },
       })
-    ).assertStatus(200)
+    ).assertStatus(202)
     assert.equal(await planFor(user.id), 'free')
+  })
+
+  test('webhook: sekret sprzed 2026-09-08 (klucz = bajty UTF-8 całego whsec_…) też działa', async ({
+    client,
+    assert,
+  }) => {
+    const user = await makeUser()
+    const legacy = await webhook(client, orderPayload(user, 'ord-legacy', VARIANTS.pack_s), {
+      key: Buffer.from(SECRET, 'utf8'),
+    })
+    legacy.assertStatus(202)
+    assert.equal(await planFor(user.id), 'payg')
   })
 
   test('plan płatny: eksporty tokenów, bez stopki, pełna historia wersji', async ({
@@ -438,7 +493,7 @@ test.group('Billing', (group) => {
   }) => {
     const user = await makeUser()
     const cookies = await login(client, user)
-    ;(await webhook(client, orderPayload(user, 'ord-exp', VARIANTS.pack_s))).assertStatus(200)
+    ;(await webhook(client, orderPayload(user, 'ord-exp', VARIANTS.pack_s))).assertStatus(202)
     const board = await createBoard(user)
     await seedBoard(client, cookies, board)
 
@@ -583,7 +638,9 @@ test.group('Billing', (group) => {
       .json({})
     early.assertStatus(422)
 
-    ;(await client.post(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies }).json({})).assertStatus(202)
+    ;(
+      await client.post(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies }).json({})
+    ).assertStatus(202)
     await runPendingJobs()
     const before = await balanceOf(user.id)
 
@@ -656,12 +713,17 @@ test.group('Billing', (group) => {
     assert.include(clean, 'fonts.googleapis.com')
   })
 
-  test('API v1 i MCP: token Bearer, płatny plan, DESIGN.md i tokeny', async ({ client, assert }) => {
+  test('API v1 i MCP: token Bearer, płatny plan, DESIGN.md i tokeny', async ({
+    client,
+    assert,
+  }) => {
     const user = await makeUser()
     const cookies = await login(client, user)
     const board = await createBoard(user, 'Studio Mono')
     await seedBoard(client, cookies, board)
-    ;(await client.post(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies }).json({})).assertStatus(202)
+    ;(
+      await client.post(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies }).json({})
+    ).assertStatus(202)
     await runPendingJobs()
 
     const { token } = await createApiToken(user, 'test')
@@ -669,11 +731,17 @@ test.group('Billing', (group) => {
 
     // Bez tokenu / zły token → 401; plan Free → 403.
     ;(await client.get('/api/v1/boards')).assertStatus(401)
-    ;(await client.get('/api/v1/boards').headers({ authorization: 'Bearer cvai_nope_nope_nope_nope' })).assertStatus(401)
+    ;(
+      await client
+        .get('/api/v1/boards')
+        .headers({ authorization: 'Bearer cvai_nope_nope_nope_nope' })
+    ).assertStatus(401)
     ;(await client.get('/api/v1/boards').headers(auth)).assertStatus(403)
 
     // Zakup pakietu → dostęp.
-    ;(await webhook(client, orderPayload(user, `ord-api-${user.id}`, VARIANTS.pack_s))).assertStatus(200)
+    ;(
+      await webhook(client, orderPayload(user, `ord-api-${user.id}`, VARIANTS.pack_s))
+    ).assertStatus(202)
 
     const boards = await client.get('/api/v1/boards').headers(auth)
     boards.assertStatus(200)
@@ -693,13 +761,20 @@ test.group('Billing', (group) => {
 
     // MCP
     const rpc = (body: unknown) =>
-      client.post('/mcp').headers({ ...auth, accept: 'application/json, text/event-stream' }).json(body)
+      client
+        .post('/mcp')
+        .headers({ ...auth, accept: 'application/json, text/event-stream' })
+        .json(body)
 
     const init = await rpc({
       jsonrpc: '2.0',
       id: 1,
       method: 'initialize',
-      params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '1' } },
+      params: {
+        protocolVersion: '2025-06-18',
+        capabilities: {},
+        clientInfo: { name: 't', version: '1' },
+      },
     })
     init.assertStatus(200)
     assert.equal(init.body().result.protocolVersion, '2025-06-18')
@@ -782,10 +857,20 @@ test.group('Billing', (group) => {
       const board = await createBoard(owner, 'Portal Test')
 
       // Free → portal zablokowany.
-      ;(await client.put(`/api/boards/${board.id}/share`).headers({ cookie: cookies }).json({ enabled: true })).assertStatus(403)
+      ;(
+        await client
+          .put(`/api/boards/${board.id}/share`)
+          .headers({ cookie: cookies })
+          .json({ enabled: true })
+      ).assertStatus(403)
 
-      ;(await webhook(client, orderPayload(owner, `ord-portal-${owner.id}`, VARIANTS.pack_s))).assertStatus(200)
-      const on = await client.put(`/api/boards/${board.id}/share`).headers({ cookie: cookies }).json({ enabled: true })
+      ;(
+        await webhook(client, orderPayload(owner, `ord-portal-${owner.id}`, VARIANTS.pack_s))
+      ).assertStatus(202)
+      const on = await client
+        .put(`/api/boards/${board.id}/share`)
+        .headers({ cookie: cookies })
+        .json({ enabled: true })
       on.assertStatus(200)
       const url: string = on.body().data.url
       const path = new URL(url).pathname
@@ -799,7 +884,10 @@ test.group('Billing', (group) => {
         .post(`${path}/materials`)
         .field('name', 'Klient ACME')
         .field('note', 'Nasze nowe logo')
-        .file('files[]', await png({ r: 10, g: 20, b: 30 }), { filename: 'logo.png', contentType: 'image/png' })
+        .file('files[]', await png({ r: 10, g: 20, b: 30 }), {
+          filename: 'logo.png',
+          contentType: 'image/png',
+        })
         .redirects(0)
       sent.assertStatus(302)
       const inbox = await Asset.query().where('board_id', board.id).where('inbox', true)
@@ -814,75 +902,124 @@ test.group('Billing', (group) => {
           .post(`${path}/materials`)
           .field('name', 'Ktoś inny')
           .field('note', 'Inna notatka')
-          .file('files[]', await png({ r: 10, g: 20, b: 30 }), { filename: 'kopia.png', contentType: 'image/png' })
+          .file('files[]', await png({ r: 10, g: 20, b: 30 }), {
+            filename: 'kopia.png',
+            contentType: 'image/png',
+          })
           .redirects(0)
       ).assertStatus(302)
       await inbox[0].refresh()
       assert.equal(inbox[0].userNote, 'Nasze nowe logo')
       assert.equal(inbox[0].submittedBy, 'Klient ACME')
       fake.messages.assertSentCount(2)
-      assert.equal(await PortalFeedback.query().where('board_id', board.id).where('decision', 'note').count('* as n').then((r) => Number(r[0].$extras.n)), 1)
+      assert.equal(
+        await PortalFeedback.query()
+          .where('board_id', board.id)
+          .where('decision', 'note')
+          .count('* as n')
+          .then((r) => Number(r[0].$extras.n)),
+        1
+      )
 
       // Sprzątanie sierot nie usuwa materiałów ze skrzynki.
       await pruneOrphanAssets(board.id)
       assert.lengthOf(await Asset.query().where('board_id', board.id), 1)
 
       // Właściciel umieszcza materiał na płótnie.
-      const accepted = await client.post(`/api/assets/${inbox[0].id}/accept`).headers({ cookie: cookies })
+      const accepted = await client
+        .post(`/api/assets/${inbox[0].id}/accept`)
+        .headers({ cookie: cookies })
       accepted.assertStatus(200)
       assert.isFalse(accepted.body().data.inbox)
 
       // Akceptacja DESIGN.md.
-      await DesignDoc.create({ boardId: board.id, version: 1, status: 'ready', contentMd: '# Portal' })
+      await DesignDoc.create({
+        boardId: board.id,
+        version: 1,
+        status: 'ready',
+        contentMd: '# Portal',
+      })
       ;(
         await client
           .post(`${path}/feedback`)
           .json({ name: 'Klient ACME', decision: 'approved', version: 1 })
           .redirects(0)
       ).assertStatus(302)
-      const feedback = await PortalFeedback.query().where('board_id', board.id).where('decision', 'approved').firstOrFail()
+      const feedback = await PortalFeedback.query()
+        .where('board_id', board.id)
+        .where('decision', 'approved')
+        .firstOrFail()
       assert.equal(feedback.version, 1)
       fake.messages.assertSentCount(3)
 
       // Nowy link: stary przestaje działać; wyłączenie: link znika.
-      const rotated = await client.post(`/api/boards/${board.id}/share/rotate`).headers({ cookie: cookies })
+      const rotated = await client
+        .post(`/api/boards/${board.id}/share/rotate`)
+        .headers({ cookie: cookies })
       assert.notEqual(rotated.body().data.url, url)
       ;(await client.get(path)).assertStatus(404)
       const newPath = new URL(rotated.body().data.url).pathname
-      ;(await client.put(`/api/boards/${board.id}/share`).headers({ cookie: cookies }).json({ enabled: false })).assertStatus(200)
+      ;(
+        await client
+          .put(`/api/boards/${board.id}/share`)
+          .headers({ cookie: cookies })
+          .json({ enabled: false })
+      ).assertStatus(200)
       ;(await client.get(newPath)).assertStatus(404)
     } finally {
       mail.restore()
     }
   })
 
-  test('brand kity: zapis z DESIGN.md (plan płatny), zmiana nazwy, usunięcie', async ({ client, assert }) => {
+  test('brand kity: zapis z DESIGN.md (plan płatny), zmiana nazwy, usunięcie', async ({
+    client,
+    assert,
+  }) => {
     const user = await makeUser()
     const cookies = await login(client, user)
     const board = await createBoard(user, 'Marka X')
     await seedBoard(client, cookies, board)
-    ;(await client.post(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies }).json({})).assertStatus(202)
+    ;(
+      await client.post(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies }).json({})
+    ).assertStatus(202)
     await runPendingJobs()
 
-    ;(await client.post('/api/brand-kits').headers({ cookie: cookies }).json({ boardId: board.id })).assertStatus(403)
-    ;(await webhook(client, orderPayload(user, `ord-kit-${user.id}`, VARIANTS.pack_s))).assertStatus(200)
+    ;(
+      await client.post('/api/brand-kits').headers({ cookie: cookies }).json({ boardId: board.id })
+    ).assertStatus(403)
+    ;(
+      await webhook(client, orderPayload(user, `ord-kit-${user.id}`, VARIANTS.pack_s))
+    ).assertStatus(202)
 
-    const created = await client.post('/api/brand-kits').headers({ cookie: cookies }).json({ boardId: board.id })
+    const created = await client
+      .post('/api/brand-kits')
+      .headers({ cookie: cookies })
+      .json({ boardId: board.id })
     created.assertStatus(201)
     const kit = created.body().data
     assert.isAbove(kit.colors.length, 0)
     assert.match(kit.colors[0].hex, /^#[0-9a-f]{6}$/i)
     assert.equal(kit.sourceVersion, 1)
 
-    const renamed = await client.patch(`/api/brand-kits/${kit.id}`).headers({ cookie: cookies }).json({ name: 'ACME' })
+    const renamed = await client
+      .patch(`/api/brand-kits/${kit.id}`)
+      .headers({ cookie: cookies })
+      .json({ name: 'ACME' })
     assert.equal(renamed.body().data.name, 'ACME')
 
     // Cudza tablica / cudzy kit.
     const other = await makeUser('kit-other')
     const otherCookies = await login(client, other)
-    ;(await client.patch(`/api/brand-kits/${kit.id}`).headers({ cookie: otherCookies }).json({ name: 'x' })).assertStatus(404)
+    ;(
+      await client
+        .patch(`/api/brand-kits/${kit.id}`)
+        .headers({ cookie: otherCookies })
+        .json({ name: 'x' })
+    ).assertStatus(404)
 
-    ;(await client.delete(`/api/brand-kits/${kit.id}`).headers({ cookie: cookies })).assertStatus(204)
+    ;(await client.delete(`/api/brand-kits/${kit.id}`).headers({ cookie: cookies })).assertStatus(
+      204
+    )
     const list = await client.get('/api/brand-kits').headers({ cookie: cookies })
     assert.lengthOf(list.body().data, 0)
   })
@@ -906,7 +1043,9 @@ test.group('Billing', (group) => {
     const server = http.createServer((req, res) => {
       if (req.url === '/style.css') {
         res.writeHead(200, { 'content-type': 'text/css' })
-        return res.end(':root{--accent:#c8702a} body{color:#27251e;font-family:"Fraunces",serif} a{color:#c8702a}')
+        return res.end(
+          ':root{--accent:#c8702a} body{color:#27251e;font-family:"Fraunces",serif} a{color:#c8702a}'
+        )
       }
       if (req.url === '/og.png') {
         res.writeHead(200, { 'content-type': 'image/png' })

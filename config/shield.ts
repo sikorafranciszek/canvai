@@ -40,7 +40,7 @@ const shieldConfig = defineConfig({
     // Webhooki (podpis HMAC) oraz API v1 / MCP (token Bearer, bez sesji).
     exceptRoutes: (ctx) => {
       const url = ctx.request.url()
-      return url === '/webhooks/lemonsqueezy' || url === '/mcp' || url.startsWith('/api/v1/')
+      return url === '/webhooks/polar' || url === '/mcp' || url.startsWith('/api/v1/')
     },
 
     /**

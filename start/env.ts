@@ -45,18 +45,17 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   /*
   |----------------------------------------------------------
-  | Rozliczenia — Lemon Squeezy
+  | Rozliczenia — Polar.sh
   |----------------------------------------------------------
   */
   BILLING_ENFORCED: Env.schema.boolean.optional(),
-  LEMONSQUEEZY_API_KEY: Env.schema.string.optional(),
-  LEMONSQUEEZY_STORE_ID: Env.schema.string.optional(),
-  LEMONSQUEEZY_WEBHOOK_SECRET: Env.schema.string.optional(),
-  LEMONSQUEEZY_TEST_MODE: Env.schema.boolean.optional(),
-  LEMONSQUEEZY_VARIANT_PACK_S: Env.schema.string.optional(),
-  LEMONSQUEEZY_VARIANT_PACK_M: Env.schema.string.optional(),
-  LEMONSQUEEZY_VARIANT_PACK_L: Env.schema.string.optional(),
-  LEMONSQUEEZY_VARIANT_PRO: Env.schema.string.optional(),
+  POLAR_ACCESS_TOKEN: Env.schema.string.optional(),
+  POLAR_WEBHOOK_SECRET: Env.schema.string.optional(),
+  POLAR_SERVER: Env.schema.enum.optional(['production', 'sandbox'] as const),
+  POLAR_PRODUCT_PACK_S: Env.schema.string.optional(),
+  POLAR_PRODUCT_PACK_M: Env.schema.string.optional(),
+  POLAR_PRODUCT_PACK_L: Env.schema.string.optional(),
+  POLAR_PRODUCT_PRO: Env.schema.string.optional(),
 
   // Produkcja: trwałe ścieżki na wolumenie i zaufanie do reverse proxy.
   SQLITE_PATH: Env.schema.string.optional(),

@@ -15,7 +15,8 @@ import CreditTransaction from '#models/credit_transaction'
 import Subscription from '#models/subscription'
 import { absoluteUrl } from '#services/app_url'
 import { balanceOf, ensureAutomaticGrants, nextExpiry } from '#services/billing/credits'
-import { createCheckout, customerPortalUrl, productById } from '#services/billing/lemonsqueezy'
+import { createCheckout, customerPortalUrl, productById } from '#services/billing/polar'
+import CreditGrant from '#models/credit_grant'
 import { entitlementsFor } from '#services/billing/plans'
 import { t } from '#services/i18n'
 import { referralCodeFor, referralStats } from '#services/billing/referrals'
@@ -52,7 +53,7 @@ async function summary(userId: number) {
 }
 
 /**
- * Rozliczenia: strona planu i kredytów, checkout Lemon Squeezy, portal klienta.
+ * Rozliczenia: strona planu i kredytów, checkout Polar.sh, portal klienta.
  */
 export default class BillingController {
   /** GET /billing */
@@ -85,6 +86,7 @@ export default class BillingController {
             : null,
           referral: { url: absoluteUrl(ctx, `/signup?ref=${code}`), ...stats },
           checkoutReady: checkoutReady(),
+          hasPurchases: Boolean(sub) || base.plan !== 'free',
           justPurchased: request.qs().checkout === 'success',
           costs,
           freeCredits,
@@ -101,7 +103,7 @@ export default class BillingController {
             price: p.price,
             plan: p.plan ?? null,
             validMonths: p.validMonths,
-            available: Boolean(p.variantId) && checkoutReady(),
+            available: Boolean(p.polarProductId) && checkoutReady(),
           })),
           // Dziennik: przyznania i rozliczone generacje (rezerwacja + ewentualny zwrot).
           history: history.map((h) => ({
@@ -122,14 +124,14 @@ export default class BillingController {
     return response.json({ data: await summary(auth.user!.id) })
   }
 
-  /** POST /billing/checkout — przekierowanie do checkoutu Lemon Squeezy. */
+  /** POST /billing/checkout — przekierowanie do checkoutu Polar. */
   async checkout(ctx: HttpContext) {
     const { auth, request, inertia, session, response } = ctx
     const user = auth.user!
     const { product: productId } = await request.validateUsing(checkoutValidator)
     const product = productById(productId)
 
-    if (!product?.variantId || !checkoutReady()) {
+    if (!product?.polarProductId || !checkoutReady()) {
       session.flash('error', t('billing.checkoutUnavailable'))
       return response.redirect().toPath('/billing')
     }
@@ -148,18 +150,20 @@ export default class BillingController {
     }
   }
 
-  /** GET /billing/portal — portal klienta Lemon Squeezy (faktury, karta, anulowanie). */
-  async portal({ auth, session, response }: HttpContext) {
-    const sub = await Subscription.query()
-      .where('user_id', auth.user!.id)
-      .orderBy('id', 'desc')
-      .first()
-    if (!sub) {
+  /** GET /billing/portal — portal klienta Polar (faktury, karta, anulowanie subskrypcji). */
+  async portal(ctx: HttpContext) {
+    const { auth, session, response } = ctx
+    const user = auth.user!
+    const [sub, pack] = await Promise.all([
+      Subscription.query().where('user_id', user.id).first(),
+      CreditGrant.query().where('user_id', user.id).where('source', 'pack').first(),
+    ])
+    if (!sub && !pack) {
       session.flash('error', t('billing.noSubscription'))
       return response.redirect().toPath('/billing')
     }
     try {
-      const url = await customerPortalUrl(sub.externalId)
+      const url = await customerPortalUrl(user, absoluteUrl(ctx, '/billing'))
       if (url) return response.redirect(url)
     } catch (error) {
       logger.error({ err: error }, 'customer portal failed')

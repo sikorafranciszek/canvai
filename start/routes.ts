@@ -82,8 +82,8 @@ router.get('/c/:token', [controllers.Portal, 'show']).as('portal.show')
 router.post('/c/:token/materials', [controllers.Portal, 'materials']).as('portal.materials')
 router.post('/c/:token/feedback', [controllers.Portal, 'feedback']).as('portal.feedback')
 
-/** Webhooki Lemon Squeezy (podpis HMAC zamiast sesji i CSRF). */
-router.post('/webhooks/lemonsqueezy', [controllers.Webhooks, 'lemonsqueezy'])
+/** Webhooki Polar.sh (podpis Standard Webhooks zamiast sesji i CSRF). */
+router.post('/webhooks/polar', [controllers.Webhooks, 'polar'])
 
 /** Wybór języka (cookie + konto zalogowanego). */
 router.post('/locale', [controllers.Locale, 'update']).as('locale.update')

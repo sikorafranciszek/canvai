@@ -339,7 +339,7 @@ export class PortalFeedbackSchema extends BaseModel {
 }
 
 export class SubscriptionSchema extends BaseModel {
-  static $columns = ['createdAt', 'customerId', 'endsAt', 'externalId', 'id', 'plan', 'provider', 'renewsAt', 'status', 'updatedAt', 'userId', 'variantId'] as const
+  static $columns = ['createdAt', 'customerId', 'endsAt', 'externalId', 'id', 'plan', 'productId', 'provider', 'renewsAt', 'status', 'updatedAt', 'userId'] as const
   $columns = SubscriptionSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -354,6 +354,8 @@ export class SubscriptionSchema extends BaseModel {
   @column()
   declare plan: string
   @column()
+  declare productId: string | null
+  @column()
   declare provider: string
   @column.dateTime()
   declare renewsAt: DateTime | null
@@ -363,8 +365,6 @@ export class SubscriptionSchema extends BaseModel {
   declare updatedAt: DateTime | null
   @column()
   declare userId: number
-  @column()
-  declare variantId: string | null
 }
 
 export class UserTokenSchema extends BaseModel {

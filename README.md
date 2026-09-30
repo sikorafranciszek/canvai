@@ -264,7 +264,7 @@ API:
 | GET    | `/api/boards/:id/design-doc/download?version=`| `DESIGN.md` file                                   |
 | GET    | `/api/jobs/:id`                               | Job status and progress                            |
 
-## Billing: credits & plans (Lemon Squeezy)
+## Billing: credits & plans (Polar.sh)
 
 Users pay for DESIGN.md generations with **credits** (`config/billing.ts`):
 
@@ -286,20 +286,26 @@ credits and 10 each month (lazily granted). Credits live in pools with an expiry
 (`credit_grants`); spending takes the soonest-expiring first. Every change is
 logged in `credit_transactions`.
 
-**Lemon Squeezy setup** (merchant of record — handles VAT):
+**Polar.sh setup** (merchant of record — handles VAT):
 
-1. Create products: three single-payment packs (100 / 300 / 1000 credits) and
-   a monthly subscription (Pro, 300 credits). Put their **variant IDs** in
-   `LEMONSQUEEZY_VARIANT_PACK_S|M|L` and `LEMONSQUEEZY_VARIANT_PRO`.
-2. `LEMONSQUEEZY_API_KEY` (Settings → API) and `LEMONSQUEEZY_STORE_ID`.
-3. Webhook: `https://app.canvai.dev/webhooks/lemonsqueezy`, signing secret in
-   `LEMONSQUEEZY_WEBHOOK_SECRET`, events: `order_created`, `order_refunded`,
-   `subscription_created`, `subscription_updated`, `subscription_cancelled`,
-   `subscription_resumed`, `subscription_expired`, `subscription_paused`,
-   `subscription_unpaused`, `subscription_payment_success`,
-   `subscription_payment_refunded`.
+1. Create products in Polar: three one-time products (100 / 300 / 1000 credits) and a
+   monthly subscription (Pro, 300 credits). Put their **product IDs** in
+   `POLAR_PRODUCT_PACK_S|M|L` and `POLAR_PRODUCT_PRO`.
+2. `POLAR_ACCESS_TOKEN` — Organization Access Token (scopes `checkouts:write`,
+   `customer_sessions:write`). `POLAR_SERVER=sandbox` for test payments.
+3. Webhook: `https://app.canvai.dev/webhooks/polar`, format **Raw**, secret in
+   `POLAR_WEBHOOK_SECRET`, events: `order.paid`, `order.refunded`,
+   `subscription.created`, `subscription.updated`, `subscription.active`,
+   `subscription.canceled`, `subscription.uncanceled`, `subscription.revoked`,
+   `subscription.past_due`.
 
-Webhooks are verified (HMAC-SHA256) and idempotent. Without the API key the
+Checkouts carry `external_customer_id` = user id, so every webhook maps to an account.
+Pack credits are granted on `order.paid` (`billing_reason: purchase`), subscription credits on
+`order.paid` with `subscription_create` / `subscription_cycle`; a full refund revokes the
+unused credits of that order. The customer portal (invoices, card, cancel) is opened
+with a customer session.
+
+Webhooks are verified (Standard Webhooks, both Polar secret formats) and idempotent. Without the access token the
 Billing page shows buy buttons as “soon” while plan limits still apply.
 `BILLING_ENFORCED=false` disables limits and charging (self-hosting, tests).
 

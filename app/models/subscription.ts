@@ -2,11 +2,18 @@ import { DateTime } from 'luxon'
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import type { PlanId } from '#config/billing'
 
-/** Statusy Lemon Squeezy. */
+/** Statusy subskrypcji Polar. */
 export type SubscriptionStatus =
-  'on_trial' | 'active' | 'paused' | 'past_due' | 'unpaid' | 'cancelled' | 'expired'
+  | 'incomplete'
+  | 'incomplete_expired'
+  | 'trialing'
+  | 'active'
+  | 'past_due'
+  | 'canceled'
+  | 'unpaid'
+  | 'paused'
 
-/** Lustro subskrypcji z Lemon Squeezy (aktualizowane webhookami). */
+/** Lustro subskrypcji z Polar (aktualizowane webhookami). */
 export default class Subscription extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
@@ -23,8 +30,9 @@ export default class Subscription extends BaseModel {
   @column()
   declare customerId: string | null
 
+  /** ID produktu w Polar. */
   @column()
-  declare variantId: string | null
+  declare productId: string | null
 
   @column()
   declare plan: PlanId
@@ -45,12 +53,14 @@ export default class Subscription extends BaseModel {
   declare updatedAt: DateTime | null
 
   /**
-   * Czy daje dostęp do planu: aktywna, próbna, zaległa płatność (LS ponawia),
+   * Czy daje dostęp do planu: aktywna, próbna, zaległa płatność (Polar ponawia),
    * albo anulowana, ale opłacony okres jeszcze trwa.
    */
   get grantsAccess(): boolean {
-    if (['active', 'on_trial', 'past_due'].includes(this.status)) return true
-    if (this.status === 'cancelled') return Boolean(this.endsAt && this.endsAt > DateTime.utc())
+    if (['active', 'trialing', 'past_due'].includes(this.status)) {
+      return !this.endsAt || this.endsAt > DateTime.utc()
+    }
+    if (this.status === 'canceled') return Boolean(this.endsAt && this.endsAt > DateTime.utc())
     return false
   }
 }

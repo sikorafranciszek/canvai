@@ -1,7 +1,7 @@
 import env from '#start/env'
 
 /**
- * Rozliczenia: plany, limity, cennik kredytów i Lemon Squeezy.
+ * Rozliczenia: plany, limity, cennik kredytów i Polar.sh (Merchant of Record).
  *
  * Model: klient płaci KREDYTAMI (nie surowymi tokenami) — stała, przewidywalna
  * cena za akcję. Kredyty żyją w pulach (`credit_grants`) z datą ważności;
@@ -98,17 +98,17 @@ export interface Product {
   id: ProductId
   kind: 'pack' | 'subscription'
   credits: number
-  /** Cena do wyświetlenia — źródłem prawdy jest produkt w Lemon Squeezy. */
+  /** Cena do wyświetlenia — źródłem prawdy jest produkt w Polar. */
   price: string
-  /** Wariant produktu w Lemon Squeezy; brak = produkt niedostępny w sprzedaży. */
-  variantId: string | null
+  /** ID produktu w Polar; brak = produkt niedostępny w sprzedaży. */
+  polarProductId: string | null
   /** Plan nadawany przez subskrypcję. */
   plan?: PlanId
   /** Ważność kredytów w miesiącach (subskrypcja: 2 = rollover o jeden miesiąc). */
   validMonths: number
 }
 
-const variant = (key: string) => env.get(key as any) || null
+const polarProduct = (key: string) => env.get(key as any) || null
 
 export const products: Record<ProductId, Product> = {
   pack_s: {
@@ -116,7 +116,7 @@ export const products: Record<ProductId, Product> = {
     kind: 'pack',
     credits: 100,
     price: '$9',
-    variantId: variant('LEMONSQUEEZY_VARIANT_PACK_S'),
+    polarProductId: polarProduct('POLAR_PRODUCT_PACK_S'),
     validMonths: 12,
   },
   pack_m: {
@@ -124,7 +124,7 @@ export const products: Record<ProductId, Product> = {
     kind: 'pack',
     credits: 300,
     price: '$24',
-    variantId: variant('LEMONSQUEEZY_VARIANT_PACK_M'),
+    polarProductId: polarProduct('POLAR_PRODUCT_PACK_M'),
     validMonths: 12,
   },
   pack_l: {
@@ -132,7 +132,7 @@ export const products: Record<ProductId, Product> = {
     kind: 'pack',
     credits: 1000,
     price: '$69',
-    variantId: variant('LEMONSQUEEZY_VARIANT_PACK_L'),
+    polarProductId: polarProduct('POLAR_PRODUCT_PACK_L'),
     validMonths: 12,
   },
   pro: {
@@ -140,34 +140,35 @@ export const products: Record<ProductId, Product> = {
     kind: 'subscription',
     credits: 300,
     price: '$19',
-    variantId: variant('LEMONSQUEEZY_VARIANT_PRO'),
+    polarProductId: polarProduct('POLAR_PRODUCT_PRO'),
     plan: 'pro',
     validMonths: 2,
   },
-  // Team: wspólna pula i miejsca dla zespołu — jeszcze niezbudowane, więc bez wariantu.
+  // Team: wspólna pula i miejsca dla zespołu — jeszcze niezbudowane, więc bez produktu.
   team: {
     id: 'team',
     kind: 'subscription',
     credits: 1200,
     price: '$59',
-    variantId: null,
+    polarProductId: null,
     plan: 'team',
     validMonths: 2,
   },
 }
 
-export const lemonSqueezy = {
-  apiKey: env.get('LEMONSQUEEZY_API_KEY') || null,
-  storeId: env.get('LEMONSQUEEZY_STORE_ID') || null,
-  webhookSecret: env.get('LEMONSQUEEZY_WEBHOOK_SECRET') || null,
-  apiUrl: 'https://api.lemonsqueezy.com/v1',
-  /** Checkout w trybie testowym (sklep w test mode). */
-  testMode: env.get('LEMONSQUEEZY_TEST_MODE', false),
+const polarServer = env.get('POLAR_SERVER', 'production')
+
+export const polar = {
+  accessToken: env.get('POLAR_ACCESS_TOKEN') || null,
+  webhookSecret: env.get('POLAR_WEBHOOK_SECRET') || null,
+  /** `sandbox` = sandbox.polar.sh (testowe płatności), `production` = polar.sh. */
+  server: polarServer,
+  apiUrl: polarServer === 'sandbox' ? 'https://sandbox-api.polar.sh' : 'https://api.polar.sh',
 }
 
-/** Czy sprzedaż jest skonfigurowana (klucz API + sklep). */
+/** Czy sprzedaż jest skonfigurowana (token organizacji Polar). */
 export function checkoutReady(): boolean {
-  return Boolean(lemonSqueezy.apiKey && lemonSqueezy.storeId)
+  return Boolean(polar.accessToken)
 }
 
 /**

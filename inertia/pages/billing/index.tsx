@@ -49,6 +49,7 @@ interface BillingProps {
     endsAt: string | null
   } | null
   checkoutReady: boolean
+  hasPurchases: boolean
   justPurchased: boolean
   costs: { perMaterial: number; compose: number; proMultiplier: number }
   freeCredits: { signup: number; monthly: number }
@@ -212,10 +213,14 @@ export default function Billing({ billing }: { billing: BillingProps }) {
                     : null}
             </span>
           ) : null}
-          {b.subscription ? (
-            <a className="btn btn--sm billing-stat__action" href="/billing/portal">
+          {b.subscription || b.hasPurchases ? (
+            <a
+              className="btn btn--sm billing-stat__action"
+              href="/billing/portal"
+              data-testid="billing-portal"
+            >
               <ExternalLink />
-              {t('billing.manage')}
+              {b.subscription ? t('billing.manage') : t('billing.invoices')}
             </a>
           ) : null}
         </section>
