@@ -23,6 +23,8 @@ import { attachReferrer, referralCodeFor, rewardReferral } from '#services/billi
 import { isDisposableEmail } from '#services/disposable_email'
 import { sanitizePreviewHtml } from '#services/design/preview_template'
 import DesignPreview from '#models/design_preview'
+import ApiToken from '#models/api_token'
+import { createApiToken } from '#services/api_tokens'
 import { runPendingJobs } from '#services/queue'
 
 /**
@@ -646,5 +648,120 @@ test.group('Billing', (group) => {
     assert.notInclude(clean, 'onerror')
     assert.notInclude(clean, 'javascript:')
     assert.include(clean, 'fonts.googleapis.com')
+  })
+
+  test('API v1 i MCP: token Bearer, płatny plan, DESIGN.md i tokeny', async ({ client, assert }) => {
+    const user = await makeUser()
+    const cookies = await login(client, user)
+    const board = await createBoard(user, 'Studio Mono')
+    await seedBoard(client, cookies, board)
+    ;(await client.post(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies }).json({})).assertStatus(202)
+    await runPendingJobs()
+
+    const { token } = await createApiToken(user, 'test')
+    const auth = { authorization: `Bearer ${token}` }
+
+    // Bez tokenu / zły token → 401; plan Free → 403.
+    ;(await client.get('/api/v1/boards')).assertStatus(401)
+    ;(await client.get('/api/v1/boards').headers({ authorization: 'Bearer cvai_nope_nope_nope_nope' })).assertStatus(401)
+    ;(await client.get('/api/v1/boards').headers(auth)).assertStatus(403)
+
+    // Zakup pakietu → dostęp.
+    ;(await webhook(client, orderPayload(user, `ord-api-${user.id}`, VARIANTS.pack_s))).assertStatus(200)
+
+    const boards = await client.get('/api/v1/boards').headers(auth)
+    boards.assertStatus(200)
+    assert.equal(boards.body().data[0].title, 'Studio Mono')
+    assert.equal(boards.body().data[0].designMd.version, 1)
+
+    const md = await client.get(`/api/v1/boards/${board.id}/design-md`).headers(auth)
+    md.assertStatus(200)
+    assert.include(md.text(), 'Style Reference')
+    const css = await client.get(`/api/v1/boards/${board.id}/tokens?format=css`).headers(auth)
+    assert.include(css.text(), ':root {')
+
+    // Cudza tablica niewidoczna.
+    const other = await makeUser('other')
+    const otherBoard = await createBoard(other)
+    ;(await client.get(`/api/v1/boards/${otherBoard.id}/design-md`).headers(auth)).assertStatus(404)
+
+    // MCP
+    const rpc = (body: unknown) =>
+      client.post('/mcp').headers({ ...auth, accept: 'application/json, text/event-stream' }).json(body)
+
+    const init = await rpc({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '1' } },
+    })
+    init.assertStatus(200)
+    assert.equal(init.body().result.protocolVersion, '2025-06-18')
+    assert.equal(init.body().result.serverInfo.name, 'canvai')
+
+    ;(await rpc({ jsonrpc: '2.0', method: 'notifications/initialized' })).assertStatus(202)
+
+    const tools = await rpc({ jsonrpc: '2.0', id: 2, method: 'tools/list' })
+    assert.sameMembers(
+      tools.body().result.tools.map((tl: { name: string }) => tl.name),
+      ['list_boards', 'get_design_md', 'get_design_tokens']
+    )
+
+    const call = await rpc({
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'tools/call',
+      params: { name: 'get_design_md', arguments: { board_id: board.id } },
+    })
+    assert.include(call.body().result.content[0].text, 'Style Reference')
+
+    const tw = await rpc({
+      jsonrpc: '2.0',
+      id: 4,
+      method: 'tools/call',
+      params: { name: 'get_design_tokens', arguments: { board_id: board.id, format: 'tailwind' } },
+    })
+    assert.include(tw.body().result.content[0].text, '@theme {')
+
+    const missing = await rpc({
+      jsonrpc: '2.0',
+      id: 5,
+      method: 'tools/call',
+      params: { name: 'get_design_md', arguments: { board_id: otherBoard.id } },
+    })
+    assert.isTrue(missing.body().result.isError)
+
+    const res = await rpc({ jsonrpc: '2.0', id: 6, method: 'resources/list' })
+    const uri = res.body().result.resources[0].uri
+    assert.equal(uri, `canvai://boards/${board.id}/design-md`)
+    const read = await rpc({ jsonrpc: '2.0', id: 7, method: 'resources/read', params: { uri } })
+    assert.equal(read.body().result.contents[0].mimeType, 'text/markdown')
+
+    const unknown = await rpc({ jsonrpc: '2.0', id: 8, method: 'nope' })
+    assert.equal(unknown.body().error.code, -32601)
+    ;(await client.get('/mcp')).assertStatus(405)
+
+    // Odwołany token przestaje działać.
+    await ApiToken.query().where('user_id', user.id).update({ revoked_at: DateTime.utc().toSQL() })
+    ;(await client.get('/api/v1/boards').headers(auth)).assertStatus(401)
+  })
+
+  test('ustawienia: utworzenie i odwołanie tokenu API', async ({ client, assert }) => {
+    const user = await makeUser()
+    const cookies = await login(client, user)
+    const created = await client
+      .post('/settings/api-tokens')
+      .headers({ cookie: cookies })
+      .form({ name: 'Laptop' })
+      .redirects(0)
+    created.assertStatus(302)
+    const row = await ApiToken.query().where('user_id', user.id).firstOrFail()
+    assert.equal(row.name, 'Laptop')
+    assert.match(row.prefix, /^cvai_/)
+    assert.lengthOf(row.tokenHash, 64)
+
+    await client.delete(`/settings/api-tokens/${row.id}`).headers({ cookie: cookies }).redirects(0)
+    await row.refresh()
+    assert.isNotNull(row.revokedAt)
   })
 })

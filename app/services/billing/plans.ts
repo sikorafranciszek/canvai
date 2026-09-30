@@ -28,6 +28,7 @@ const UNLIMITED: PlanLimits = {
   watermark: false,
   exports: true,
   proReasoning: true,
+  api: true,
 }
 
 export async function entitlementsFor(

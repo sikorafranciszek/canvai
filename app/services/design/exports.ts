@@ -1,4 +1,5 @@
 import type { DesignSpec } from '#services/design/spec'
+import { renderCssVariables, renderTailwindTheme } from '#services/design/renderer'
 
 /**
  * Eksport tokenów w formacie W3C Design Tokens (DTCG): kolory, rodziny fontów,
@@ -73,5 +74,27 @@ export function renderDesignTokens(spec: DesignSpec): Record<string, unknown> {
     spacing: dimension(spec.spacing.scale),
     radius: dimension(spec.radii),
     shadow,
+  }
+}
+
+export type ExportFormat = 'css' | 'tailwind' | 'tokens'
+
+/** Plik eksportu (nazwa, typ, treść) — wspólny dla UI, REST v1 i MCP. */
+export function renderExport(spec: DesignSpec, format: ExportFormat) {
+  switch (format) {
+    case 'css':
+      return { name: 'tokens.css', type: 'text/css', body: renderCssVariables(spec) + '\n' }
+    case 'tailwind':
+      return {
+        name: 'theme.css',
+        type: 'text/css',
+        body: `@import "tailwindcss";\n\n${renderTailwindTheme(spec)}\n`,
+      }
+    case 'tokens':
+      return {
+        name: 'design-tokens.json',
+        type: 'application/json',
+        body: JSON.stringify(renderDesignTokens(spec), null, 2) + '\n',
+      }
   }
 }

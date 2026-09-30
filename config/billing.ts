@@ -26,6 +26,8 @@ export interface PlanLimits {
   exports: boolean
   /** Tryb „Pro reasoning” (model rozumuje dłużej, ×2 kredyty). */
   proReasoning: boolean
+  /** API (REST v1) i serwer MCP dla Cursora / Claude Code. */
+  api: boolean
 }
 
 const PAID: PlanLimits = {
@@ -35,6 +37,7 @@ const PAID: PlanLimits = {
   watermark: false,
   exports: true,
   proReasoning: true,
+  api: true,
 }
 
 export const plans: Record<PlanId, PlanLimits> = {
@@ -45,6 +48,7 @@ export const plans: Record<PlanId, PlanLimits> = {
     watermark: true,
     exports: false,
     proReasoning: false,
+    api: false,
   },
   payg: PAID,
   pro: PAID,

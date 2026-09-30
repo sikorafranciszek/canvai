@@ -2641,3 +2641,81 @@ input.title-edit {
     display: none;
   }
 }
+
+/* ------------------------------------------------------------------ API i MCP */
+
+.copy-field {
+  display: flex;
+  gap: 8px;
+}
+
+.copy-field .input {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12.5px;
+}
+
+.api-new-token {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-deep-teal);
+  background: var(--color-teal-tint);
+}
+
+.segmented--text {
+  align-self: flex-start;
+}
+
+.segmented--text button {
+  width: auto;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.code-snippet {
+  margin: 8px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--color-ink);
+  color: #e9e5dc;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.api-create {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.token-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--color-hairline);
+}
+
+.token-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.token-list li > svg {
+  color: var(--color-graphite);
+}
+
+.token-list__text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+}

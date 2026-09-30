@@ -37,7 +37,11 @@ const shieldConfig = defineConfig({
      * Route patterns to exclude from CSRF checks.
      * Useful for external webhooks or API endpoints.
      */
-    exceptRoutes: ['/webhooks/lemonsqueezy'],
+    // Webhooki (podpis HMAC) oraz API v1 / MCP (token Bearer, bez sesji).
+    exceptRoutes: (ctx) => {
+      const url = ctx.request.url()
+      return url === '/webhooks/lemonsqueezy' || url === '/mcp' || url.startsWith('/api/v1/')
+    },
 
     /**
      * Expose an encrypted XSRF-TOKEN cookie for frontend HTTP clients.

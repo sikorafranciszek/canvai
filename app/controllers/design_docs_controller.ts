@@ -21,8 +21,7 @@ import {
   reserveCredits,
 } from '#services/billing/credits'
 import { estimateGeneration } from '#services/billing/estimate'
-import { renderCssVariables, renderTailwindTheme } from '#services/design/renderer'
-import { renderDesignTokens } from '#services/design/exports'
+import { renderExport } from '#services/design/exports'
 
 /**
  * DESIGN.md tablicy: zlecanie generacji, status, wersje, pobieranie.
@@ -298,28 +297,11 @@ export default class DesignDocsController {
         .json({ message: t('billing.exportNeedsRegen'), code: 'E_NO_SPEC' })
     }
 
-    const files = {
-      css: {
-        name: 'tokens.css',
-        type: 'text/css',
-        body: () => renderCssVariables(doc.spec!) + '\n',
-      },
-      tailwind: {
-        name: 'theme.css',
-        type: 'text/css',
-        body: () => `@import "tailwindcss";\n\n${renderTailwindTheme(doc.spec!)}\n`,
-      },
-      tokens: {
-        name: 'design-tokens.json',
-        type: 'application/json',
-        body: () => JSON.stringify(renderDesignTokens(doc.spec!), null, 2) + '\n',
-      },
-    } as const
-    const file = files[format]
+    const file = renderExport(doc.spec, format)
     response.header('Content-Type', `${file.type}; charset=utf-8`)
     response.header('Content-Disposition', `attachment; filename="${file.name}"`)
     response.header('X-Content-Type-Options', 'nosniff')
-    return response.send(file.body())
+    return response.send(file.body)
   }
 
   /** GET /api/jobs/:id — status i postęp zadania (tylko właściciel tablicy). */

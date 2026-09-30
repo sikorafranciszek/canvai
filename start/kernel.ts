@@ -52,4 +52,5 @@ export const middleware = router.named({
   guest: () => import('#middleware/guest_middleware'),
   auth: () => import('#middleware/auth_middleware'),
   verified: () => import('#middleware/verified_middleware'),
+  apiToken: () => import('#middleware/api_token_middleware'),
 })

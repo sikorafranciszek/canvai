@@ -61,6 +61,22 @@ router
   .get('/verify-email/:token', [controllers.EmailVerification, 'verify'])
   .as('verification.verify')
 
+/**
+ * API v1 i serwer MCP — token Bearer (`cvai_…`), bez sesji i CSRF.
+ * Dla Cursora / Claude Code / skryptów: odczyt tablic, DESIGN.md i tokenów.
+ */
+router.post('/mcp', [controllers.Mcp, 'handle']).use(middleware.apiToken())
+router.get('/mcp', [controllers.Mcp, 'notAllowed']).as('mcp.get')
+router.delete('/mcp', [controllers.Mcp, 'notAllowed']).as('mcp.delete')
+router
+  .group(() => {
+    router.get('/boards', [controllers.ApiV1, 'boards'])
+    router.get('/boards/:id/design-md', [controllers.ApiV1, 'designMd'])
+    router.get('/boards/:id/tokens', [controllers.ApiV1, 'tokens'])
+  })
+  .prefix('/api/v1')
+  .use(middleware.apiToken())
+
 /** Webhooki Lemon Squeezy (podpis HMAC zamiast sesji i CSRF). */
 router.post('/webhooks/lemonsqueezy', [controllers.Webhooks, 'lemonsqueezy'])
 
@@ -87,6 +103,10 @@ router
     router
       .put('/settings/password', [controllers.Settings, 'updatePassword'])
       .as('settings.password')
+    router.post('/settings/api-tokens', [controllers.ApiTokens, 'store']).as('apiTokens.store')
+    router
+      .delete('/settings/api-tokens/:id', [controllers.ApiTokens, 'destroy'])
+      .as('apiTokens.destroy')
 
     // Rozliczenia
     router.get('/billing', [controllers.Billing, 'show']).as('billing.show')

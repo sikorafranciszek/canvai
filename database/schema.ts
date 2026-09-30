@@ -7,6 +7,27 @@
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
+export class ApiTokenSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'lastUsedAt', 'name', 'prefix', 'revokedAt', 'tokenHash', 'userId'] as const
+  $columns = ApiTokenSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column.dateTime()
+  declare lastUsedAt: DateTime | null
+  @column()
+  declare name: string
+  @column()
+  declare prefix: string
+  @column.dateTime()
+  declare revokedAt: DateTime | null
+  @column()
+  declare tokenHash: string
+  @column()
+  declare userId: number
+}
+
 export class AssetAnalysisSchema extends BaseModel {
   static $columns = ['assetId', 'cacheKey', 'createdAt', 'id', 'model', 'ocrText', 'palette', 'promptVersion', 'raw', 'status', 'summary', 'tags', 'tokensIn', 'tokensOut'] as const
   $columns = AssetAnalysisSchema.$columns

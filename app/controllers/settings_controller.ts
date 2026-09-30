@@ -6,14 +6,21 @@ import { sendPasswordChangedEmail } from '#services/account_mail'
 import { absoluteUrl } from '#services/app_url'
 import { t } from '#services/i18n'
 import { changePasswordValidator, updateProfileValidator } from '#validators/user'
+import ApiToken from '#models/api_token'
+import { entitlementsFor } from '#services/billing/plans'
 
 function fieldError(field: string, message: string) {
   return new vineErrors.E_VALIDATION_ERROR([{ field, message, rule: field }])
 }
 
 export default class SettingsController {
-  async show({ auth, inertia }: HttpContext) {
+  async show(ctx: HttpContext) {
+    const { auth, inertia, session } = ctx
     const user = auth.user!
+    const [tokens, { limits }] = await Promise.all([
+      ApiToken.query().where('user_id', user.id).whereNull('revoked_at').orderBy('id', 'desc'),
+      entitlementsFor(user.id),
+    ])
     return inertia.render(
       'settings/index' as any,
       {
@@ -22,6 +29,19 @@ export default class SettingsController {
           email: user.email,
           emailVerifiedAt: user.emailVerifiedAt?.toISO() ?? null,
           createdAt: user.createdAt?.toISO() ?? null,
+        },
+        api: {
+          enabled: limits.api,
+          endpoint: absoluteUrl(ctx, '/mcp'),
+          restBase: absoluteUrl(ctx, '/api/v1'),
+          newToken: (session.flashMessages.get('newApiToken') as string | undefined) ?? null,
+          tokens: tokens.map((tk) => ({
+            id: tk.id,
+            name: tk.name,
+            prefix: tk.prefix,
+            createdAt: tk.createdAt?.toISO() ?? null,
+            lastUsedAt: tk.lastUsedAt?.toISO() ?? null,
+          })),
         },
       } as any
     )

@@ -143,6 +143,11 @@ export const pl = {
   'field.token': 'Token',
 
   // Rozliczenia
+  'api.unauthorized': 'Brak lub nieprawidłowy token API (nagłówek Authorization: Bearer cvai_…)',
+  'api.planRequired': 'API i serwer MCP są dostępne w płatnych planach (Pay as you go, Pro).',
+  'api.tokenCreated': 'Token utworzony — skopiuj go teraz, później nie będzie widoczny.',
+  'api.tokenRevoked': 'Token odwołany',
+  'api.tokenLimit': 'Możesz mieć najwyżej {max} aktywnych tokenów.',
   'ai.previewInvalid': 'Model nie zwrócił poprawnego dokumentu HTML podglądu',
   'preview.needsReady': 'Podgląd powstaje z gotowej wersji DESIGN.md — najpierw ją wygeneruj.',
   'preview.needsSpec': 'Ta wersja powstała przed wprowadzeniem podglądu — wygeneruj DESIGN.md ponownie.',
@@ -297,6 +302,11 @@ export const en: Record<ServerMessageKey, string> = {
   'field.token': 'Token',
 
   // Billing
+  'api.unauthorized': 'Missing or invalid API token (Authorization: Bearer cvai_… header)',
+  'api.planRequired': 'The API and MCP server are available on paid plans (Pay as you go, Pro).',
+  'api.tokenCreated': 'Token created — copy it now, it will not be shown again.',
+  'api.tokenRevoked': 'Token revoked',
+  'api.tokenLimit': 'You can have at most {max} active tokens.',
   'ai.previewInvalid': 'The model did not return a valid HTML preview document',
   'preview.needsReady': 'Previews are built from a ready DESIGN.md version — generate one first.',
   'preview.needsSpec': 'This version predates previews — generate DESIGN.md again.',

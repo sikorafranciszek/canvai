@@ -303,6 +303,25 @@ Webhooks are verified (HMAC-SHA256) and idempotent. Without the API key the
 Billing page shows buy buttons as “soon” while plan limits still apply.
 `BILLING_ENFORCED=false` disables limits and charging (self-hosting, tests).
 
+## API & MCP server
+
+Paid plans can create API tokens in **Settings → API & MCP** (`cvai_…`, shown once, stored as sha256).
+
+- **MCP** (Streamable HTTP, stateless JSON): `POST /mcp` with `Authorization: Bearer <token>`.
+  Tools: `list_boards`, `get_design_md`, `get_design_tokens` (css / tailwind / tokens);
+  resources: `canvai://boards/<id>/design-md`.
+  - Claude Code: `claude mcp add --transport http canvai https://app.canvai.dev/mcp --header "Authorization: Bearer <token>"`
+  - Cursor (`~/.cursor/mcp.json`): `{"mcpServers":{"canvai":{"url":"https://app.canvai.dev/mcp","headers":{"Authorization":"Bearer <token>"}}}}`
+- **REST v1** (read-only): `GET /api/v1/boards`, `GET /api/v1/boards/:id/design-md?version=`,
+  `GET /api/v1/boards/:id/tokens?format=css|tailwind|tokens`.
+
+## UI preview
+
+From a ready DESIGN.md version, **Preview** builds a sample HTML page in that style (6 credits;
+the `mock` provider renders a deterministic template). The HTML is sanitised and served at
+`/boards/:id/previews/:previewId` with a strict CSP (`sandbox`, no scripts, only Google Fonts) and
+shown in a sandboxed iframe with desktop / tablet / mobile widths.
+
 ## Linting & Type Checking
 
 ```bash
