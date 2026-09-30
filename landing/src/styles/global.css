@@ -50,6 +50,8 @@ html {
 }
 
 body {
+  /* Siatka bezpieczeństwa: nic dekoracyjnego nie może dać poziomego scrolla. */
+  overflow-x: clip;
   font-family: var(--font);
   font-size: 16px;
   line-height: 1.55;
