@@ -9,9 +9,12 @@ import type {
   ComposeAssetInput,
   ComposeInput,
   PaletteColor,
+  PreviewInput,
+  PreviewOutput,
   ProviderResult,
 } from '#services/ai/types'
 import { buildAnalyzeUserText, buildComposeUserText } from '#services/design/prompts'
+import { renderPreviewTemplate } from '#services/design/preview_template'
 
 /**
  * Deterministyczny dostawca bez sieci. Używany w testach i zawsze, gdy nie ma
@@ -235,6 +238,14 @@ export class MockProvider implements AiProvider {
     })
 
     return { data, model: this.analysisModel, usage: { tokensIn: 0, tokensOut: 0 } }
+  }
+
+  async composePreview(input: PreviewInput): Promise<ProviderResult<PreviewOutput>> {
+    return {
+      data: { html: renderPreviewTemplate(input.spec) },
+      model: this.compositionModel,
+      usage: { tokensIn: 0, tokensOut: 0 },
+    }
   }
 
   async composeDocument(input: ComposeInput): Promise<ProviderResult<DesignSpec>> {

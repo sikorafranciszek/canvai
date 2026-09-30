@@ -87,6 +87,17 @@ export interface ComposeInput {
   reasoning?: boolean
 }
 
+/** Podgląd UI: przykładowa strona HTML w stylu dokumentu. */
+export interface PreviewInput {
+  boardTitle: string
+  designMd: string
+  spec: import('#services/design/spec').DesignSpec
+}
+
+export interface PreviewOutput {
+  html: string
+}
+
 export interface ProviderUsage {
   tokensIn: number
   tokensOut: number
@@ -105,6 +116,7 @@ export interface AiProvider {
   readonly vision: boolean
   analyzeAsset(input: AnalyzeAssetInput): Promise<ProviderResult<AssetAnalysisData>>
   composeDocument(input: ComposeInput): Promise<ProviderResult<DesignSpec>>
+  composePreview(input: PreviewInput): Promise<ProviderResult<PreviewOutput>>
 }
 
 /**

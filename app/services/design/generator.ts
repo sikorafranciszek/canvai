@@ -177,7 +177,7 @@ export async function runGeneration(
   doc.status = 'ready'
   doc.contentMd = content
   doc.spec = spec
-  doc.creditsCharged = await chargedFor(doc.id)
+  doc.creditsCharged = await chargedFor({ designDocId: doc.id })
   doc.sources = sources
   doc.generatedAt = generatedAt
   doc.usage = {

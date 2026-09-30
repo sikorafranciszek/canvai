@@ -11,13 +11,17 @@ import {
   type AssetAnalysisData,
   type ComposeInput,
   type DesignSpec,
+  type PreviewInput,
+  type PreviewOutput,
   type ProviderResult,
 } from '#services/ai/types'
 import {
   ANALYZE_SYSTEM_PROMPT,
   COMPOSE_SYSTEM_PROMPT,
+  PREVIEW_SYSTEM_PROMPT,
   buildAnalyzeUserText,
   buildComposeUserText,
+  buildPreviewUserText,
 } from '#services/design/prompts'
 import { t } from '#services/i18n'
 
@@ -58,6 +62,15 @@ export interface DeepseekDeps {
     number
   >
   vision?: typeof defaultVision
+}
+
+/** Odpowiedź podglądu: pełny dokument HTML w rozsądnym rozmiarze. */
+export function validatePreview(value: unknown): PreviewOutput {
+  const html = (value as { html?: unknown } | null)?.html
+  if (typeof html !== 'string' || !/<html[\s>]|<body[\s>]/i.test(html) || html.length > 400_000) {
+    throw new InvalidModelOutputError(t('ai.previewInvalid'))
+  }
+  return { html }
 }
 
 /** Przygotowuje obraz pod limity dostawcy: format, dłuższa krawędź, bajty. */
@@ -161,6 +174,18 @@ export class DeepseekProvider implements AiProvider {
         timeoutMs: this.#limits.composeTimeoutMs,
         thinking: input.reasoning ? 'high' : undefined,
       }
+    )
+  }
+
+  async composePreview(input: PreviewInput): Promise<ProviderResult<PreviewOutput>> {
+    return this.#chatJson(
+      this.compositionModel,
+      [
+        { role: 'system', content: PREVIEW_SYSTEM_PROMPT },
+        { role: 'user', content: buildPreviewUserText(input) },
+      ],
+      validatePreview,
+      { maxTokens: this.#limits.maxComposeOutputTokens, timeoutMs: this.#limits.composeTimeoutMs }
     )
   }
 

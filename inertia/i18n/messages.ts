@@ -345,6 +345,26 @@ export const pl = {
 
   // Rozliczenia
   'nav.billing': 'Rozliczenia',
+  'common.close': 'Zamknij',
+  'preview.button': 'Podgląd',
+  'preview.tip': 'Zobacz przykładową stronę zbudowaną z tego DESIGN.md',
+  'preview.title': 'Podgląd UI · v{version}',
+  'preview.device': 'Szerokość urządzenia',
+  'preview.device.desktop': 'Komputer',
+  'preview.device.tablet': 'Tablet',
+  'preview.device.mobile': 'Telefon',
+  'preview.openTab': 'Nowa karta',
+  'preview.download': 'Pobierz HTML',
+  'preview.regenerate': 'Wygeneruj ponownie',
+  'preview.generate': 'Wygeneruj podgląd',
+  'preview.building': 'Budujemy stronę w Twoim stylu…',
+  'preview.buildingHint': 'Zwykle trwa to 30–90 sekund. Możesz zamknąć okno — podgląd zapisze się przy tej wersji.',
+  'preview.emptyTitle': 'Zobacz DESIGN.md w akcji',
+  'preview.emptyBody':
+    'AI zbuduje przykładową stronę na kolorach, typografii i komponentach z tej wersji dokumentu — zanim oddasz specyfikację do v0, Lovable czy Cursora.',
+  'preview.needsSpec': 'Ta wersja powstała przed wprowadzeniem podglądu — wygeneruj DESIGN.md ponownie.',
+  'preview.failed': 'Nie udało się zbudować podglądu. Kredyty wróciły na konto.',
+  'preview.loadFailed': 'Nie udało się wczytać podglądu.',
   'billing.referral.title': 'Poleć canvai — +{n} kredytów dla Ciebie i znajomego',
   'billing.referral.desc':
     'Wyślij swój link. Gdy znajomy założy konto i potwierdzi e-mail, oboje dostaniecie po {n} kredytów.',
@@ -775,6 +795,26 @@ export const en: Record<MessageKey, string> = {
 
   // Billing
   'nav.billing': 'Billing',
+  'common.close': 'Close',
+  'preview.button': 'Preview',
+  'preview.tip': 'See a sample page built from this DESIGN.md',
+  'preview.title': 'UI preview · v{version}',
+  'preview.device': 'Device width',
+  'preview.device.desktop': 'Desktop',
+  'preview.device.tablet': 'Tablet',
+  'preview.device.mobile': 'Mobile',
+  'preview.openTab': 'New tab',
+  'preview.download': 'Download HTML',
+  'preview.regenerate': 'Regenerate',
+  'preview.generate': 'Generate preview',
+  'preview.building': 'Building a page in your style…',
+  'preview.buildingHint': 'This usually takes 30–90 seconds. You can close this window — the preview is saved with this version.',
+  'preview.emptyTitle': 'See your DESIGN.md in action',
+  'preview.emptyBody':
+    'AI builds a sample page from the colors, typography and components of this version — before you hand the spec to v0, Lovable or Cursor.',
+  'preview.needsSpec': 'This version predates previews — generate DESIGN.md again.',
+  'preview.failed': 'Could not build the preview. Your credits were refunded.',
+  'preview.loadFailed': 'Could not load the preview.',
   'billing.referral.title': 'Refer canvai — +{n} credits for you and a friend',
   'billing.referral.desc':
     'Share your link. When a friend signs up and confirms their email, you both get {n} credits.',

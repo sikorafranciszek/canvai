@@ -21,6 +21,8 @@ import {
 import { planFor } from '#services/billing/plans'
 import { attachReferrer, referralCodeFor, rewardReferral } from '#services/billing/referrals'
 import { isDisposableEmail } from '#services/disposable_email'
+import { sanitizePreviewHtml } from '#services/design/preview_template'
+import DesignPreview from '#models/design_preview'
 import { runPendingJobs } from '#services/queue'
 
 /**
@@ -187,21 +189,21 @@ test.group('Billing', (group) => {
 
     const board = await createBoard(user)
     const doc = await DesignDoc.create({ boardId: board.id, version: 1, status: 'queued' })
-    await reserveCredits(user.id, 8, doc.id)
+    await reserveCredits(user.id, 8, { designDocId: doc.id })
     await soon!.refresh()
     await late!.refresh()
     assert.equal(soon!.remaining, 0)
     assert.equal(late!.remaining, 7)
 
     await assert.rejects(
-      () => reserveCredits(user.id, 100, doc.id),
+      () => reserveCredits(user.id, 100, { designDocId: doc.id }),
       InsufficientCreditsError as any
     )
     assert.equal(await balanceOf(user.id), 7, 'nieudana rezerwacja nic nie zdejmuje')
 
-    assert.equal(await releaseAll(doc.id), 8)
+    assert.equal(await releaseAll({ designDocId: doc.id }), 8)
     assert.equal(await balanceOf(user.id), 15)
-    assert.equal(await releaseAll(doc.id), 0, 'drugi zwrot nic nie oddaje')
+    assert.equal(await releaseAll({ designDocId: doc.id }), 0, 'drugi zwrot nic nie oddaje')
   })
 
   test('generacja pobiera szacowany koszt; bez zmian — 0; plan Free dostaje stopkę', async ({
@@ -555,5 +557,94 @@ test.group('Billing', (group) => {
     const self = await makeUser('self')
     await attachReferrer(self, await referralCodeFor(self))
     assert.notExists(self.referredById)
+  })
+
+  test('podgląd UI: kosztuje kredyty, serwowany w piaskownicy, błąd = zwrot', async ({
+    client,
+    assert,
+  }) => {
+    const user = await makeUser()
+    const cookies = await login(client, user)
+    const board = await createBoard(user)
+    await seedBoard(client, cookies, board)
+
+    // Bez gotowego dokumentu nie ma podglądu.
+    const early = await client
+      .post(`/api/boards/${board.id}/design-doc/preview`)
+      .headers({ cookie: cookies })
+      .json({})
+    early.assertStatus(422)
+
+    ;(await client.post(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies }).json({})).assertStatus(202)
+    await runPendingJobs()
+    const before = await balanceOf(user.id)
+
+    const post = await client
+      .post(`/api/boards/${board.id}/design-doc/preview`)
+      .headers({ cookie: cookies })
+      .json({})
+    post.assertStatus(202)
+    assert.equal(await balanceOf(user.id), before - costs.preview)
+    await runPendingJobs()
+
+    const show = await client
+      .get(`/api/boards/${board.id}/design-doc/preview?version=1`)
+      .headers({ cookie: cookies })
+    const dto = show.body().data
+    assert.equal(dto.status, 'ready', dto.error)
+    assert.equal(dto.creditsCharged, costs.preview)
+
+    const html = await client.get(dto.url).headers({ cookie: cookies })
+    html.assertStatus(200)
+    assert.include(html.text(), '<!doctype html>')
+    assert.notInclude(html.text(), '<script')
+    const csp = html.header('content-security-policy')
+    assert.include(csp, 'sandbox')
+    assert.include(csp, "default-src 'none'")
+
+    // Gotowy podgląd bez `force` — bez opłaty.
+    const again = await client
+      .post(`/api/boards/${board.id}/design-doc/preview`)
+      .headers({ cookie: cookies })
+      .json({})
+    again.assertStatus(200)
+    assert.equal(await balanceOf(user.id), before - costs.preview)
+
+    // Obcy nie zobaczy HTML.
+    const stranger = await makeUser('stranger')
+    const strangerCookies = await login(client, stranger)
+    ;(await client.get(dto.url).headers({ cookie: strangerCookies })).assertStatus(404)
+
+    // Błąd modelu → zwrot kredytów.
+    const failing = new MockProvider()
+    failing.composePreview = async () => {
+      const { AiProviderError } = await import('#services/ai/types')
+      throw new AiProviderError('boom', false)
+    }
+    setProviderOverride(failing)
+    const mid = await balanceOf(user.id)
+    ;(
+      await client
+        .post(`/api/boards/${board.id}/design-doc/preview`)
+        .headers({ cookie: cookies })
+        .json({ force: true })
+    ).assertStatus(202)
+    await runPendingJobs()
+    const failed = await DesignPreview.query().orderBy('id', 'desc').firstOrFail()
+    assert.equal(failed.status, 'failed')
+    assert.equal(await balanceOf(user.id), mid)
+  })
+
+  test('sanitizePreviewHtml usuwa skrypty, handlery i obce zasoby', ({ assert }) => {
+    const dirty = `<html><head><script>alert(1)</script><link rel="stylesheet" href="https://evil.test/x.css">
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter"><meta http-equiv="refresh" content="0;url=https://evil.test"></head>
+      <body onload="steal()"><a href="javascript:alert(1)">x</a><iframe src="https://evil.test"></iframe><img src=x onerror=alert(1)></body></html>`
+    const clean = sanitizePreviewHtml(dirty)
+    assert.notInclude(clean, '<script')
+    assert.notInclude(clean, 'evil.test')
+    assert.notInclude(clean, 'onload')
+    assert.notInclude(clean, 'onerror')
+    assert.notInclude(clean, 'javascript:')
+    assert.include(clean, 'fonts.googleapis.com')
   })
 })

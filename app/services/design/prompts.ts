@@ -1,4 +1,4 @@
-import type { AnalyzeAssetInput, ComposeInput } from '#services/ai/types'
+import type { AnalyzeAssetInput, ComposeInput, PreviewInput } from '#services/ai/types'
 
 /**
  * Prompty pipeline'u DESIGN.md. Zmiana treści promptu = podbicie
@@ -170,4 +170,31 @@ export function buildComposeUserText(input: ComposeInput): string {
     )
   }
   return parts.join('\n\n')
+}
+
+// ---------------------------------------------------------------------------
+// Podgląd UI
+// ---------------------------------------------------------------------------
+
+export const PREVIEW_SYSTEM_PROMPT = [
+  'You are a senior front-end designer. Build ONE realistic, polished page of the product described by the',
+  'DESIGN.md below — the most representative screen (landing page for a website, main screen for an app).',
+  UNTRUSTED_RULE,
+  'Follow the document strictly: use ONLY its colors, fonts, type scale, spacing, radii and shadows (define them as',
+  'CSS custom properties in :root), apply its component descriptions, states, voice and do/don\'t rules.',
+  'Use realistic copy that fits the product (in the language the board implies; default English), not lorem ipsum.',
+  'TECHNICAL RULES:',
+  '- A single self-contained HTML5 document with one <style> block. Responsive (mobile first, one breakpoint).',
+  '- NO JavaScript, no <script>, no event handler attributes, no iframes, no forms that submit anywhere.',
+  '- No external resources except a Google Fonts stylesheet <link> for the document fonts.',
+  '- No external images: use CSS gradients, shapes, inline SVG or solid placeholder blocks in the palette.',
+  '- Keep it under ~900 lines. Semantic HTML (header, nav, main, section, footer).',
+  'Reply ONLY with a JSON object: {"html": "<!doctype html>..."}',
+].join('\n')
+
+export function buildPreviewUserText(input: PreviewInput): string {
+  return [
+    `Product / board: ${fenceUntrusted('board-title', input.boardTitle)}`,
+    `DESIGN.md:\n${fenceUntrusted('design-md', input.designMd.slice(0, 24_000))}`,
+  ].join('\n\n')
 }

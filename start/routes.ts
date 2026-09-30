@@ -77,6 +77,7 @@ router
     router.get('/boards/:id', [controllers.Board, 'show']).as('boards.show')
     router.patch('/boards/:id', [controllers.Board, 'update']).as('boards.update')
     router.delete('/boards/:id', [controllers.Board, 'destroy']).as('boards.destroy')
+    router.get('/boards/:id/previews/:previewId', [controllers.DesignPreviews, 'html'])
 
     // Ustawienia konta
     router.get('/settings', [controllers.Settings, 'show']).as('settings.show')
@@ -120,6 +121,8 @@ router
     router.get('/boards/:id/design-docs', [controllers.DesignDocs, 'index'])
     router.get('/boards/:id/design-doc/estimate', [controllers.DesignDocs, 'estimate'])
     router.get('/boards/:id/design-doc/export', [controllers.DesignDocs, 'export'])
+    router.get('/boards/:id/design-doc/preview', [controllers.DesignPreviews, 'show'])
+    router.post('/boards/:id/design-doc/preview', [controllers.DesignPreviews, 'store'])
 
     // Rozliczenia
     router.get('/billing', [controllers.Billing, 'summary'])

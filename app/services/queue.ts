@@ -3,6 +3,8 @@ import db from '@adonisjs/lucid/services/db'
 import logger from '@adonisjs/core/services/logger'
 import { limits } from '#config/ai'
 import DesignDoc from '#models/design_doc'
+import DesignPreview from '#models/design_preview'
+import { runPreview } from '#services/design/preview'
 import { releaseAll } from '#services/billing/credits'
 import Job from '#models/job'
 import { AiProviderError } from '#services/ai/types'
@@ -35,6 +37,7 @@ interface JobHandler {
 }
 
 export const JOB_GENERATE_DESIGN_DOC = 'generate_design_doc'
+export const JOB_GENERATE_PREVIEW = 'generate_preview'
 
 const handlers: Record<string, JobHandler> = {
   [JOB_GENERATE_DESIGN_DOC]: {
@@ -46,12 +49,28 @@ const handlers: Record<string, JobHandler> = {
       const docId = job.payload.designDocId as number
       await DesignDoc.query().where('id', docId).update({ status: 'failed', error: message })
       // Nieudana generacja nic nie kosztuje — rezerwacja wraca w całości.
-      await releaseAll(docId)
+      await releaseAll({ designDocId: docId })
     },
     async onRetry(job, message) {
       await DesignDoc.query()
         .where('id', job.payload.designDocId as number)
         .update({ status: 'queued', error: t('gen.retrying', { message }) })
+    },
+  },
+  [JOB_GENERATE_PREVIEW]: {
+    async run(job) {
+      const preview = await DesignPreview.findOrFail(job.payload.previewId as number)
+      await runPreview(preview)
+    },
+    async onFailed(job, message) {
+      const previewId = job.payload.previewId as number
+      await DesignPreview.query().where('id', previewId).update({ status: 'failed', error: message })
+      await releaseAll({ designPreviewId: previewId }, 'preview failed')
+    },
+    async onRetry(job) {
+      await DesignPreview.query()
+        .where('id', job.payload.previewId as number)
+        .update({ status: 'queued' })
     },
   },
 }

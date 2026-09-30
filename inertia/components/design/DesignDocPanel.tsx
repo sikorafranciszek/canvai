@@ -11,6 +11,7 @@ import {
   Copy,
   Cpu,
   Download,
+  Eye,
   FileText,
   GitCompare,
   Layers,
@@ -23,6 +24,8 @@ import {
 import { router } from '@inertiajs/react'
 import { Menu } from '~/components/ui/Menu'
 import { exportUrl, useBillingStore } from '~/lib/billing'
+import { usePreviewStore } from '~/lib/board/preview'
+import { PreviewDialog } from '~/components/design/PreviewDialog'
 import { diffLines, diffStats } from '@shared/line-diff'
 import { designDocDownloadUrl, type DesignDocDto } from '~/lib/board/api'
 import { progressLabel, progressRatio, useDesignStore } from '~/lib/board/design'
@@ -56,6 +59,7 @@ export function DesignDocPanel() {
   const generate = useDesignStore((s) => s.generate)
   const hiddenVersions = useDesignStore((s) => s.hiddenVersions)
   const limits = useBillingStore((s) => s.summary?.limits)
+  const showPreview = usePreviewStore((s) => s.show)
 
   const { t } = useT()
   const assets = useBoardStore((s) => s.assets)
@@ -147,6 +151,16 @@ export function DesignDocPanel() {
                 data-tip={t('common.copy')}
               >
                 <Copy />
+              </button>
+              <button
+                type="button"
+                className="btn btn--sm"
+                data-testid="design-doc-preview"
+                onClick={() => void showPreview(boardId, current!.version)}
+                data-tip={t('preview.tip')}
+              >
+                <Eye />
+                {t('preview.button')}
               </button>
               <Menu
                 label={limits?.exports === false ? t('doc.export.locked') : t('doc.export.label')}
@@ -300,6 +314,7 @@ export function DesignDocPanel() {
         )}
       </div>
       <GenerationOptions />
+      <PreviewDialog />
     </div>
   )
 }

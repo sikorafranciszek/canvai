@@ -29,6 +29,9 @@ export default class CreditTransaction extends BaseModel {
   declare designDocId: number | null
 
   @column()
+  declare designPreviewId: number | null
+
+  @column()
   declare note: string | null
 
   @column.dateTime({ autoCreate: true })

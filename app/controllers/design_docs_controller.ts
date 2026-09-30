@@ -144,7 +144,7 @@ export default class DesignDocsController {
     })
     if (estimate) {
       try {
-        await reserveCredits(user.id, estimate.credits, doc.id)
+        await reserveCredits(user.id, estimate.credits, { designDocId: doc.id })
       } catch (error) {
         await doc.delete()
         if (error instanceof InsufficientCreditsError) {

@@ -32,6 +32,21 @@ export class InsufficientCreditsError extends Exception {
   }
 }
 
+/** Na co idzie rezerwacja: generacja dokumentu albo podgląd UI. */
+export type CreditRef = { designDocId: number } | { designPreviewId: number }
+
+function refColumn(ref: CreditRef): { column: string; id: number } {
+  return 'designDocId' in ref
+    ? { column: 'design_doc_id', id: ref.designDocId }
+    : { column: 'design_preview_id', id: ref.designPreviewId }
+}
+
+function refFields(ref: CreditRef) {
+  return 'designDocId' in ref
+    ? { designDocId: ref.designDocId }
+    : { designPreviewId: ref.designPreviewId }
+}
+
 export function sqlTime(dt: DateTime): string {
   return dt.toUTC().toFormat(db.connection().dialect.dateTimeFormat)
 }
@@ -157,7 +172,7 @@ export async function ensureAutomaticGrants(userId: number): Promise<void> {
 export async function reserveCredits(
   userId: number,
   amount: number,
-  designDocId: number
+  ref: CreditRef
 ): Promise<void> {
   if (amount <= 0) return
   await db.transaction(async (trx) => {
@@ -177,18 +192,19 @@ export async function reserveCredits(
       grant.useTransaction(trx)
       await grant.save()
       await CreditTransaction.create(
-        { userId, kind: 'reserve', amount: -take, grantId: grant.id, designDocId },
+        { userId, kind: 'reserve', amount: -take, grantId: grant.id, ...refFields(ref) },
         { client: trx }
       )
     }
   })
 }
 
-/** Oddaje całą niewykorzystaną rezerwację dokumentu (generacja nieudana). */
-export async function releaseAll(designDocId: number, note = 'generation failed'): Promise<number> {
+/** Oddaje całą niewykorzystaną rezerwację (generacja / podgląd nieudany). */
+export async function releaseAll(ref: CreditRef, note = 'generation failed'): Promise<number> {
+  const { column, id } = refColumn(ref)
   return db.transaction(async (trx) => {
     const rows = await CreditTransaction.query({ client: trx })
-      .where('design_doc_id', designDocId)
+      .where(column, id)
       .whereIn('kind', ['reserve', 'release'])
     const outstanding = new Map<number, number>()
     for (const row of rows) {
@@ -206,7 +222,7 @@ export async function releaseAll(designDocId: number, note = 'generation failed'
         await grant.save()
       }
       await CreditTransaction.create(
-        { userId: grant.userId, kind: 'release', amount, grantId, designDocId, note },
+        { userId: grant.userId, kind: 'release', amount, grantId, ...refFields(ref), note },
         { client: trx }
       )
       released += amount
@@ -215,10 +231,11 @@ export async function releaseAll(designDocId: number, note = 'generation failed'
   })
 }
 
-/** Ile kredytów jest zarezerwowanych/pobranych dla dokumentu. */
-export async function chargedFor(designDocId: number): Promise<number> {
+/** Ile kredytów jest zarezerwowanych/pobranych dla dokumentu albo podglądu. */
+export async function chargedFor(ref: CreditRef): Promise<number> {
+  const { column, id } = refColumn(ref)
   const rows = await CreditTransaction.query()
-    .where('design_doc_id', designDocId)
+    .where(column, id)
     .whereIn('kind', ['reserve', 'release'])
   return -rows.reduce((sum, r) => sum + r.amount, 0)
 }

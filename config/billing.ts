@@ -59,6 +59,8 @@ export const costs = {
   compose: 4,
   /** Mnożnik trybu Pro reasoning. */
   proMultiplier: 2,
+  /** Podgląd UI — przykładowa strona HTML z DESIGN.md. */
+  preview: 6,
 }
 
 /** Darmowe kredyty. */

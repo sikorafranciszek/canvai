@@ -143,6 +143,10 @@ export const pl = {
   'field.token': 'Token',
 
   // Rozliczenia
+  'ai.previewInvalid': 'Model nie zwrócił poprawnego dokumentu HTML podglądu',
+  'preview.needsReady': 'Podgląd powstaje z gotowej wersji DESIGN.md — najpierw ją wygeneruj.',
+  'preview.needsSpec': 'Ta wersja powstała przed wprowadzeniem podglądu — wygeneruj DESIGN.md ponownie.',
+  'preview.inProgress': 'Podgląd tej wersji już się generuje.',
   'account.disposableEmail': 'Tymczasowe skrzynki e-mail nie są obsługiwane — podaj swój stały adres.',
   'billing.insufficient':
     'Za mało kredytów: ta generacja kosztuje {needed}, a masz {balance}. Dokup kredyty w zakładce Rozliczenia.',
@@ -293,6 +297,10 @@ export const en: Record<ServerMessageKey, string> = {
   'field.token': 'Token',
 
   // Billing
+  'ai.previewInvalid': 'The model did not return a valid HTML preview document',
+  'preview.needsReady': 'Previews are built from a ready DESIGN.md version — generate one first.',
+  'preview.needsSpec': 'This version predates previews — generate DESIGN.md again.',
+  'preview.inProgress': 'A preview of this version is already being generated.',
   'account.disposableEmail': 'Temporary email addresses are not supported — please use your regular address.',
   'billing.insufficient':
     'Not enough credits: this generation costs {needed} and you have {balance}. Top up in Billing.',

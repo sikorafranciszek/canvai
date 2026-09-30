@@ -137,7 +137,7 @@ export class CreditGrantSchema extends BaseModel {
 }
 
 export class CreditTransactionSchema extends BaseModel {
-  static $columns = ['amount', 'createdAt', 'designDocId', 'grantId', 'id', 'kind', 'note', 'userId'] as const
+  static $columns = ['amount', 'createdAt', 'designDocId', 'designPreviewId', 'grantId', 'id', 'kind', 'note', 'userId'] as const
   $columns = CreditTransactionSchema.$columns
   @column()
   declare amount: number
@@ -145,6 +145,8 @@ export class CreditTransactionSchema extends BaseModel {
   declare createdAt: DateTime
   @column()
   declare designDocId: number | null
+  @column()
+  declare designPreviewId: number | null
   @column()
   declare grantId: number | null
   @column({ isPrimary: true })
@@ -194,6 +196,31 @@ export class DesignDocSchema extends BaseModel {
   declare usage: any | null
   @column()
   declare version: number
+}
+
+export class DesignPreviewSchema extends BaseModel {
+  static $columns = ['createdAt', 'creditsCharged', 'designDocId', 'error', 'generatedAt', 'html', 'id', 'jobId', 'model', 'status'] as const
+  $columns = DesignPreviewSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare creditsCharged: number | null
+  @column()
+  declare designDocId: number
+  @column()
+  declare error: string | null
+  @column.dateTime()
+  declare generatedAt: DateTime | null
+  @column()
+  declare html: string | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare jobId: number | null
+  @column()
+  declare model: string | null
+  @column()
+  declare status: string
 }
 
 export class JobSchema extends BaseModel {
