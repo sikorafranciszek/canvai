@@ -99,7 +99,7 @@ function ApiSection({ api }: { api: ApiSettings }) {
         ) : null}
 
         {api.newToken ? (
-          <div className="api-new-token" data-testid="api-new-token">
+          <div className="api-new-token" data-testid="api-new-token" data-clarity-mask="true">
             <strong>{t('settings.api.newToken')}</strong>
             <CopyField
               value={api.newToken}

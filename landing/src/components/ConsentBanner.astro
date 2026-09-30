@@ -1,0 +1,76 @@
+---
+import type { Content } from '../i18n/content'
+import { PRIVACY_PATH } from '../i18n/privacy'
+
+interface Props {
+  t: Content
+}
+const { t } = Astro.props
+---
+
+<section class="consent" data-consent hidden role="region" aria-label={t.consent.title}>
+  <p class="consent__title">{t.consent.title}</p>
+  <p class="consent__text">
+    {t.consent.text} <a href={PRIVACY_PATH[t.lang]}>{t.consent.more}</a>
+  </p>
+  <div class="consent__actions">
+    <button type="button" class="btn" data-consent-reject>{t.consent.reject}</button>
+    <button type="button" class="btn btn--primary" data-consent-accept>{t.consent.accept}</button>
+  </div>
+</section>
+
+<script>
+  import '../scripts/consent.ts'
+</script>
+
+<style>
+  .consent {
+    position: fixed;
+    left: 16px;
+    bottom: 16px;
+    z-index: 80;
+    width: min(420px, calc(100vw - 32px));
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 18px;
+    border-radius: var(--r-xl);
+    border: 1px solid var(--hairline);
+    background: var(--soft-paper);
+    box-shadow: var(--shadow-float);
+    animation: consent-in 360ms var(--ease-out, ease) both;
+  }
+  .consent[hidden] {
+    display: none;
+  }
+  @keyframes consent-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+  }
+  .consent__title {
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .consent__text {
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--graphite);
+  }
+  .consent__text a {
+    color: var(--teal);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .consent__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .consent__actions .btn {
+    height: 36px;
+    font-size: 14px;
+  }
+</style>

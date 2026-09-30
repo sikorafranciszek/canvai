@@ -3,8 +3,10 @@ import { homePath, type Lang } from '../i18n/content'
 interface Props {
   lang: Lang
   label: string
+  /** Odpowiedniki bieżącej strony w innych językach (domyślnie strona główna). */
+  paths?: Record<Lang, string>
 }
-const { lang, label } = Astro.props
+const { lang, label, paths } = Astro.props
 const langs: Lang[] = ['pl', 'en']
 ---
 
@@ -12,7 +14,7 @@ const langs: Lang[] = ['pl', 'en']
   {
     langs.map((l) => (
       <a
-        href={homePath(l)}
+        href={paths?.[l] ?? homePath(l)}
         hreflang={l}
         lang={l}
         class="lang__btn"

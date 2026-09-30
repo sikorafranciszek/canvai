@@ -39,6 +39,8 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD:-}
       # Rozliczenia (Polar.sh) — bez tokenu sprzedaż jest wyłączona, limity planów działają.
       - BILLING_ENFORCED=${BILLING_ENFORCED:-true}
+      # Microsoft Clarity (tylko po zgodzie użytkownika) — projekt app.canvai.dev.
+      - CLARITY_PROJECT_ID=${CLARITY_PROJECT_ID:-yqij10mk35}
       - POLAR_ACCESS_TOKEN=${POLAR_ACCESS_TOKEN:-}
       - POLAR_WEBHOOK_SECRET=${POLAR_WEBHOOK_SECRET:-}
       - POLAR_SERVER=${POLAR_SERVER:-production}

@@ -1,0 +1,11 @@
+---
+import Base from '../../layouts/Base.astro'
+import PrivacyPage from '../../components/PrivacyPage.astro'
+import { content } from '../../i18n/content'
+import { PRIVACY_PATH, privacy } from '../../i18n/privacy'
+const t = content.pl
+---
+
+<Base t={t} title={`${privacy.pl.title} — canvai`} description={privacy.pl.metaDescription} langPaths={PRIVACY_PATH}>
+  <PrivacyPage lang="pl" />
+</Base>

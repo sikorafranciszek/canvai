@@ -1,0 +1,163 @@
+---
+import type { Lang } from '../i18n/content'
+import { LEGAL, privacy } from '../i18n/privacy'
+
+interface Props {
+  lang: Lang
+}
+const { lang } = Astro.props
+const p = privacy[lang]
+---
+
+<article class="policy container">
+  <header class="policy__head">
+    <h1 class="h2">{p.title}</h1>
+    <p class="lead">{p.intro}</p>
+    <p class="muted policy__updated">{p.updatedLabel}: {LEGAL.updated[lang]}</p>
+  </header>
+
+  <div class="policy__layout">
+    <nav class="policy__toc" aria-label={p.tocLabel}>
+      <p class="policy__toc-title">{p.tocLabel}</p>
+      {p.sections.map((s) => <a href={`#${s.id}`}>{s.title}</a>)}
+    </nav>
+
+    <div class="policy__body">
+      {
+        p.sections.map((s) => (
+          <section id={s.id}>
+            <h2>{s.title}</h2>
+            {s.body?.map((para) => <p>{para}</p>)}
+            {s.list ? (
+              <ul>
+                {s.list.map((item) => (
+                  <li>{item}</li>
+                ))}
+              </ul>
+            ) : null}
+            {s.table ? (
+              <div class="policy__table">
+                <table>
+                  <thead>
+                    <tr>
+                      {s.table.head.map((h) => (
+                        <th>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {s.table.rows.map((row) => (
+                      <tr>
+                        {row.map((cell) => (
+                          <td>{cell}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </section>
+        ))
+      }
+    </div>
+  </div>
+</article>
+
+<style>
+  .policy {
+    padding: clamp(40px, 7vw, 80px) 0 clamp(56px, 8vw, 96px);
+  }
+  .policy__head {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 760px;
+    margin-bottom: 40px;
+  }
+  .policy__updated {
+    font-size: 14px;
+  }
+  .policy__layout {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 48px;
+    align-items: start;
+  }
+  .policy__toc {
+    position: sticky;
+    top: 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--graphite);
+  }
+  .policy__toc-title {
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .policy__toc a:hover {
+    color: var(--teal);
+  }
+  .policy__body {
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+    max-width: 780px;
+  }
+  .policy__body section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    scroll-margin-top: 90px;
+  }
+  .policy__body h2 {
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .policy__body p,
+  .policy__body li {
+    color: var(--graphite);
+    line-height: 1.65;
+  }
+  .policy__body ul {
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .policy__table {
+    overflow-x: auto;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-lg);
+  }
+  .policy__table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .policy__table th,
+  .policy__table td {
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .policy__table th {
+    background: var(--sidebar);
+    font-weight: 500;
+  }
+  .policy__table tr:last-child td {
+    border-bottom: 0;
+  }
+  @media (max-width: 860px) {
+    .policy__layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .policy__toc {
+      position: static;
+    }
+  }
+</style>

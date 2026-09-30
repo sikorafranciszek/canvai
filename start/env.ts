@@ -49,6 +49,8 @@ export default await Env.create(new URL('../', import.meta.url), {
   |----------------------------------------------------------
   */
   BILLING_ENFORCED: Env.schema.boolean.optional(),
+  /** Microsoft Clarity (projekt app.canvai.dev) — ładowany dopiero po zgodzie. */
+  CLARITY_PROJECT_ID: Env.schema.string.optional(),
   POLAR_ACCESS_TOKEN: Env.schema.string.optional(),
   POLAR_WEBHOOK_SECRET: Env.schema.string.optional(),
   POLAR_SERVER: Env.schema.enum.optional(['production', 'sandbox'] as const),

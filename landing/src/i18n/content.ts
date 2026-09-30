@@ -267,6 +267,16 @@ const en = {
     product: 'Product',
     account: 'Account',
     rights: 'All rights reserved.',
+    legal: 'Legal',
+    privacy: 'Privacy policy',
+    cookies: 'Cookie settings',
+  },
+  consent: {
+    title: 'Cookies & analytics',
+    text: 'We use essential cookies to run canvai. With your consent we also use Microsoft Clarity to see how the site is used (clicks, scrolling, anonymised session recordings) and improve it.',
+    accept: 'Accept analytics',
+    reject: 'Essential only',
+    more: 'Privacy policy',
   },
   notFound: {
     title: 'Page not found',
@@ -519,6 +529,16 @@ const pl: Content = {
     product: 'Produkt',
     account: 'Konto',
     rights: 'Wszelkie prawa zastrzeżone.',
+    legal: 'Informacje prawne',
+    privacy: 'Polityka prywatności',
+    cookies: 'Ustawienia cookies',
+  },
+  consent: {
+    title: 'Cookies i analityka',
+    text: 'Używamy niezbędnych cookies, żeby canvai działało. Za Twoją zgodą korzystamy też z Microsoft Clarity, żeby widzieć, jak używana jest strona (kliknięcia, przewijanie, zanonimizowane nagrania sesji), i ją ulepszać.',
+    accept: 'Akceptuję analitykę',
+    reject: 'Tylko niezbędne',
+    more: 'Polityka prywatności',
   },
   notFound: {
     title: 'Nie znaleziono strony',

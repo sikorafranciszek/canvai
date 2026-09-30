@@ -111,7 +111,7 @@ const BoardsShow: React.FC<{ board: Board; user?: SharedUser }> = ({ board, user
         </div>
       </header>
 
-      <div className="workspace">
+      <div className="workspace" data-clarity-mask="true">
         <div className="canvas-area">
           {Canvas ? (
             <Canvas key={board.id} boardId={board.id} />

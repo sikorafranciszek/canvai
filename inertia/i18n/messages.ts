@@ -345,6 +345,16 @@ export const pl = {
 
   // Rozliczenia
   'nav.billing': 'Rozliczenia',
+  'consent.title': 'Cookies i analityka',
+  'consent.text':
+    'Używamy niezbędnych cookies, żeby canvai działało. Za Twoją zgodą korzystamy też z Microsoft Clarity, żeby widzieć, jak używana jest aplikacja (kliknięcia, przewijanie, nagrania sesji z ukrytą treścią tablic), i ją ulepszać.',
+  'consent.accept': 'Akceptuję analitykę',
+  'consent.reject': 'Tylko niezbędne',
+  'consent.more': 'Polityka prywatności',
+  'legal.privacy': 'Prywatność',
+  'legal.privacyLower': 'politykę prywatności',
+  'legal.cookies': 'Cookies',
+  'auth.signup.privacy': 'Zakładając konto, potwierdzasz, że znasz',
   'siteImport.button': 'Z adresu',
   'siteImport.hint': 'Zaimportuj styl strony z adresu URL',
   'siteImport.title': 'Import strony',
@@ -894,6 +904,16 @@ export const en: Record<MessageKey, string> = {
 
   // Billing
   'nav.billing': 'Billing',
+  'consent.title': 'Cookies & analytics',
+  'consent.text':
+    'We use essential cookies to run canvai. With your consent we also use Microsoft Clarity to see how the app is used (clicks, scrolling, session recordings with board content hidden) and improve it.',
+  'consent.accept': 'Accept analytics',
+  'consent.reject': 'Essential only',
+  'consent.more': 'Privacy policy',
+  'legal.privacy': 'Privacy',
+  'legal.privacyLower': 'privacy policy',
+  'legal.cookies': 'Cookies',
+  'auth.signup.privacy': 'By creating an account you confirm you have read our',
   'siteImport.button': 'From URL',
   'siteImport.hint': 'Import a website’s style from its URL',
   'siteImport.title': 'Import a website',

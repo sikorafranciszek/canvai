@@ -1,6 +1,7 @@
 import { Form, Link } from '@adonisjs/inertia/react'
 import { Head } from '@inertiajs/react'
 import { useT } from '~/i18n'
+import { privacyUrl } from '~/lib/consent'
 
 type FormState = { errors: Record<string, string>; processing: boolean }
 
@@ -98,6 +99,13 @@ export default function Signup() {
                 {processing ? <span className="spinner" /> : null}
                 {t('auth.signup.submit')}
               </button>
+              <p className="t-small t-faint" style={{ textAlign: 'center' }}>
+                {t('auth.signup.privacy')}{' '}
+                <a className="link" href={privacyUrl()} target="_blank" rel="noopener">
+                  {t('legal.privacyLower')}
+                </a>
+                .
+              </p>
             </>
           )}
         </Form>

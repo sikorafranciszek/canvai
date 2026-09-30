@@ -7,8 +7,9 @@ import Icon from './Icon.astro'
 
 interface Props {
   t: Content
+  langPaths?: Record<'pl' | 'en', string>
 }
-const { t } = Astro.props
+const { t, langPaths } = Astro.props
 const home = homePath(t.lang)
 const links = [
   { href: `${home}#features`, label: t.nav.features },
@@ -26,7 +27,7 @@ const links = [
       {links.map((l) => <a href={l.href}>{l.label}</a>)}
     </nav>
     <div class="header__actions">
-      <LangSwitch lang={t.lang} label={t.nav.language} />
+      <LangSwitch lang={t.lang} label={t.nav.language} paths={langPaths} />
       <a class="btn btn--quiet" href={appLink('/login', t.lang)}>{t.nav.login}</a>
       <a class="btn btn--primary" href={appLink('/signup', t.lang)}>{t.nav.signup}</a>
     </div>
@@ -42,7 +43,7 @@ const links = [
           <a class="btn btn--primary" href={appLink('/signup', t.lang)}>{t.nav.signup}</a>
         </div>
         <div class="header__sheet-lang">
-          <LangSwitch lang={t.lang} label={t.nav.language} />
+          <LangSwitch lang={t.lang} label={t.nav.language} paths={langPaths} />
         </div>
       </div>
     </details>

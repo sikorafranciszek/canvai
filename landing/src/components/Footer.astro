@@ -2,12 +2,14 @@
 import type { Content } from '../i18n/content'
 import { appLink, homePath } from '../i18n/content'
 import Logo from './Logo.astro'
+import { PRIVACY_PATH } from '../i18n/privacy'
 import LangSwitch from './LangSwitch.astro'
 
 interface Props {
   t: Content
+  langPaths?: Record<'pl' | 'en', string>
 }
-const { t } = Astro.props
+const { t, langPaths } = Astro.props
 const home = homePath(t.lang)
 const year = new Date().getFullYear()
 ---
@@ -17,7 +19,7 @@ const year = new Date().getFullYear()
     <div class="footer__brand">
       <Logo href={home} />
       <p class="muted">{t.footer.tagline}</p>
-      <LangSwitch lang={t.lang} label={t.nav.language} />
+      <LangSwitch lang={t.lang} label={t.nav.language} paths={langPaths} />
     </div>
     <div class="footer__col">
       <h2>{t.footer.product}</h2>
@@ -31,6 +33,11 @@ const year = new Date().getFullYear()
       <h2>{t.footer.account}</h2>
       <a href={appLink('/login', t.lang)}>{t.nav.login}</a>
       <a href={appLink('/signup', t.lang)}>{t.nav.signup}</a>
+    </div>
+    <div class="footer__col">
+      <h2>{t.footer.legal}</h2>
+      <a href={PRIVACY_PATH[t.lang]}>{t.footer.privacy}</a>
+      <button type="button" class="footer__link" data-consent-open>{t.footer.cookies}</button>
     </div>
   </div>
   <div class="container footer__bottom">
@@ -48,7 +55,7 @@ const year = new Date().getFullYear()
   }
   .footer__grid {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
     gap: 32px;
   }
   .footer__brand {
@@ -70,7 +77,14 @@ const year = new Date().getFullYear()
     color: var(--ink);
     margin-bottom: 4px;
   }
-  .footer__col a:hover {
+  .footer__link {
+    padding: 0;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+  }
+  .footer__col a:hover,
+  .footer__link:hover {
     color: var(--ink);
   }
   .footer__bottom {
@@ -84,7 +98,7 @@ const year = new Date().getFullYear()
   }
   @media (max-width: 720px) {
     .footer__grid {
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .footer__brand {
       grid-column: 1 / -1;

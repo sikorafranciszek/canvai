@@ -129,7 +129,7 @@ export function PreviewDialog() {
             </div>
           </div>
 
-          <div className="preview-modal__stage">
+          <div className="preview-modal__stage" data-clarity-mask="true">
             {loading ? (
               <div className="preview-modal__center">
                 <span className="spinner" />

@@ -5,6 +5,7 @@ import { type ReactElement, type ReactNode, useEffect } from 'react'
 import { Form, Link } from '@adonisjs/inertia/react'
 import { Coins, CreditCard, LayoutGrid, LogOut, Palette, Plus, Settings } from 'lucide-react'
 import { useBillingStore } from '~/lib/billing'
+import { ConsentBanner, LegalLinks } from '~/components/ui/ConsentBanner'
 import { Brand } from '~/components/ui/Brand'
 import { CreateBoardDialog } from '~/components/boards/CreateBoardDialog'
 import { useUiStore } from '~/lib/ui'
@@ -25,6 +26,7 @@ export default function Layout({ children }: { children: ReactElement<Data.Share
   const { url, flash, component } = usePage()
   const user = (children.props as { user?: SharedUser }).user
   const serverLocale = (children.props as { locale?: string }).locale
+  const clarityId = (children.props as { clarityId?: string | null }).clarityId ?? null
 
   // Język z serwera (cookie / Accept-Language) jest źródłem prawdy przy wejściu na stronę.
   useEffect(() => {
@@ -59,6 +61,7 @@ export default function Layout({ children }: { children: ReactElement<Data.Share
             <Brand />
           </div>
           {children}
+          <LegalLinks className="legal-links--center" />
         </div>
       </div>
     )
@@ -80,6 +83,7 @@ export default function Layout({ children }: { children: ReactElement<Data.Share
   return (
     <>
       {content}
+      <ConsentBanner projectId={clarityId} />
       <Toaster
         position="bottom-center"
         toastOptions={{
@@ -184,6 +188,7 @@ function AppShell({
           <div style={{ padding: '0 8px' }}>
             <LanguageSwitcher />
           </div>
+          <LegalLinks className="legal-links--sidebar" />
           <div className="user-chip">
             <span className="avatar" aria-hidden>
               {user.initials}

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Brand } from '~/components/ui/Brand'
 import { LanguageSwitcher } from '~/components/ui/LanguageSwitcher'
 import { MarkdownView } from '~/components/design/MarkdownView'
+import { LegalLinks } from '~/components/ui/ConsentBanner'
 import { formatDateTime } from '~/lib/format'
 import { useT } from '~/i18n'
 
@@ -61,7 +62,7 @@ export default function Portal({ portal }: { portal: PortalProps }) {
         </div>
       </header>
 
-      <main className="portal__main">
+      <main className="portal__main" data-clarity-mask="true">
         <section className="portal__hero">
           <h1 className="t-display">{portal.board.title}</h1>
           <p className="t-muted">{t('portal.intro', { owner: portal.owner.name })}</p>
@@ -304,6 +305,7 @@ export default function Portal({ portal }: { portal: PortalProps }) {
         <a href="https://canvai.dev" target="_blank" rel="noopener noreferrer">
           {t('portal.poweredBy')}
         </a>
+        <LegalLinks />
       </footer>
     </div>
   )

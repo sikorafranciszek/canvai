@@ -3067,3 +3067,90 @@ input.title-edit {
   margin-right: -3px;
   border: 1px solid var(--color-soft-paper);
 }
+
+/* ------------------------------------------------------------------ Zgoda na cookies */
+
+.consent {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 200;
+  width: min(420px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-hairline);
+  background: var(--color-soft-paper);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 12px 40px -12px rgba(39, 37, 30, 0.25);
+  animation: consent-in 320ms var(--ease) both;
+}
+
+@keyframes consent-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+.consent__title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.consent__text {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--color-graphite);
+}
+
+.consent__text a {
+  color: var(--color-deep-teal);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.consent__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.legal-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-ash);
+}
+
+.legal-links a,
+.legal-links button {
+  color: inherit;
+  font: inherit;
+  padding: 0;
+}
+
+.legal-links a:hover,
+.legal-links button:hover {
+  color: var(--color-deep-teal);
+}
+
+.legal-links--sidebar {
+  padding: 0 10px;
+}
+
+.legal-links--center {
+  justify-content: center;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.portal__footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
