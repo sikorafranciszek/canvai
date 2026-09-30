@@ -2191,8 +2191,13 @@ input.title-edit {
   color: var(--color-deep-teal);
 }
 
+.credits-pill > span:first-of-type {
+  white-space: nowrap;
+}
+
 .credits-pill__plan {
   margin-left: auto;
+  white-space: nowrap;
   font-size: 11px;
   font-weight: 500;
   color: var(--color-graphite);
@@ -2961,4 +2966,104 @@ input.title-edit {
 
 .share__warn {
   color: var(--color-danger);
+}
+
+/* ------------------------------------------------------------------ Brand kity */
+
+.kits {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-4);
+}
+
+.kit {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 0 18px;
+  overflow: hidden;
+}
+
+.kit > :not(.kit__swatches) {
+  margin-inline: 18px;
+}
+
+.kit__swatches {
+  display: flex;
+  height: 56px;
+}
+
+.kit__swatches span {
+  flex: 1;
+}
+
+.kit__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kit__actions {
+  display: flex;
+  margin-left: auto;
+}
+
+.kit__facts {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  gap: 8px 12px;
+  font-size: 13px;
+}
+
+.kit__facts dt {
+  color: var(--color-graphite);
+}
+
+.kit__colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.kit__color {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.kit__color i {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.kit__color code {
+  font-size: 11.5px;
+  color: var(--color-graphite);
+}
+
+.kit__rules {
+  list-style: disc;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.kit__source {
+  align-self: flex-start;
+  color: var(--color-deep-teal);
+}
+
+.kit-dots {
+  display: inline-flex;
+}
+
+.kit-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: -3px;
+  border: 1px solid var(--color-soft-paper);
 }

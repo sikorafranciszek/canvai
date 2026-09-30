@@ -142,6 +142,10 @@ export const pl = {
   'field.currentPassword': 'Obecne hasło',
   'field.token': 'Token',
 
+  // Brand kity
+  'brandKits.locked': 'Brand kity są dostępne w płatnych planach.',
+  'brandKits.limit': 'Możesz mieć najwyżej {max} brand kitów.',
+
   // Portal klienta
   'portal.locked': 'Portal klienta jest dostępny w płatnych planach.',
   'portal.notFound': 'Ten link jest nieaktywny albo wygasł.',
@@ -319,6 +323,10 @@ export const en: Record<ServerMessageKey, string> = {
   'account.emailNotVerified': 'Confirm your email address to use the app.',
   'field.currentPassword': 'Current password',
   'field.token': 'Token',
+
+  // Brand kits
+  'brandKits.locked': 'Brand kits are available on paid plans.',
+  'brandKits.limit': 'You can have at most {max} brand kits.',
 
   // Client portal
   'portal.locked': 'The client portal is available on paid plans.',

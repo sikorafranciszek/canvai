@@ -71,6 +71,8 @@ interface BoardState {
   updateNote: (assetId: string, note: string) => Promise<void>
   deleteAsset: (assetId: string) => Promise<void>
   centerOnAsset: (assetId: string) => void
+  /** Wstawia notatkę brand kitu (dla AI) obok zawartości płótna i ją pokazuje. */
+  addBrandKitNote: (text: string) => void
   /** Umieszcza materiały od klienta (skrzynka portalu) obok zawartości płótna. */
   placeInboxAssets: (assetIds: string[]) => Promise<void>
 }
@@ -310,6 +312,25 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
     } catch {
       toast.error(translate('session.deleteFailed'))
     }
+  },
+
+  addBrandKitNote(text) {
+    const store = useSceneStore.getState()
+    const bounds = store.document.elements.map(getElementBounds)
+    const x = bounds.length ? Math.max(...bounds.map((b) => b.x + b.width)) + 160 : 0
+    const y = bounds.length ? Math.min(...bounds.map((b) => b.y)) : 0
+    const lines = text.split('\n').reduce((n, line) => n + Math.max(1, Math.ceil(line.length / 52)), 0)
+    const el: SceneStickyElement = {
+      ...createTextSticky(text, { x, y }),
+      width: 440,
+      height: Math.min(900, 40 + lines * 20),
+    }
+    store.addElement(el)
+    store.selectOnly([el.id])
+    const root = document.querySelector('[data-testid="canvas-root"]')?.getBoundingClientRect()
+    const vw = Math.max(1, root?.width ?? window.innerWidth - PANEL_WIDTH)
+    const vh = Math.max(1, root?.height ?? window.innerHeight - CHROME_HEIGHT)
+    store.setCamera({ x: vw / 2 - (x + el.width / 2), y: vh / 2 - (y + el.height / 2), scale: 1 })
   },
 
   async placeInboxAssets(assetIds) {

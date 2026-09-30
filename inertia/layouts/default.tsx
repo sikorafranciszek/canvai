@@ -3,7 +3,7 @@ import { toast, Toaster } from 'sonner'
 import { usePage } from '@inertiajs/react'
 import { type ReactElement, type ReactNode, useEffect } from 'react'
 import { Form, Link } from '@adonisjs/inertia/react'
-import { Coins, CreditCard, LayoutGrid, LogOut, Plus, Settings } from 'lucide-react'
+import { Coins, CreditCard, LayoutGrid, LogOut, Palette, Plus, Settings } from 'lucide-react'
 import { useBillingStore } from '~/lib/billing'
 import { Brand } from '~/components/ui/Brand'
 import { CreateBoardDialog } from '~/components/boards/CreateBoardDialog'
@@ -145,6 +145,15 @@ function AppShell({
             {t('nav.boards')}
           </Link>
           <Link
+            route="brandKits.page"
+            className="nav__item"
+            aria-current={component === 'brand_kits/index' ? 'page' : undefined}
+            data-testid="nav-brand-kits"
+          >
+            <Palette />
+            {t('nav.brandKits')}
+          </Link>
+          <Link
             route="billing.show"
             className="nav__item"
             aria-current={component === 'billing/index' ? 'page' : undefined}
@@ -169,7 +178,7 @@ function AppShell({
             <Link route="billing.show" className="credits-pill" data-testid="credits-pill">
               <Coins />
               <span>{tp('count.credits', billing.balance)}</span>
-              <span className="credits-pill__plan">{t(`plan.${billing.plan}`)}</span>
+              <span className="credits-pill__plan">{t(`plan.short.${billing.plan}`)}</span>
             </Link>
           ) : null}
           <div style={{ padding: '0 8px' }}>

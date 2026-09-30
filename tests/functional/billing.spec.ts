@@ -853,4 +853,35 @@ test.group('Billing', (group) => {
       mail.restore()
     }
   })
+
+  test('brand kity: zapis z DESIGN.md (plan płatny), zmiana nazwy, usunięcie', async ({ client, assert }) => {
+    const user = await makeUser()
+    const cookies = await login(client, user)
+    const board = await createBoard(user, 'Marka X')
+    await seedBoard(client, cookies, board)
+    ;(await client.post(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies }).json({})).assertStatus(202)
+    await runPendingJobs()
+
+    ;(await client.post('/api/brand-kits').headers({ cookie: cookies }).json({ boardId: board.id })).assertStatus(403)
+    ;(await webhook(client, orderPayload(user, `ord-kit-${user.id}`, VARIANTS.pack_s))).assertStatus(200)
+
+    const created = await client.post('/api/brand-kits').headers({ cookie: cookies }).json({ boardId: board.id })
+    created.assertStatus(201)
+    const kit = created.body().data
+    assert.isAbove(kit.colors.length, 0)
+    assert.match(kit.colors[0].hex, /^#[0-9a-f]{6}$/i)
+    assert.equal(kit.sourceVersion, 1)
+
+    const renamed = await client.patch(`/api/brand-kits/${kit.id}`).headers({ cookie: cookies }).json({ name: 'ACME' })
+    assert.equal(renamed.body().data.name, 'ACME')
+
+    // Cudza tablica / cudzy kit.
+    const other = await makeUser('kit-other')
+    const otherCookies = await login(client, other)
+    ;(await client.patch(`/api/brand-kits/${kit.id}`).headers({ cookie: otherCookies }).json({ name: 'x' })).assertStatus(404)
+
+    ;(await client.delete(`/api/brand-kits/${kit.id}`).headers({ cookie: cookies })).assertStatus(204)
+    const list = await client.get('/api/brand-kits').headers({ cookie: cookies })
+    assert.lengthOf(list.body().data, 0)
+  })
 })

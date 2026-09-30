@@ -157,6 +157,31 @@ export class BoardSchema extends BaseModel {
   declare userId: number
 }
 
+export class BrandKitSchema extends BaseModel {
+  static $columns = ['colors', 'createdAt', 'fonts', 'id', 'name', 'rules', 'sourceBoardId', 'sourceVersion', 'updatedAt', 'userId'] as const
+  $columns = BrandKitSchema.$columns
+  @column()
+  declare colors: any
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare fonts: any
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+  @column()
+  declare rules: any
+  @column()
+  declare sourceBoardId: number | null
+  @column()
+  declare sourceVersion: number | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number
+}
+
 export class CreditGrantSchema extends BaseModel {
   static $columns = ['amount', 'createdAt', 'expiresAt', 'externalId', 'id', 'remaining', 'revokedAt', 'source', 'userId'] as const
   $columns = CreditGrantSchema.$columns

@@ -30,6 +30,7 @@ const UNLIMITED: PlanLimits = {
   proReasoning: true,
   api: true,
   portal: true,
+  brandKits: true,
 }
 
 export async function entitlementsFor(

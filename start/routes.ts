@@ -115,6 +115,7 @@ router
 
     // Rozliczenia
     router.get('/billing', [controllers.Billing, 'show']).as('billing.show')
+    router.get('/brand-kits', [controllers.BrandKits, 'page']).as('brandKits.page')
     router.post('/billing/checkout', [controllers.Billing, 'checkout']).as('billing.checkout')
     router.get('/billing/portal', [controllers.Billing, 'portal']).as('billing.portal')
   })
@@ -151,6 +152,10 @@ router
     router.put('/boards/:id/share', [controllers.BoardShares, 'update'])
     router.post('/boards/:id/share/rotate', [controllers.BoardShares, 'rotate'])
     router.post('/assets/:id/accept', [controllers.BoardShares, 'accept'])
+    router.get('/brand-kits', [controllers.BrandKits, 'index'])
+    router.post('/brand-kits', [controllers.BrandKits, 'store'])
+    router.patch('/brand-kits/:id', [controllers.BrandKits, 'update'])
+    router.delete('/brand-kits/:id', [controllers.BrandKits, 'destroy'])
     router.post('/boards/:id/design-doc/preview', [controllers.DesignPreviews, 'store'])
 
     // Rozliczenia

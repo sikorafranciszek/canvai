@@ -30,6 +30,8 @@ export interface PlanLimits {
   api: boolean
   /** Portal klienta: link do przesyłania materiałów i akceptacji DESIGN.md. */
   portal: boolean
+  /** Brand kity: kolory, fonty i zasady marki do ponownego użycia. */
+  brandKits: boolean
 }
 
 const PAID: PlanLimits = {
@@ -41,6 +43,7 @@ const PAID: PlanLimits = {
   proReasoning: true,
   api: true,
   portal: true,
+  brandKits: true,
 }
 
 export const plans: Record<PlanId, PlanLimits> = {
@@ -53,6 +56,7 @@ export const plans: Record<PlanId, PlanLimits> = {
     proReasoning: false,
     api: false,
     portal: false,
+    brandKits: false,
   },
   payg: PAID,
   pro: PAID,

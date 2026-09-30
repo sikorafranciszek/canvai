@@ -12,6 +12,7 @@ import {
   Cpu,
   Download,
   Eye,
+  Bookmark,
   FileText,
   GitCompare,
   Layers,
@@ -26,6 +27,7 @@ import { Menu } from '~/components/ui/Menu'
 import { exportUrl, useBillingStore } from '~/lib/billing'
 import { usePreviewStore } from '~/lib/board/preview'
 import { PreviewDialog } from '~/components/design/PreviewDialog'
+import { createBrandKit, useBrandKitStore } from '~/lib/brand_kits'
 import { diffLines, diffStats } from '@shared/line-diff'
 import { designDocDownloadUrl, type DesignDocDto } from '~/lib/board/api'
 import { progressLabel, progressRatio, useDesignStore } from '~/lib/board/design'
@@ -161,6 +163,31 @@ export function DesignDocPanel() {
               >
                 <Eye />
                 {t('preview.button')}
+              </button>
+              <button
+                type="button"
+                className="btn btn--quiet btn--icon btn--sm"
+                data-testid="design-doc-save-kit"
+                aria-label={t('brandKits.save')}
+                data-tip={t('brandKits.save')}
+                onClick={async () => {
+                  try {
+                    const kit = await createBrandKit(boardId, current!.version)
+                    void useBrandKitStore.getState().load()
+                    toast.success(t('brandKits.saved', { name: kit.name }), {
+                      action: { label: t('brandKits.manage'), onClick: () => router.visit('/brand-kits') },
+                    })
+                  } catch (error) {
+                    const status = (error as { status?: number }).status
+                    toast.error(error instanceof Error ? error.message : t('brandKits.failed'), {
+                      ...(status === 403
+                        ? { action: { label: t('billing.upgrade'), onClick: () => router.visit('/billing') } }
+                        : {}),
+                    })
+                  }
+                }}
+              >
+                <Bookmark />
               </button>
               <Menu
                 label={limits?.exports === false ? t('doc.export.locked') : t('doc.export.label')}
