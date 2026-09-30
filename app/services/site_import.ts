@@ -181,7 +181,7 @@ export function extractFonts(css: string, html: string, limit = 4): string[] {
   // @font-face — strony z fontami ładowanymi przez zmienne CSS (np. next/font).
   for (const block of css.matchAll(/@font-face\s*{([^}]*)}/gi)) {
     const fam = block[1].match(/font-family\s*:\s*([^;]+)/i)
-    if (fam) add(fam[1].replace(/\s+Fallback$/i, ''), 2)
+    if (fam) add(fam[1].trim().replace(/\s+Fallback(['"]?)$/i, '$1'), 2)
   }
   for (const m of css.matchAll(/font-family\s*:\s*([^;}{]+)/gi)) add(m[1].split(',')[0])
   for (const m of css.matchAll(/--[\w-]*font[\w-]*\s*:\s*([^;}{]+)/gi)) add(m[1].split(',')[0])
