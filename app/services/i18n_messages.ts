@@ -143,6 +143,7 @@ export const pl = {
   'field.token': 'Token',
 
   // Rozliczenia
+  'account.disposableEmail': 'Tymczasowe skrzynki e-mail nie są obsługiwane — podaj swój stały adres.',
   'billing.insufficient':
     'Za mało kredytów: ta generacja kosztuje {needed}, a masz {balance}. Dokup kredyty w zakładce Rozliczenia.',
   'billing.proOnly': 'Tryb Pro reasoning jest dostępny w płatnych planach.',
@@ -292,6 +293,7 @@ export const en: Record<ServerMessageKey, string> = {
   'field.token': 'Token',
 
   // Billing
+  'account.disposableEmail': 'Temporary email addresses are not supported — please use your regular address.',
   'billing.insufficient':
     'Not enough credits: this generation costs {needed} and you have {balance}. Top up in Billing.',
   'billing.proOnly': 'Pro reasoning is available on paid plans.',

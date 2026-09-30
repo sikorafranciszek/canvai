@@ -270,7 +270,7 @@ export class UserTokenSchema extends BaseModel {
 }
 
 export class UserSchema extends BaseModel {
-  static $columns = ['createdAt', 'email', 'emailVerifiedAt', 'fullName', 'id', 'locale', 'password', 'updatedAt'] as const
+  static $columns = ['createdAt', 'email', 'emailVerifiedAt', 'fullName', 'id', 'locale', 'password', 'referralCode', 'referredById', 'updatedAt'] as const
   $columns = UserSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -286,6 +286,10 @@ export class UserSchema extends BaseModel {
   declare locale: string | null
   @column({ serializeAs: null })
   declare password: string
+  @column()
+  declare referralCode: string | null
+  @column()
+  declare referredById: number | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 }

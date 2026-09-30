@@ -3,16 +3,31 @@ import { signupValidator } from '#validators/user'
 import type { HttpContext } from '@adonisjs/core/http'
 import { sendVerificationLink } from '#services/account_mail'
 import { t } from '#services/i18n'
+import { errors as vineErrors } from '@vinejs/vine'
+import { referrals } from '#config/billing'
+import { isDisposableEmail } from '#services/disposable_email'
+import { attachReferrer, isReferralCode } from '#services/billing/referrals'
 
 export default class NewAccountController {
-  async create({ inertia }: HttpContext) {
+  async create({ inertia, request, response }: HttpContext) {
+    // Link polecający: kod zapamiętany na 30 dni (użytkownik może wrócić później).
+    const ref = request.qs().ref
+    if (isReferralCode(ref))
+      response.cookie(referrals.cookie, ref, { maxAge: '30d', sameSite: 'lax' })
     return inertia.render('auth/signup', {})
   }
 
   async store(ctx: HttpContext) {
     const { request, response, auth, session } = ctx
     const { passwordConfirmation, ...payload } = await request.validateUsing(signupValidator)
+    if (isDisposableEmail(payload.email)) {
+      throw new vineErrors.E_VALIDATION_ERROR([
+        { field: 'email', message: t('account.disposableEmail'), rule: 'disposable' },
+      ])
+    }
     const user = await User.create({ ...payload, emailVerifiedAt: null })
+    await attachReferrer(user, request.cookie(referrals.cookie))
+    response.clearCookie(referrals.cookie)
     await auth.use('web').login(user)
 
     // Konto działa dopiero po potwierdzeniu adresu (middleware `verified`).

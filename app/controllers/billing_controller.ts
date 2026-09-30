@@ -18,6 +18,7 @@ import { balanceOf, ensureAutomaticGrants, nextExpiry } from '#services/billing/
 import { createCheckout, customerPortalUrl, productById } from '#services/billing/lemonsqueezy'
 import { entitlementsFor } from '#services/billing/plans'
 import { t } from '#services/i18n'
+import { referralCodeFor, referralStats } from '#services/billing/referrals'
 
 const checkoutValidator = vine.compile(
   vine.object({
@@ -55,8 +56,10 @@ async function summary(userId: number) {
  */
 export default class BillingController {
   /** GET /billing */
-  async show({ auth, inertia, request }: HttpContext) {
+  async show(ctx: HttpContext) {
+    const { auth, inertia, request } = ctx
     const user = auth.user!
+    const [code, stats] = [await referralCodeFor(user), await referralStats(user.id)]
     const [base, sub, expiry, boards, history] = await Promise.all([
       summary(user.id),
       activeSubscription(user.id),
@@ -80,6 +83,7 @@ export default class BillingController {
                 endsAt: sub.endsAt?.toISO() ?? null,
               }
             : null,
+          referral: { url: absoluteUrl(ctx, `/signup?ref=${code}`), ...stats },
           checkoutReady: checkoutReady(),
           justPurchased: request.qs().checkout === 'success',
           costs,

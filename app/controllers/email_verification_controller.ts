@@ -3,6 +3,7 @@ import { DateTime } from 'luxon'
 import { consumeToken, issuedRecently } from '#services/account_tokens'
 import { sendVerificationLink } from '#services/account_mail'
 import { t } from '#services/i18n'
+import { rewardReferral } from '#services/billing/referrals'
 
 export default class EmailVerificationController {
   /** GET /verify-email — ekran „sprawdź skrzynkę” (dla zalogowanego, niezweryfikowanego). */
@@ -42,6 +43,8 @@ export default class EmailVerificationController {
     if (!user.emailVerifiedAt) {
       user.emailVerifiedAt = DateTime.utc()
       await user.save()
+      // Polecenie nagradzamy dopiero za potwierdzony adres.
+      await rewardReferral(user)
     }
     session.flash('success', t('account.verified'))
     const loggedInAsOwner = (await auth.check()) && auth.user?.id === user.id

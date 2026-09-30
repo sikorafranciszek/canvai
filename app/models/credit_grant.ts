@@ -1,7 +1,13 @@
 import { DateTime } from 'luxon'
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 
-export type CreditGrantSource = 'signup' | 'monthly_free' | 'pack' | 'subscription' | 'admin'
+export type CreditGrantSource =
+  | 'signup'
+  | 'monthly_free'
+  | 'pack'
+  | 'subscription'
+  | 'referral'
+  | 'admin'
 
 /** Pula kredytów z datą ważności — patrz `services/billing/credits.ts`. */
 export default class CreditGrant extends BaseModel {

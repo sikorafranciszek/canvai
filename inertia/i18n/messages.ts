@@ -345,6 +345,13 @@ export const pl = {
 
   // Rozliczenia
   'nav.billing': 'Rozliczenia',
+  'billing.referral.title': 'Poleć canvai — +{n} kredytów dla Ciebie i znajomego',
+  'billing.referral.desc':
+    'Wyślij swój link. Gdy znajomy założy konto i potwierdzi e-mail, oboje dostaniecie po {n} kredytów.',
+  'billing.referral.linkLabel': 'Twój link polecający',
+  'billing.referral.copied': 'Link skopiowany',
+  'billing.referral.stats': 'Poleceni: {invited} · zdobyte: {earned}',
+  'billing.source.referral': 'bonus za polecenie',
   'count.credits.one': '{n} kredyt',
   'count.credits.few': '{n} kredyty',
   'count.credits.many': '{n} kredytów',
@@ -768,6 +775,13 @@ export const en: Record<MessageKey, string> = {
 
   // Billing
   'nav.billing': 'Billing',
+  'billing.referral.title': 'Refer canvai — +{n} credits for you and a friend',
+  'billing.referral.desc':
+    'Share your link. When a friend signs up and confirms their email, you both get {n} credits.',
+  'billing.referral.linkLabel': 'Your referral link',
+  'billing.referral.copied': 'Link copied',
+  'billing.referral.stats': 'Referred: {invited} · earned: {earned}',
+  'billing.source.referral': 'referral bonus',
   'count.credits.one': '{n} credit',
   'count.credits.few': '{n} credits',
   'count.credits.many': '{n} credits',

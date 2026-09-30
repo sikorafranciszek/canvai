@@ -69,6 +69,15 @@ export const freeCredits = {
   monthly: 10,
 }
 
+/** Polecenia: obie strony dostają kredyty, gdy polecony potwierdzi e-mail. */
+export const referrals = {
+  reward: 50,
+  /** Ile nagród może zebrać jeden polecający (ochrona przed nadużyciami). */
+  maxPerReferrer: 25,
+  validMonths: 12,
+  cookie: 'dc_ref',
+}
+
 export type ProductId = 'pack_s' | 'pack_m' | 'pack_l' | 'pro' | 'team'
 
 export interface Product {

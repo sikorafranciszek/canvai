@@ -1,6 +1,17 @@
 import { Form, Link } from '@adonisjs/inertia/react'
 import { Head, router } from '@inertiajs/react'
-import { Check, Coins, CreditCard, ExternalLink, Lock, RefreshCw, Sparkles } from 'lucide-react'
+import { toast } from 'sonner'
+import {
+  Check,
+  Coins,
+  Copy,
+  CreditCard,
+  ExternalLink,
+  Gift,
+  Lock,
+  RefreshCw,
+  Sparkles,
+} from 'lucide-react'
 import { formatDateTime, relativeTime } from '~/lib/format'
 import { useT, type MessageKey } from '~/i18n'
 import type { PlanId, PlanLimits } from '~/lib/billing'
@@ -44,6 +55,7 @@ interface BillingProps {
   plans: Record<PlanId, PlanLimits>
   products: Product[]
   history: HistoryRow[]
+  referral: { url: string; invited: number; earned: number; reward: number; max: number }
 }
 
 function perCredit(price: string, credits: number): string {
@@ -348,6 +360,50 @@ export default function Billing({ billing }: { billing: BillingProps }) {
         <p className="t-small t-faint" style={{ marginTop: 10 }}>
           {t('billing.plans.rollover')} · {t('billing.merchant')}
         </p>
+      </section>
+
+      {/* Polecenia */}
+      <section className="card referral" data-testid="billing-referral">
+        <div className="referral__icon">
+          <Gift />
+        </div>
+        <div className="referral__body">
+          <h2 className="t-body-lg" style={{ fontWeight: 500 }}>
+            {t('billing.referral.title', { n: b.referral.reward })}
+          </h2>
+          <p className="t-small t-muted">{t('billing.referral.desc', { n: b.referral.reward })}</p>
+          <div className="referral__link">
+            <input
+              className="input"
+              readOnly
+              value={b.referral.url}
+              aria-label={t('billing.referral.linkLabel')}
+              onFocus={(e) => e.currentTarget.select()}
+            />
+            <button
+              type="button"
+              className="btn"
+              data-testid="copy-referral"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(b.referral.url)
+                  toast.success(t('billing.referral.copied'))
+                } catch {
+                  toast.error(t('doc.copyFailed'))
+                }
+              }}
+            >
+              <Copy />
+              {t('common.copy')}
+            </button>
+          </div>
+          <span className="t-small t-faint">
+            {t('billing.referral.stats', {
+              invited: b.referral.invited,
+              earned: tp('count.credits', b.referral.earned),
+            })}
+          </span>
+        </div>
       </section>
 
       <div className="billing__split">

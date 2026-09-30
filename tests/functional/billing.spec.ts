@@ -19,6 +19,8 @@ import {
   reserveCredits,
 } from '#services/billing/credits'
 import { planFor } from '#services/billing/plans'
+import { attachReferrer, referralCodeFor, rewardReferral } from '#services/billing/referrals'
+import { isDisposableEmail } from '#services/disposable_email'
 import { runPendingJobs } from '#services/queue'
 
 /**
@@ -494,5 +496,64 @@ test.group('Billing', (group) => {
       .get(`/api/boards/${board.id}/design-doc?version=1`)
       .headers({ cookie: cookies })
     old.assertStatus(403)
+  })
+
+  test('rejestracja z jednorazowej skrzynki jest blokowana', async ({ client, assert }) => {
+    assert.isTrue(isDisposableEmail('x@mailinator.com'))
+    assert.isTrue(isDisposableEmail('x@abc.mailinator.com'))
+    assert.isFalse(isDisposableEmail('x@gmail.com'))
+
+    const email = `temp-${Date.now()}@yopmail.com`
+    const res = await client
+      .post('/signup')
+      .header('accept', 'application/json')
+      .json({ fullName: null, email, password: 'password123', passwordConfirmation: 'password123' })
+    res.assertStatus(422)
+    assert.equal(res.body().errors[0].field, 'email')
+    assert.equal(res.body().errors[0].rule, 'disposable')
+    assert.isNull(await User.findBy('email', email))
+  })
+
+  test('polecenie: link zapisuje polecającego, nagroda po potwierdzeniu e-maila — raz', async ({
+    client,
+    assert,
+  }) => {
+    const referrer = await makeUser('referrer')
+    const code = await referralCodeFor(referrer)
+    assert.match(code, /^[a-z0-9]{8}$/)
+    assert.equal(await referralCodeFor(referrer), code, 'kod jest stały')
+
+    // HTTP: /signup?ref= ustawia cookie, rejestracja zapisuje polecającego.
+    const page = await client.get(`/signup?ref=${code}`)
+    const refCookie = ([] as string[])
+      .concat(page.headers()['set-cookie'] ?? [])
+      .find((c) => c.startsWith('dc_ref='))
+    assert.exists(refCookie)
+    const email = `invited-${Date.now()}@test.com`
+    const res = await client
+      .post('/signup')
+      .header('cookie', refCookie!.split(';')[0])
+      .json({ fullName: null, email, password: 'password123', passwordConfirmation: 'password123' })
+      .redirects(0)
+    assert.equal(res.header('location'), '/verify-email')
+    const invited = await User.findByOrFail('email', email)
+    assert.equal(invited.referredById, referrer.id)
+
+    // Bez potwierdzonego e-maila nie ma nagrody.
+    assert.isFalse(await rewardReferral(invited))
+    invited.emailVerifiedAt = DateTime.utc()
+    await invited.save()
+    assert.isTrue(await rewardReferral(invited))
+    assert.isFalse(await rewardReferral(invited), 'drugi raz nic')
+
+    const bonus = (userId: number) =>
+      CreditGrant.query().where('user_id', userId).where('source', 'referral')
+    assert.lengthOf(await bonus(invited.id), 1)
+    assert.lengthOf(await bonus(referrer.id), 1)
+
+    // Samego siebie polecić się nie da.
+    const self = await makeUser('self')
+    await attachReferrer(self, await referralCodeFor(self))
+    assert.notExists(self.referredById)
   })
 })
