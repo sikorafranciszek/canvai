@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { listBoards, readyDoc, tokensFor } from '#services/design/access'
 import type { ExportFormat } from '#services/design/exports'
+import { track } from '#services/analytics/collector'
 
 /**
  * Serwer MCP (Model Context Protocol) — transport „Streamable HTTP” bez stanu:
@@ -151,6 +152,7 @@ async function dispatch(userId: number, message: JsonRpcRequest): Promise<unknow
       return { tools: TOOLS }
     case 'tools/call':
       if (typeof params.name !== 'string') throw new RpcError(-32602, 'Missing tool name')
+      track('mcp_tool_call', { tool: params.name }, { userId })
       return callTool(userId, params.name, (params.arguments ?? {}) as Record<string, unknown>)
     case 'resources/list': {
       const boards = await listBoards(userId)

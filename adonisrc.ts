@@ -77,6 +77,7 @@ export default defineConfig({
     () => import('#start/kernel'),
     () => import('#start/validator'),
     { file: () => import('#start/worker'), environment: ['web'] },
+    { file: () => import('#start/analytics'), environment: ['web', 'console', 'test'] },
   ],
 
   /*

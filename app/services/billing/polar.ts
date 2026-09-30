@@ -5,6 +5,7 @@ import { polar, products, type Product } from '#config/billing'
 import Subscription, { type SubscriptionStatus } from '#models/subscription'
 import User from '#models/user'
 import { grantCredits, revokeGrant } from '#services/billing/credits'
+import { track } from '#services/analytics/collector'
 
 /**
  * Polar.sh (Merchant of Record — rozlicza VAT za nas).
@@ -211,20 +212,37 @@ export async function handleWebhook(payload: WebhookPayload): Promise<WebhookOut
           })
         }
       }
-      await grantCredits(user.id, {
+      const granted = await grantCredits(user.id, {
         source: product.kind === 'pack' ? 'pack' : 'subscription',
         amount: product.credits,
         expiresAt: DateTime.utc().plus({ months: product.validMonths }),
         externalId: `polar-order:${data.id}`,
         note: product.id,
       })
+      if (granted) {
+        track(
+          'purchase',
+          {
+            product: product.id,
+            kind: product.kind,
+            credits: product.credits,
+            amountCents: Number(data.total_amount ?? data.net_amount ?? 0),
+            currency: data.currency ?? '',
+            billingReason: data.billing_reason ?? 'purchase',
+            orderId: String(data.id),
+          },
+          { userId: user.id }
+        )
+      }
       return 'processed'
     }
 
     // Pełny zwrot zamówienia cofa niewykorzystane kredyty z tego zamówienia.
     case 'order.refunded': {
       if (data.status && data.status !== 'refunded') return 'ignored'
-      await revokeGrant(`polar-order:${data.id}`, 'order refunded')
+      if (await revokeGrant(`polar-order:${data.id}`, 'order refunded')) {
+        track('refund', { orderId: String(data.id) }, { userId: user.id })
+      }
       return 'processed'
     }
 
@@ -237,7 +255,8 @@ export async function handleWebhook(payload: WebhookPayload): Promise<WebhookOut
     case 'subscription.past_due':
     case 'subscription.paused':
     case 'subscription.resumed': {
-      await upsertSubscription(user.id, data)
+      const sub = await upsertSubscription(user.id, data)
+      if (sub) track('subscription_changed', { type, status: sub.status, plan: sub.plan }, { userId: user.id })
       return 'processed'
     }
 

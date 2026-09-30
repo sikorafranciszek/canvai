@@ -4,6 +4,7 @@ import vine from '@vinejs/vine'
 import ApiToken from '#models/api_token'
 import { MAX_TOKENS, createApiToken } from '#services/api_tokens'
 import { t } from '#services/i18n'
+import { trackFor } from '#services/analytics/events'
 
 const createValidator = vine.compile(
   vine.object({
@@ -14,7 +15,8 @@ const createValidator = vine.compile(
 /** Tokeny API w ustawieniach: utworzenie (token pokazany raz) i odwołanie. */
 export default class ApiTokensController {
   /** POST /settings/api-tokens */
-  async store({ auth, request, session, response }: HttpContext) {
+  async store(ctx: HttpContext) {
+    const { auth, request, session, response } = ctx
     const user = auth.user!
     const { name } = await request.validateUsing(createValidator)
     const [{ $extras }] = await ApiToken.query()
@@ -28,6 +30,7 @@ export default class ApiTokensController {
     const { token } = await createApiToken(user, name)
     // Surowy token tylko raz — przez flash, nigdy nie trafia do bazy ani logów.
     session.flash('newApiToken', token)
+    trackFor(ctx, 'api_token_created')
     session.flash('success', t('api.tokenCreated'))
     return response.redirect().toPath('/settings#api')
   }

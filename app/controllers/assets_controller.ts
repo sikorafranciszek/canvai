@@ -13,6 +13,7 @@ import {
 } from '#services/assets_service'
 import { t } from '#services/i18n'
 import { entitlementsFor } from '#services/billing/plans'
+import { trackFor } from '#services/analytics/events'
 
 /** Czyści nazwę pliku pod nagłówek Content-Disposition. */
 function safeAttachmentName(name: string | null | undefined, fallback: string): string {
@@ -41,7 +42,8 @@ export default class AssetsController {
    * POST /api/boards/:id/assets — multipart, wiele plików naraz.
    * source: paste|drop|upload|url. Dla `url` tworzy kartę linku.
    */
-  async store({ auth, request, response, params }: HttpContext) {
+  async store(ctx: HttpContext) {
+    const { auth, request, response, params } = ctx
     const user = auth.user!
     const board = await Board.find(params.id)
     if (!board || board.userId !== user.id) return response.notFound()
@@ -74,6 +76,7 @@ export default class AssetsController {
         asset.userNote = payload.note
         await asset.save()
       }
+      trackFor(ctx, 'assets_added', { count: 1, kinds: ['link'], source }, { boardId: board.id })
       return response.status(201).json({ data: [serializeAsset(asset)] })
     }
 
@@ -83,6 +86,12 @@ export default class AssetsController {
     }
 
     const assets = await Promise.all(files.map((file) => storeUploadedFile(board.id, file, source)))
+    trackFor(
+      ctx,
+      'assets_added',
+      { count: assets.length, kinds: [...new Set(assets.map((a) => a.kind))], source },
+      { boardId: board.id }
+    )
     return response.status(201).json({ data: assets.map(serializeAsset) })
   }
 

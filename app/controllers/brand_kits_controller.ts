@@ -5,6 +5,7 @@ import Board from '#models/board'
 import DesignDoc from '#models/design_doc'
 import { entitlementsFor } from '#services/billing/plans'
 import { t } from '#services/i18n'
+import { trackFor } from '#services/analytics/events'
 
 const createValidator = vine.compile(
   vine.object({
@@ -103,6 +104,7 @@ export default class BrandKitsController {
       sourceBoardId: board.id,
       sourceVersion: doc.version,
     })
+    trackFor(ctx, 'brand_kit_created', { colors: kit.colors.length }, { boardId: board.id })
     return response.status(201).json({ data: serialize(kit) })
   }
 

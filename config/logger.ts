@@ -26,6 +26,26 @@ const loggerConfig = defineConfig({
       level: env.get('LOG_LEVEL'),
 
       /**
+       * Kopia logów (info+) do ClickHouse (tabela `logs`) — odbiorcę ustawia
+       * preload `start/analytics.ts`; bez niego hook nic nie robi.
+       */
+      hooks: {
+        logMethod(args, method, level) {
+          const sink = (globalThis as any).__canvaiLogSink as
+            | ((level: number, args: unknown[], bindings: Record<string, unknown>) => void)
+            | undefined
+          if (sink && level >= 30) {
+            try {
+              sink(level, args, (this as any).bindings?.() ?? {})
+            } catch {
+              // Analityka nigdy nie może zablokować logowania.
+            }
+          }
+          return method.apply(this, args as Parameters<typeof method>)
+        },
+      },
+
+      /**
        * Use sync destination in non-production for immediate flush.
        */
       destination: !app.inProduction ? await syncDestination() : undefined,

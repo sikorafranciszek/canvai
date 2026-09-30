@@ -7,6 +7,7 @@ import { chargedFor } from '#services/billing/credits'
 import { sanitizePreviewHtml } from '#services/design/preview_template'
 import { AiProviderError } from '#services/ai/types'
 import { t } from '#services/i18n'
+import { track } from '#services/analytics/collector'
 
 /**
  * Podgląd UI: model buduje przykładową stronę HTML z gotowej wersji DESIGN.md.
@@ -38,5 +39,10 @@ export async function runPreview(preview: DesignPreview): Promise<DesignPreview>
   preview.generatedAt = DateTime.utc()
   preview.creditsCharged = await chargedFor({ designPreviewId: preview.id })
   await preview.save()
+  track(
+    'preview_ready',
+    { version: doc.version, credits: preview.creditsCharged ?? 0, model: preview.model },
+    { userId: board.userId, boardId: board.id }
+  )
   return preview
 }

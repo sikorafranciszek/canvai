@@ -51,6 +51,20 @@ export default await Env.create(new URL('../', import.meta.url), {
   BILLING_ENFORCED: Env.schema.boolean.optional(),
   /** Microsoft Clarity (projekt app.canvai.dev) — ładowany dopiero po zgodzie. */
   CLARITY_PROJECT_ID: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
+  | Analityka i logi (ClickHouse) + CRM
+  |----------------------------------------------------------
+  */
+  CLICKHOUSE_URL: Env.schema.string.optional(),
+  CLICKHOUSE_USER: Env.schema.string.optional(),
+  CLICKHOUSE_PASSWORD: Env.schema.string.optional(),
+  CLICKHOUSE_DB: Env.schema.string.optional(),
+  /** Host panelu CRM (domyślnie crm.localhost w dev). */
+  CRM_HOST: Env.schema.string.optional(),
+  /** Adresy e-mail administratorów CRM (po przecinku). */
+  ADMIN_EMAILS: Env.schema.string.optional(),
   POLAR_ACCESS_TOKEN: Env.schema.string.optional(),
   POLAR_WEBHOOK_SECRET: Env.schema.string.optional(),
   POLAR_SERVER: Env.schema.enum.optional(['production', 'sandbox'] as const),

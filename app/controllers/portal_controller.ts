@@ -8,6 +8,7 @@ import { storeLink, storeUploadedFile } from '#services/assets_service'
 import { findActiveShare, notifyOwner, rateLimited } from '#services/portal'
 import { absoluteUrl } from '#services/app_url'
 import { t } from '#services/i18n'
+import { track } from '#services/analytics/collector'
 
 const MAX_FILES = 10
 
@@ -161,6 +162,7 @@ export default class PortalController {
       { name: payload.name, board: board.title, count: Math.max(created.length, stored.length, 1) },
       absoluteUrl(ctx, `/boards/${board.id}`)
     )
+    track('portal_materials', { count: created.length, note: Boolean(payload.note) }, { userId: owner.id, boardId: board.id })
     session.flash('success', 'portal.sent')
     return response.redirect().back()
   }
@@ -187,6 +189,7 @@ export default class PortalController {
       session.flash('error', t('portal.rateLimited'))
       return response.redirect().back()
     }
+    track('portal_feedback', { decision: payload.decision, version: doc.version }, { userId: owner.id, boardId: board.id })
     await PortalFeedback.create({
       boardId: board.id,
       designDocId: doc.id,

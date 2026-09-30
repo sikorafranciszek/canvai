@@ -7,6 +7,7 @@ import { createBoardValidator, updateBoardValidator } from '#validators/board'
 import type { HttpContext } from '@adonisjs/core/http'
 import { entitlementsFor } from '#services/billing/plans'
 import { t } from '#services/i18n'
+import { trackFor } from '#services/analytics/events'
 
 export default class BoardController {
   async index({ auth, inertia }: HttpContext) {
@@ -59,7 +60,8 @@ export default class BoardController {
     return inertia.render('boards/create' as any, {} as any)
   }
 
-  async store({ auth, request, response, session }: HttpContext) {
+  async store(ctx: HttpContext) {
+    const { auth, request, response, session } = ctx
     const { title } = await request.validateUsing(createBoardValidator)
     const user = auth.user!
 
@@ -81,6 +83,7 @@ export default class BoardController {
       Math.random().toString(36).substring(2, 8)
 
     const board = await Board.create({ title, slug, userId: user.id })
+    trackFor(ctx, 'board_created', {}, { boardId: board.id })
 
     response.redirect().toPath(`/boards/${board.id}`)
   }
@@ -118,13 +121,15 @@ export default class BoardController {
     return response.redirect().back()
   }
 
-  async destroy({ auth, response, params }: HttpContext) {
+  async destroy(ctx: HttpContext) {
+    const { auth, response, params } = ctx
     const board = await Board.find(params.id)
     if (!board || board.userId !== auth.user!.id) {
       return response.redirect().toPath('/boards')
     }
 
     await board.delete()
+    trackFor(ctx, 'board_deleted', {}, { boardId: board.id })
 
     response.redirect().toPath('/boards')
   }

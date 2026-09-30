@@ -20,6 +20,7 @@ import CreditGrant from '#models/credit_grant'
 import { entitlementsFor } from '#services/billing/plans'
 import { t } from '#services/i18n'
 import { referralCodeFor, referralStats } from '#services/billing/referrals'
+import { trackFor } from '#services/analytics/events'
 
 const checkoutValidator = vine.compile(
   vine.object({
@@ -142,6 +143,7 @@ export default class BillingController {
 
     try {
       const url = await createCheckout(user, product, absoluteUrl(ctx, '/billing?checkout=success'))
+      trackFor(ctx, 'checkout_started', { product: product.id, kind: product.kind })
       return inertia.location(url)
     } catch (error) {
       logger.error({ err: error, product: product.id }, 'checkout failed')

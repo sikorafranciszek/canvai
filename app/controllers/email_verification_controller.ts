@@ -4,6 +4,7 @@ import { consumeToken, issuedRecently } from '#services/account_tokens'
 import { sendVerificationLink } from '#services/account_mail'
 import { t } from '#services/i18n'
 import { rewardReferral } from '#services/billing/referrals'
+import { trackFor } from '#services/analytics/events'
 
 export default class EmailVerificationController {
   /** GET /verify-email — ekran „sprawdź skrzynkę” (dla zalogowanego, niezweryfikowanego). */
@@ -34,7 +35,8 @@ export default class EmailVerificationController {
   }
 
   /** GET /verify-email/:token — link z maila; działa też bez zalogowania. */
-  async verify({ params, auth, session, response }: HttpContext) {
+  async verify(ctx: HttpContext) {
+    const { params, auth, session, response } = ctx
     const user = await consumeToken(String(params.token ?? ''), 'email_verification')
     if (!user) {
       session.flash('error', t('account.verifyInvalid'))
@@ -44,7 +46,9 @@ export default class EmailVerificationController {
       user.emailVerifiedAt = DateTime.utc()
       await user.save()
       // Polecenie nagradzamy dopiero za potwierdzony adres.
-      await rewardReferral(user)
+      const rewarded = await rewardReferral(user)
+      trackFor(ctx, 'email_verified', {}, { userId: user.id })
+      if (rewarded) trackFor(ctx, 'referral_rewarded', { referrerId: user.referredById }, { userId: user.id })
     }
     session.flash('success', t('account.verified'))
     const loggedInAsOwner = (await auth.check()) && auth.user?.id === user.id

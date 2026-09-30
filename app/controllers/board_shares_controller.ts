@@ -10,6 +10,7 @@ import { absoluteUrl } from '#services/app_url'
 import { newShareToken } from '#services/portal'
 import { serializeAsset } from '#services/assets_service'
 import { t } from '#services/i18n'
+import { trackFor } from '#services/analytics/events'
 
 const updateValidator = vine.compile(
   vine.object({
@@ -83,6 +84,7 @@ export default class BoardSharesController {
     if (input.allowUpload !== undefined) share.allowUpload = input.allowUpload
     if (input.showDoc !== undefined) share.showDoc = input.showDoc
     await share.save()
+    trackFor(ctx, input.enabled ? 'share_enabled' : 'share_disabled', {}, { boardId: board.id })
     return response.json({ data: await this.payload(ctx, board) })
   }
 

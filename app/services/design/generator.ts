@@ -25,6 +25,7 @@ import type { SceneDocument } from '#shared/scene'
 import { t } from '#services/i18n'
 import { entitlementsFor } from '#services/billing/plans'
 import { chargedFor } from '#services/billing/credits'
+import { track } from '#services/analytics/collector'
 
 /**
  * Orkiestracja generacji DESIGN.md:
@@ -189,5 +190,21 @@ export async function runGeneration(
     durationMs: Date.now() - started,
   }
   await doc.save()
+  track(
+    'design_doc_ready',
+    {
+      version: doc.version,
+      durationMs: doc.usage.durationMs,
+      tokensIn: usage.tokensIn,
+      tokensOut: usage.tokensOut,
+      materials: assets.length,
+      analyzed,
+      cached,
+      credits: doc.creditsCharged ?? 0,
+      proMode: doc.proMode,
+      model: doc.model,
+    },
+    { userId: board.userId, boardId: board.id }
+  )
   return doc
 }

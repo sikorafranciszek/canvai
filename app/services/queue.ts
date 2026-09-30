@@ -11,6 +11,8 @@ import { AiProviderError } from '#services/ai/types'
 import { runGeneration } from '#services/design/generator'
 import { runWithLocale, t } from '#services/i18n'
 import { isLocale } from '#shared/i18n'
+import { track } from '#services/analytics/collector'
+import Board from '#models/board'
 
 /**
  * Kolejka zadań na tabeli `jobs` (bez Redisa). Worker in-process
@@ -48,6 +50,11 @@ const handlers: Record<string, JobHandler> = {
     async onFailed(job, message) {
       const docId = job.payload.designDocId as number
       await DesignDoc.query().where('id', docId).update({ status: 'failed', error: message })
+      const board = await Board.find(job.payload.boardId as number)
+      track('design_doc_failed', { error: message.slice(0, 300), attempts: job.attempts }, {
+        userId: board?.userId ?? null,
+        boardId: board?.id ?? null,
+      })
       // Nieudana generacja nic nie kosztuje — rezerwacja wraca w całości.
       await releaseAll({ designDocId: docId })
     },
@@ -65,6 +72,11 @@ const handlers: Record<string, JobHandler> = {
     async onFailed(job, message) {
       const previewId = job.payload.previewId as number
       await DesignPreview.query().where('id', previewId).update({ status: 'failed', error: message })
+      const board = await Board.find(job.payload.boardId as number)
+      track('preview_failed', { error: message.slice(0, 300) }, {
+        userId: board?.userId ?? null,
+        boardId: board?.id ?? null,
+      })
       await releaseAll({ designPreviewId: previewId }, 'preview failed')
     },
     async onRetry(job) {

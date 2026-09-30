@@ -13,6 +13,7 @@ import {
 } from '#services/billing/credits'
 import { JOB_GENERATE_PREVIEW, enqueue } from '#services/queue'
 import { currentLocale, t } from '#services/i18n'
+import { trackFor } from '#services/analytics/events'
 
 const previewValidator = vine.compile(
   vine.object({
@@ -80,7 +81,8 @@ export default class DesignPreviewsController {
   }
 
   /** POST /api/boards/:id/design-doc/preview — zleca podgląd (202) albo zwraca gotowy (200). */
-  async store({ auth, params, request, response }: HttpContext) {
+  async store(ctx: HttpContext) {
+    const { auth, params, request, response } = ctx
     const user = auth.user!
     const board = await this.findBoard(user.id, params.id)
     if (!board) return response.notFound()
@@ -144,6 +146,7 @@ export default class DesignPreviewsController {
     })
     preview.jobId = job.id
     await preview.save()
+    trackFor(ctx, 'preview_requested', { version: doc.version, force: Boolean(force) }, { boardId: board.id })
     return response
       .status(202)
       .json({ data: this.serialize(preview, board.id, doc.version), reused: false })

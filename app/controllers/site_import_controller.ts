@@ -8,6 +8,7 @@ import { serializeAsset, storeBuffer, storeLink } from '#services/assets_service
 import { safeFetch } from '#services/safe_fetch'
 import { analyzeSite, siteStyleNote } from '#services/site_import'
 import { t } from '#services/i18n'
+import { trackFor } from '#services/analytics/events'
 
 const importValidator = vine.compile(
   vine.object({
@@ -23,7 +24,8 @@ const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
  * analiza HTML i CSS. Klient umieszcza wynik na płótnie.
  */
 export default class SiteImportController {
-  async store({ auth, params, request, response }: HttpContext) {
+  async store(ctx: HttpContext) {
+    const { auth, params, request, response } = ctx
     const board = await Board.find(params.id)
     if (!board || board.userId !== auth.user!.id) return response.notFound()
     const { url } = await request.validateUsing(importValidator)
@@ -85,6 +87,12 @@ export default class SiteImportController {
       }
     }
 
+    trackFor(
+      ctx,
+      'site_imported',
+      { host: style.host, colors: style.colors.length, fonts: style.fonts.length, image: assets.length > 1 },
+      { boardId: board.id }
+    )
     return response.status(201).json({
       data: {
         assets: assets.map(serializeAsset),

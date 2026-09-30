@@ -7,6 +7,7 @@ import { errors as vineErrors } from '@vinejs/vine'
 import { referrals } from '#config/billing'
 import { isDisposableEmail } from '#services/disposable_email'
 import { attachReferrer, isReferralCode } from '#services/billing/referrals'
+import { trackFor } from '#services/analytics/events'
 
 export default class NewAccountController {
   async create({ inertia, request, response }: HttpContext) {
@@ -27,6 +28,7 @@ export default class NewAccountController {
     }
     const user = await User.create({ ...payload, emailVerifiedAt: null })
     await attachReferrer(user, request.cookie(referrals.cookie))
+    trackFor(ctx, 'signup', { referred: Boolean(user.referredById) }, { userId: user.id })
     response.clearCookie(referrals.cookie)
     await auth.use('web').login(user)
 

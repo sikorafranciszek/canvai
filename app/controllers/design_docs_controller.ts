@@ -22,6 +22,7 @@ import {
 } from '#services/billing/credits'
 import { estimateGeneration } from '#services/billing/estimate'
 import { renderExport } from '#services/design/exports'
+import { trackFor } from '#services/analytics/events'
 
 /**
  * DESIGN.md tablicy: zlecanie generacji, status, wersje, pobieranie.
@@ -61,7 +62,8 @@ export default class DesignDocsController {
   }
 
   /** POST /api/boards/:id/design-doc — zleca generację (202) albo zwraca aktualną wersję (200). */
-  async store({ auth, params, request, response }: HttpContext) {
+  async store(ctx: HttpContext) {
+    const { auth, params, request, response } = ctx
     const user = auth.user!
     const board = await this.findBoard(user.id, params.id)
     if (!board) return response.notFound()
@@ -165,6 +167,19 @@ export default class DesignDocsController {
     })
     doc.jobId = job.id
     await doc.save()
+    trackFor(
+      ctx,
+      'design_doc_requested',
+      {
+        version: doc.version,
+        proMode,
+        credits: estimate?.credits ?? 0,
+        newMaterials: estimate?.newMaterials ?? input.assets.length,
+        materials: input.assets.length,
+        force: Boolean(force),
+      },
+      { boardId: board.id }
+    )
 
     return response
       .status(202)
@@ -207,7 +222,8 @@ export default class DesignDocsController {
   }
 
   /** GET /api/boards/:id/design-doc/download?version= — plik DESIGN.md. */
-  async download({ auth, params, request, response }: HttpContext) {
+  async download(ctx: HttpContext) {
+    const { auth, params, request, response } = ctx
     const board = await this.findBoard(auth.user!.id, params.id)
     if (!board) return response.notFound()
 
@@ -223,6 +239,7 @@ export default class DesignDocsController {
         .json({ message: t('billing.versionLocked'), code: 'E_PLAN_LIMIT' })
     }
 
+    trackFor(ctx, 'design_md_downloaded', { version: doc.version }, { boardId: board.id })
     response.header('Content-Type', 'text/markdown; charset=utf-8')
     response.header('Content-Disposition', 'attachment; filename="DESIGN.md"')
     response.header('X-Content-Type-Options', 'nosniff')
@@ -274,7 +291,8 @@ export default class DesignDocsController {
   }
 
   /** GET /api/boards/:id/design-doc/export?format= — tokeny jako CSS, Tailwind v4 albo JSON (W3C). */
-  async export({ auth, params, request, response }: HttpContext) {
+  async export(ctx: HttpContext) {
+    const { auth, params, request, response } = ctx
     const board = await this.findBoard(auth.user!.id, params.id)
     if (!board) return response.notFound()
 
@@ -298,6 +316,7 @@ export default class DesignDocsController {
     }
 
     const file = renderExport(doc.spec, format)
+    trackFor(ctx, 'tokens_exported', { format, version: doc.version }, { boardId: board.id })
     response.header('Content-Type', `${file.type}; charset=utf-8`)
     response.header('Content-Disposition', `attachment; filename="${file.name}"`)
     response.header('X-Content-Type-Options', 'nosniff')
