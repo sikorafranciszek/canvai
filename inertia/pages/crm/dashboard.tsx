@@ -1,0 +1,227 @@
+import { Head, Link } from '@inertiajs/react'
+import { NoAnalytics, RangeTabs } from '~/components/crm/CrmLayout'
+import { BarList, Stat, TimeChart, formatNumber } from '~/components/crm/charts'
+
+interface Point {
+  day: string
+  value: number
+}
+
+interface DashboardData {
+  days: number
+  analytics: boolean
+  kpis: {
+    usersTotal: number
+    usersVerified: number
+    usersNew: number
+    proActive: number
+    packBuyers: number
+    mrrCents: number
+    revenueCents: number
+    revenueTotalCents: number
+    creditsGranted: number
+    creditsSpent: number
+    generations: number
+    generationsFailed: number
+    avgGenerationMs: number | null
+    p95GenerationMs: number | null
+    dau: number | null
+    wau: number | null
+    mau: number | null
+    errors: number | null
+  }
+  series: {
+    signups: Point[]
+    revenue: Point[]
+    activeUsers: Point[] | null
+    visitors: Point[] | null
+    pageViews: Point[] | null
+  }
+  topRoutes: { route: string; views: number; visitors: number }[] | null
+  referrers: { host: string; visits: number }[] | null
+  devices: { device: string; count: number }[] | null
+}
+
+const usd = (cents: number) =>
+  new Intl.NumberFormat('pl-PL', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(cents / 100)
+const secs = (ms: number | null) => (ms == null ? '—' : `${formatNumber(ms / 1000, 1)} s`)
+const DEVICE: Record<string, string> = {
+  desktop: 'Komputer',
+  mobile: 'Telefon',
+  tablet: 'Tablet',
+  unknown: 'Inne',
+  bot: 'Boty',
+}
+
+interface Pipeline {
+  sink: string
+  buffered: number
+  dropped: number
+  lastFlush: { at: string; ok: boolean; rows: number; error?: string } | null
+}
+
+export default function CrmDashboard({
+  range,
+  data,
+  pipeline,
+}: {
+  range: string
+  data: DashboardData
+  pipeline: Pipeline
+}) {
+  const k = data.kpis
+  const failRate = k.generations ? Math.round((k.generationsFailed / k.generations) * 100) : 0
+
+  return (
+    <div className="page crm-page">
+      <Head title="CRM — pulpit" />
+      <header className="page-header">
+        <div className="page-header__text">
+          <h1 className="t-display">Pulpit</h1>
+          <p className="t-muted">
+            Użytkownicy, przychody i aktywność w canvai — ostatnie {data.days} dni.
+          </p>
+        </div>
+        <RangeTabs value={range} base="/" />
+      </header>
+
+      {!data.analytics ? <NoAnalytics /> : null}
+      {pipeline.sink === 'clickhouse' ? (
+        <p className="crm-pipeline t-small" data-testid="crm-pipeline">
+          <span
+            className={`level level--${pipeline.lastFlush && !pipeline.lastFlush.ok ? 'critical' : 'good'}`}
+          >
+            {pipeline.lastFlush && !pipeline.lastFlush.ok
+              ? 'zapis do ClickHouse nie działa'
+              : 'ClickHouse OK'}
+          </span>
+          <span className="t-muted">
+            w buforze {formatNumber(pipeline.buffered)}
+            {pipeline.dropped ? ` · odrzucone ${formatNumber(pipeline.dropped)}` : ''}
+            {pipeline.lastFlush
+              ? ` · ostatni zapis ${new Date(pipeline.lastFlush.at).toLocaleTimeString('pl-PL')}`
+              : ''}
+            {pipeline.lastFlush?.error ? ` · ${pipeline.lastFlush.error}` : ''}
+          </span>
+        </p>
+      ) : null}
+
+      <section className="stats" aria-label="Najważniejsze liczby">
+        <Stat
+          label="Użytkownicy"
+          value={formatNumber(k.usersTotal)}
+          hint={`+${formatNumber(k.usersNew)} w okresie · ${formatNumber(k.usersVerified)} potwierdzonych`}
+        />
+        <Stat
+          label="Aktywni (DAU / WAU / MAU)"
+          value={
+            k.dau == null
+              ? '—'
+              : `${formatNumber(k.dau)} / ${formatNumber(k.wau)} / ${formatNumber(k.mau)}`
+          }
+          hint="zalogowani, którzy coś zrobili"
+        />
+        <Stat
+          label="MRR (Pro)"
+          value={usd(k.mrrCents)}
+          hint={`${formatNumber(k.proActive)} aktywnych subskrypcji`}
+        />
+        <Stat
+          label="Przychód w okresie"
+          value={usd(k.revenueCents)}
+          hint={`łącznie ${usd(k.revenueTotalCents)} · ${formatNumber(k.packBuyers)} kupujących pakiety`}
+        />
+        <Stat
+          label="Generacje DESIGN.md"
+          value={formatNumber(k.generations)}
+          hint={`${failRate}% nieudanych · śr. ${secs(k.avgGenerationMs)} · p95 ${secs(k.p95GenerationMs)}`}
+          tone={failRate > 10 ? 'critical' : undefined}
+        />
+        <Stat
+          label="Kredyty"
+          value={`${formatNumber(k.creditsSpent)} zużytych`}
+          hint={`${formatNumber(k.creditsGranted)} przyznanych w okresie`}
+        />
+        <Stat
+          label="Błędy aplikacji"
+          value={k.errors == null ? '—' : formatNumber(k.errors)}
+          hint={<Link href="/logs">Zobacz logi →</Link>}
+          tone={k.errors ? 'critical' : 'good'}
+        />
+      </section>
+
+      <div className="crm-grid">
+        <section className="card crm-card">
+          <h2 className="crm-card__title">Nowe konta dziennie</h2>
+          <TimeChart
+            kind="column"
+            label="Nowe konta dziennie"
+            series={[{ name: 'Rejestracje', points: data.series.signups }]}
+          />
+        </section>
+        <section className="card crm-card">
+          <h2 className="crm-card__title">Aktywni użytkownicy i odwiedzający</h2>
+          {data.series.activeUsers && data.series.visitors ? (
+            <TimeChart
+              label="Aktywni użytkownicy i odwiedzający dziennie"
+              series={[
+                { name: 'Odwiedzający (unikalni)', points: data.series.visitors },
+                { name: 'Zalogowani aktywni', points: data.series.activeUsers },
+              ]}
+            />
+          ) : (
+            <p className="t-small t-muted">Wymaga bazy analitycznej.</p>
+          )}
+        </section>
+        <section className="card crm-card">
+          <h2 className="crm-card__title">Przychód dziennie (wg cennika)</h2>
+          <TimeChart
+            kind="column"
+            label="Przychód dziennie"
+            format={(v) => usd(v * 100)}
+            series={[{ name: 'Przychód', points: data.series.revenue }]}
+          />
+        </section>
+        <section className="card crm-card">
+          <h2 className="crm-card__title">Najczęściej odwiedzane strony</h2>
+          {data.topRoutes ? (
+            <BarList
+              rows={data.topRoutes.map((r) => ({ label: <code>{r.route}</code>, value: r.views }))}
+              secondary={(i) => `· ${formatNumber(data.topRoutes![i].visitors)} os.`}
+            />
+          ) : (
+            <p className="t-small t-muted">Wymaga bazy analitycznej.</p>
+          )}
+        </section>
+        <section className="card crm-card">
+          <h2 className="crm-card__title">Skąd przychodzą</h2>
+          {data.referrers ? (
+            <BarList
+              rows={data.referrers.map((r) => ({ label: r.host, value: r.visits }))}
+              empty="Brak wejść z innych stron"
+            />
+          ) : (
+            <p className="t-small t-muted">Wymaga bazy analitycznej.</p>
+          )}
+        </section>
+        <section className="card crm-card">
+          <h2 className="crm-card__title">Urządzenia</h2>
+          {data.devices ? (
+            <BarList
+              rows={data.devices.map((r) => ({
+                label: DEVICE[r.device] ?? r.device,
+                value: r.count,
+              }))}
+            />
+          ) : (
+            <p className="t-small t-muted">Wymaga bazy analitycznej.</p>
+          )}
+        </section>
+      </div>
+    </div>
+  )
+}

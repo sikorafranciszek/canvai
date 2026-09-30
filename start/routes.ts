@@ -10,6 +10,7 @@
 import { middleware } from '#start/kernel'
 import { controllers } from '#generated/controllers'
 import router from '@adonisjs/core/services/router'
+import { crm } from '#config/analytics'
 
 /** Healthcheck dla Coolify / load balancera: proces żyje i baza odpowiada. */
 router.get('/health', async ({ response }) => {
@@ -176,3 +177,42 @@ router
     router.get('/assets/:id/thumb', [controllers.Assets, 'thumb']).as('assets.thumb')
   })
   .use([middleware.auth(), middleware.verified()])
+
+/**
+ * Panel CRM — tylko pod domeną CRM (crm.canvai.dev; w dev crm.localhost).
+ * Trasy domenowe mają pierwszeństwo: pod tym hostem aplikacja nie jest dostępna.
+ */
+router
+  .group(() => {
+    router
+      .group(() => {
+        router.get('/login', [controllers.Crm, 'loginPage']).as('crm.login')
+        router.post('/login', [controllers.Crm, 'login']).as('crm.login.store')
+      })
+      .use(middleware.crmAdmin({ guest: true }))
+
+    router
+      .group(() => {
+        router.get('/', [controllers.Crm, 'dashboard']).as('crm.dashboard')
+        router.post('/logout', [controllers.Crm, 'logout']).as('crm.logout')
+        router.get('/users', [controllers.Crm, 'users']).as('crm.users')
+        router.get('/users/:id', [controllers.Crm, 'user']).as('crm.user')
+        router.post('/users/:id/credits', [controllers.Crm, 'grantCredits']).as('crm.user.credits')
+        router.post('/users/:id/verify', [controllers.Crm, 'verifyEmail']).as('crm.user.verify')
+        router.post('/users/:id/disable', [controllers.Crm, 'setDisabled']).as('crm.user.disable')
+        router.post('/users/:id/enable', [controllers.Crm, 'setDisabled']).as('crm.user.enable')
+        router
+          .post('/users/:id/password-reset', [controllers.Crm, 'sendReset'])
+          .as('crm.user.reset')
+        router.post('/users/:id/notes', [controllers.Crm, 'addNote']).as('crm.user.notes')
+        router
+          .delete('/users/:id/notes/:noteId', [controllers.Crm, 'deleteNote'])
+          .as('crm.user.notes.destroy')
+        router.put('/users/:id/tags', [controllers.Crm, 'setTags']).as('crm.user.tags')
+        router.delete('/users/:id', [controllers.Crm, 'destroy']).as('crm.user.destroy')
+        router.get('/analytics', [controllers.Crm, 'analytics']).as('crm.analytics')
+        router.get('/logs', [controllers.Crm, 'logs']).as('crm.logs')
+      })
+      .use(middleware.crmAdmin())
+  })
+  .domain(crm.host)

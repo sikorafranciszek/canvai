@@ -2,8 +2,14 @@ import { UserSchema } from '#database/schema'
 import hash from '@adonisjs/core/services/hash'
 import { compose } from '@adonisjs/core/helpers'
 import { withAuthFinder } from '@adonisjs/auth/mixins/lucid'
+import { column } from '@adonisjs/lucid/orm'
+import { jsonConsume, jsonPrepare } from '#models/json_columns'
 
 export default class User extends compose(UserSchema, withAuthFinder(hash)) {
+  /** Tagi nadawane w CRM (np. „agencja”, „beta”). */
+  @column({ prepare: jsonPrepare, consume: jsonConsume })
+  declare crmTags: string[] | null
+
   get initials() {
     const [first, last] = this.fullName ? this.fullName.split(' ') : this.email.split('@')
     if (first && last) {

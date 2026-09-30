@@ -36,7 +36,7 @@ export async function userForToken(token: string | null | undefined): Promise<Us
     .first()
   if (!row) return null
   const user = await User.find(row.userId)
-  if (!user?.emailVerifiedAt) return null
+  if (!user?.emailVerifiedAt || user.disabledAt) return null
   // Znacznik użycia co najwyżej raz na minutę — bez zapisu przy każdym żądaniu.
   if (!row.lastUsedAt || row.lastUsedAt < DateTime.utc().minus({ minutes: 1 })) {
     row.lastUsedAt = DateTime.utc()

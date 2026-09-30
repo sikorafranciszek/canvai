@@ -10,7 +10,7 @@ export const LEGAL = {
   /** Administrator danych — do uzupełnienia pełną nazwą i adresem. */
   controller: 'canvai',
   email: 'privacy@canvai.dev',
-  updated: { pl: '30 września 2026', en: 'September 30, 2026' },
+  updated: { pl: '1 października 2026', en: 'October 1, 2026' },
 }
 
 export const PRIVACY_PATH: Record<Lang, string> = { en: '/privacy/', pl: '/pl/prywatnosc/' }
@@ -75,6 +75,11 @@ const pl: PrivacyContent = {
             'Prawnie uzasadniony interes (lit. f)',
           ],
           [
+            'Analityka własna i logi: odsłony (adres strony, źródło wejścia, typ urządzenia i przeglądarki), działania w aplikacji (np. utworzenie tablicy, generacja), czasy odpowiedzi i błędy serwera. Zalogowanych rozpoznajemy po identyfikatorze konta; niezalogowanych — po skrócie z adresu IP i przeglądarki z solą zmienianą codziennie, bez cookies',
+            'Rozwój i niezawodność usługi, obsługa zgłoszeń, zapobieganie nadużyciom',
+            'Prawnie uzasadniony interes (lit. f)',
+          ],
+          [
             'Dane analityczne Microsoft Clarity: kliknięcia, przewijanie, nagrania sesji (bez treści pól formularzy)',
             'Ulepszanie strony i aplikacji',
             'Zgoda (lit. a) — tylko po jej wyrażeniu',
@@ -100,7 +105,7 @@ const pl: PrivacyContent = {
       title: '4. Komu powierzamy dane',
       body: ['Korzystamy z usług zaufanych dostawców, którzy przetwarzają dane w naszym imieniu lub jako samodzielni administratorzy:'],
       list: [
-        'Contabo GmbH — serwer aplikacji app.canvai.dev (centrum danych we Francji, UE).',
+        'Contabo GmbH — serwer aplikacji app.canvai.dev oraz naszej bazy analitycznej i logów (ClickHouse, własna instalacja; centrum danych we Francji, UE).',
         'Cloudflare, Inc. — hosting i sieć CDN strony canvai.dev, DNS.',
         'DeepSeek — analiza materiałów i generowanie treści przez AI (patrz pkt 3).',
         'Dostawca poczty transakcyjnej (np. Resend) — wysyłka wiadomości e-mail z konta.',
@@ -148,7 +153,8 @@ const pl: PrivacyContent = {
         'Dane konta i treści — do czasu usunięcia konta; kopie zapasowe nadpisujemy w ciągu 30 dni.',
         'Materiały i wersje DESIGN.md — do czasu ich usunięcia przez Ciebie albo usunięcia konta.',
         'Dane rozliczeniowe — przez okres wymagany przepisami podatkowymi i rachunkowymi.',
-        'Logi serwera — zwykle do 90 dni.',
+        'Logi serwera i dane o żądaniach — 90 dni (usuwane automatycznie).',
+        'Analityka własna (odsłony i działania w aplikacji) — 13 miesięcy (usuwana automatycznie).',
         'Dane Clarity — zgodnie z ustawieniami Microsoft Clarity (do 13 miesięcy).',
       ],
     },
@@ -220,6 +226,11 @@ const en: PrivacyContent = {
             'Legitimate interest (f)',
           ],
           [
+            'First-party analytics and logs: page views (page address, referrer, device and browser type), actions in the app (e.g. creating a board, generating), response times and server errors. Signed-in users are identified by account ID; visitors by a hash of IP address and browser with a daily-rotating salt, without cookies',
+            'Developing the service and keeping it reliable, support, abuse prevention',
+            'Legitimate interest (f)',
+          ],
+          [
             'Microsoft Clarity analytics: clicks, scrolling, session recordings (form field contents excluded)',
             'Improving the website and the app',
             'Consent (a) — only once given',
@@ -241,7 +252,7 @@ const en: PrivacyContent = {
       title: '4. Who processes data for us',
       body: ['We rely on trusted providers that process data on our behalf or as independent controllers:'],
       list: [
-        'Contabo GmbH — app.canvai.dev server (data centre in France, EU).',
+        'Contabo GmbH — the app.canvai.dev server and our analytics and log database (self-hosted ClickHouse; data centre in France, EU).',
         'Cloudflare, Inc. — hosting and CDN for canvai.dev, DNS.',
         'DeepSeek — AI analysis of materials and content generation (see section 3).',
         'Transactional email provider (e.g. Resend) — sending account emails.',
@@ -289,7 +300,8 @@ const en: PrivacyContent = {
         'Account data and content — until the account is deleted; backups are overwritten within 30 days.',
         'Materials and DESIGN.md versions — until you delete them or delete your account.',
         'Billing data — for as long as tax and accounting laws require.',
-        'Server logs — usually up to 90 days.',
+        'Server logs and request data — 90 days (deleted automatically).',
+        'First-party analytics (page views and in-app actions) — 13 months (deleted automatically).',
         'Clarity data — per Microsoft Clarity settings (up to 13 months).',
       ],
     },

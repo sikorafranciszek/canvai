@@ -6,6 +6,7 @@ import { Form, Link } from '@adonisjs/inertia/react'
 import { Coins, CreditCard, LayoutGrid, LogOut, Palette, Plus, Settings } from 'lucide-react'
 import { useBillingStore } from '~/lib/billing'
 import { ConsentBanner, LegalLinks } from '~/components/ui/ConsentBanner'
+import { CrmLayout } from '~/components/crm/CrmLayout'
 import { Brand } from '~/components/ui/Brand'
 import { CreateBoardDialog } from '~/components/boards/CreateBoardDialog'
 import { useUiStore } from '~/lib/ui'
@@ -44,13 +45,17 @@ export default function Layout({ children }: { children: ReactElement<Data.Share
 
   useEffect(() => {
     // Na stronach auth komunikaty pokazuje formularz (FlashAlert), nie toast.
-    if (component.startsWith('auth/')) return
+    if (component.startsWith('auth/') || component.startsWith('crm/')) return
     if (flash.error) toast.error(translateFlash(flash.error))
     if (flash.success) toast.success(translateFlash(flash.success))
   })
 
   let content: ReactNode
-  if (component.startsWith('auth/')) {
+  if (component === 'crm/login') {
+    content = children
+  } else if (component.startsWith('crm/')) {
+    content = <CrmLayout>{children}</CrmLayout>
+  } else if (component.startsWith('auth/')) {
     content = (
       <div className="auth">
         <div className="auth__topbar">
@@ -83,7 +88,7 @@ export default function Layout({ children }: { children: ReactElement<Data.Share
   return (
     <>
       {content}
-      <ConsentBanner projectId={clarityId} />
+      {component.startsWith('crm/') ? null : <ConsentBanner projectId={clarityId} />}
       <Toaster
         position="bottom-center"
         toastOptions={{

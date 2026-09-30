@@ -309,6 +309,34 @@ Webhooks are verified (Standard Webhooks, both Polar secret formats) and idempot
 Billing page shows buy buttons as “soon” while plan limits still apply.
 `BILLING_ENFORCED=false` disables limits and charging (self-hosting, tests).
 
+## Analytics, logs & CRM (ClickHouse)
+
+The app collects **first-party analytics, HTTP request metrics and logs** into ClickHouse
+(`services.clickhouse` in `docker-compose.yaml`, internal network only):
+
+| Table | What | Retention |
+|---|---|---|
+| `events` | page views (Inertia/HTML GETs) + product events: `signup`, `login`, `board_created`, `assets_added`, `design_doc_requested/ready/failed`, `preview_*`, `tokens_exported`, `checkout_started`, `purchase`, `subscription_changed`, `portal_*`, `site_imported`, `mcp_tool_call`, `crm_action`… | 13 months |
+| `requests` | every routed request: route, status, duration, device | 90 days |
+| `logs` | pino logs (info+) and errors with stack, request id, user id | 90 days |
+
+No cookies are set for analytics: signed-in users are identified by account id, visitors by a
+daily-rotating salted hash of IP + user agent. Rows are buffered in memory and flushed in
+batches (5 s / 1000 rows); if ClickHouse is down the app keeps working (bounded buffer).
+Without `CLICKHOUSE_URL` collection is off (tests use an in-memory sink).
+
+**CRM** runs in the same app on its own host (`CRM_HOST`, default `crm.canvai.dev`; in dev
+`crm.localhost:<port>`) — host-based routes, separate session. Access: accounts listed in
+`ADMIN_EMAILS` (verified, not disabled). Features: dashboard (users, DAU/WAU/MAU, MRR, revenue,
+generations, errors, traffic sources), user list with search/filters, user card (plan, credits,
+boards, subscriptions, timeline, errors) with actions (grant credits, verify email, password
+reset, disable/enable, tags, team notes, GDPR account deletion incl. analytics), activation
+funnel, weekly retention cohorts, event explorer, error groups, log search and route latency.
+Every admin action is recorded as a `crm_action` event.
+
+Deployment: add `https://crm.canvai.dev` to the `app` service domains in Coolify, create a DNS
+record for `crm.canvai.dev`, and set `ADMIN_EMAILS`.
+
 ## API & MCP server
 
 Paid plans can create API tokens in **Settings → API & MCP** (`cvai_…`, shown once, stored as sha256).

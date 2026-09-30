@@ -228,6 +228,21 @@ export class CreditTransactionSchema extends BaseModel {
   declare userId: number
 }
 
+export class CrmNoteSchema extends BaseModel {
+  static $columns = ['authorId', 'body', 'createdAt', 'id', 'userId'] as const
+  $columns = CrmNoteSchema.$columns
+  @column()
+  declare authorId: number | null
+  @column()
+  declare body: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare userId: number
+}
+
 export class DesignDocSchema extends BaseModel {
   static $columns = ['boardId', 'contentMd', 'createdAt', 'creditsCharged', 'error', 'generatedAt', 'id', 'inputFingerprint', 'jobId', 'model', 'proMode', 'promptVersion', 'sources', 'spec', 'status', 'usage', 'version'] as const
   $columns = DesignDocSchema.$columns
@@ -387,10 +402,14 @@ export class UserTokenSchema extends BaseModel {
 }
 
 export class UserSchema extends BaseModel {
-  static $columns = ['createdAt', 'email', 'emailVerifiedAt', 'fullName', 'id', 'locale', 'password', 'referralCode', 'referredById', 'updatedAt'] as const
+  static $columns = ['createdAt', 'crmTags', 'disabledAt', 'email', 'emailVerifiedAt', 'fullName', 'id', 'locale', 'password', 'referralCode', 'referredById', 'updatedAt'] as const
   $columns = UserSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
+  @column()
+  declare crmTags: any | null
+  @column.dateTime()
+  declare disabledAt: DateTime | null
   @column()
   declare email: string
   @column.dateTime()

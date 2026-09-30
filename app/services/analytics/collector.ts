@@ -15,14 +15,32 @@ import { clickhouse, db, ensureSchema } from '#services/analytics/clickhouse'
 export type Table = 'events' | 'requests' | 'logs'
 type Row = Record<string, unknown>
 
-const buffers: Record<Table, Row[]> = { events: [], requests: [], logs: [] }
+/**
+ * Stan wspólny dla całego procesu (globalThis) — przeładowanie modułów w dev
+ * (HMR) nie może tworzyć drugiego bufora ani drugiego zegara wysyłki.
+ */
+interface State {
+  buffers: Record<Table, Row[]>
+  timer: ReturnType<typeof setInterval> | null
+  flushing: Promise<void> | null
+  schemaReady: boolean
+  dropped: number
+  lastFlush: { at: string; ok: boolean; rows: number; error?: string } | null
+}
+const state: State = ((globalThis as any).__canvaiAnalytics ??= {
+  buffers: { events: [], requests: [], logs: [] },
+  timer: null,
+  flushing: null,
+  schemaReady: false,
+  dropped: 0,
+  lastFlush: null,
+})
+const buffers = state.buffers
 /** Wiersze zapisane przez sink `memory` (testy). */
 export const memory: Record<Table, Row[]> = { events: [], requests: [], logs: [] }
 
-let timer: ReturnType<typeof setInterval> | null = null
-let flushing: Promise<void> | null = null
-let schemaReady = false
-let dropped = 0
+/** Jedna wysyłka nie może trwać dłużej — zawieszone połączenie nie blokuje kolejnych. */
+const FLUSH_TIMEOUT_MS = 30_000
 
 export function nowTs(): string {
   // DateTime64(3) w UTC — format akceptowany przez `best_effort`.
@@ -37,7 +55,7 @@ function push(table: Table, row: Row) {
   }
   const total = buffers.events.length + buffers.requests.length + buffers.logs.length
   if (total >= analytics.maxBuffer) {
-    dropped++
+    state.dropped++
     return
   }
   buffers[table].push(row)
@@ -46,48 +64,63 @@ function push(table: Table, row: Row) {
 }
 
 function startTimer() {
-  if (timer) return
-  timer = setInterval(() => void flush(), analytics.flushIntervalMs)
-  timer.unref?.()
+  if (state.timer) return
+  state.timer = setInterval(() => void flush(), analytics.flushIntervalMs)
+  state.timer.unref?.()
 }
 
 /** Wysyła zbuforowane wiersze. Błąd → wiersze wracają do bufora (do limitu). */
 export async function flush(): Promise<void> {
   if (analytics.sink !== 'clickhouse') return
-  if (flushing) return flushing
-  flushing = (async () => {
-    try {
-      if (!schemaReady) {
-        await ensureSchema()
-        schemaReady = true
-      }
-      for (const table of Object.keys(buffers) as Table[]) {
-        const rows = buffers[table].splice(0, buffers[table].length)
-        if (!rows.length) continue
-        try {
-          await clickhouse().insert({
-            table: `${db()}.${table}`,
-            values: rows,
-            format: 'JSONEachRow',
-          })
-        } catch (error) {
-          buffers[table].unshift(...rows.slice(0, analytics.maxBuffer))
-          throw error
-        }
-      }
-    } catch (error) {
-      // Nie przez logger — log trafiłby z powrotem do bufora (pętla).
-      process.stderr.write(`[analytics] flush failed: ${(error as Error).message}\n`)
-    } finally {
-      flushing = null
+  if (state.flushing) return state.flushing
+  const run = async () => {
+    let sent = 0
+    if (!state.schemaReady) {
+      await ensureSchema()
+      state.schemaReady = true
     }
-  })()
-  return flushing
+    for (const table of Object.keys(buffers) as Table[]) {
+      const rows = buffers[table].splice(0, buffers[table].length)
+      if (!rows.length) continue
+      try {
+        await clickhouse().insert({
+          table: `${db()}.${table}`,
+          values: rows,
+          format: 'JSONEachRow',
+        })
+        sent += rows.length
+      } catch (error) {
+        buffers[table].unshift(...rows.slice(0, analytics.maxBuffer))
+        throw error
+      }
+    }
+    return sent
+  }
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  state.flushing = Promise.race([
+    run(),
+    new Promise<number>((_, reject) => {
+      timeout = setTimeout(() => reject(new Error('flush timeout')), FLUSH_TIMEOUT_MS)
+    }),
+  ])
+    .then((rows) => {
+      state.lastFlush = { at: new Date().toISOString(), ok: true, rows }
+    })
+    .catch((error: Error) => {
+      state.lastFlush = { at: new Date().toISOString(), ok: false, rows: 0, error: error.message }
+      // Nie przez logger — log trafiłby z powrotem do bufora (pętla).
+      process.stderr.write(`[analytics] flush failed: ${error.message}\n`)
+    })
+    .finally(() => {
+      clearTimeout(timeout)
+      state.flushing = null
+    })
+  return state.flushing
 }
 
 export async function shutdown() {
-  if (timer) clearInterval(timer)
-  timer = null
+  if (state.timer) clearInterval(state.timer)
+  state.timer = null
   await flush()
 }
 
@@ -95,7 +128,8 @@ export function stats() {
   return {
     sink: analytics.sink,
     buffered: buffers.events.length + buffers.requests.length + buffers.logs.length,
-    dropped,
+    dropped: state.dropped,
+    lastFlush: state.lastFlush,
   }
 }
 

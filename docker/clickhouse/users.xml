@@ -1,0 +1,9 @@
+<!-- Mniej wątków na zapytanie — serwer dzieli CPU z aplikacją. -->
+<clickhouse>
+  <profiles>
+    <default>
+      <max_threads>2</max_threads>
+      <max_memory_usage>1000000000</max_memory_usage>
+    </default>
+  </profiles>
+</clickhouse>

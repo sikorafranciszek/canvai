@@ -1,6 +1,7 @@
 import User from '#models/user'
 import { loginValidator } from '#validators/user'
 import type { HttpContext } from '@adonisjs/core/http'
+import { t } from '#services/i18n'
 import { trackFor } from '#services/analytics/events'
 
 export default class SessionController {
@@ -9,9 +10,13 @@ export default class SessionController {
   }
 
   async store(ctx: HttpContext) {
-    const { request, auth, response } = ctx
+    const { request, auth, response, session } = ctx
     const { email, password } = await request.validateUsing(loginValidator)
     const user = await User.verifyCredentials(email, password)
+    if (user.disabledAt) {
+      session.flash('error', t('account.disabled'))
+      return response.redirect().toPath('/login')
+    }
 
     await auth.use('web').login(user)
     trackFor(ctx, 'login', {}, { userId: user.id })

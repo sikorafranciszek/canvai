@@ -9,6 +9,15 @@ import { t } from '#services/i18n'
 export default class VerifiedMiddleware {
   async handle(ctx: HttpContext, next: NextFn) {
     const user = ctx.auth.user
+    // Konto zablokowane w CRM — wylogowanie i koniec dostępu.
+    if (user?.disabledAt) {
+      await ctx.auth.use('web').logout()
+      if (ctx.request.url().startsWith('/api/')) {
+        return ctx.response.status(403).json({ message: t('account.disabled'), code: 'E_ACCOUNT_DISABLED' })
+      }
+      ctx.session.flash('error', t('account.disabled'))
+      return ctx.response.redirect().toPath('/login')
+    }
     if (user && !user.emailVerifiedAt) {
       if (ctx.request.url().startsWith('/api/')) {
         return ctx.response

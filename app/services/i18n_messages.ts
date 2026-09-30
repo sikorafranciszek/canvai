@@ -151,6 +151,8 @@ export const pl = {
   'brandKits.locked': 'Brand kity są dostępne w płatnych planach.',
   'brandKits.limit': 'Możesz mieć najwyżej {max} brand kitów.',
 
+  'account.disabled': 'To konto zostało zablokowane. Skontaktuj się z pomocą: privacy@canvai.dev.',
+
   // Portal klienta
   'portal.locked': 'Portal klienta jest dostępny w płatnych planach.',
   'portal.notFound': 'Ten link jest nieaktywny albo wygasł.',
@@ -337,6 +339,8 @@ export const en: Record<ServerMessageKey, string> = {
   // Brand kits
   'brandKits.locked': 'Brand kits are available on paid plans.',
   'brandKits.limit': 'You can have at most {max} brand kits.',
+
+  'account.disabled': 'This account has been disabled. Contact support: privacy@canvai.dev.',
 
   // Client portal
   'portal.locked': 'The client portal is available on paid plans.',

@@ -54,4 +54,5 @@ export const middleware = router.named({
   auth: () => import('#middleware/auth_middleware'),
   verified: () => import('#middleware/verified_middleware'),
   apiToken: () => import('#middleware/api_token_middleware'),
+  crmAdmin: () => import('#middleware/crm_admin_middleware'),
 })
