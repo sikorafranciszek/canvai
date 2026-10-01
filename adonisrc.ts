@@ -132,6 +132,11 @@ export default defineConfig({
       pattern: 'resources/sample/**',
       reloadServer: false,
     },
+    {
+      // Zestaw ewaluacyjny DESIGN.md — `node ace design:eval` także w kontenerze.
+      pattern: 'tests/eval/**',
+      reloadServer: false,
+    },
   ],
 
   hooks: {

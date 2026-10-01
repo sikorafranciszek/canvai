@@ -1,0 +1,12 @@
+{
+  "boardTitle": "Czat transmisji — redesign",
+  "notes": { "1-chat.png": "Zrzut czatu na żywo, który chcemy odświeżyć" },
+  "canvasNotes": [],
+  "expect": {
+    "colors": ["#0f0f0f", "#212121", "#aaaaaa", "#7b2fd1", "#2ba640"],
+    "fonts": ["Roboto"],
+    "text": ["Czatuj jako subskrybent", "0XP", "#1"],
+    "forbiddenColors": ["#ff4e45", "#ffd600"],
+    "forbiddenPhrases": ["Czatzuj", "each user", "own color", "GIF"]
+  }
+}

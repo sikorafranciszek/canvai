@@ -1,0 +1,16 @@
+{
+  "boardTitle": "Kawiarnia Ziarno — strona i zamówienia",
+  "notes": {
+    "1-home.png": "Strona główna — tak ma wyglądać pierwszy ekran",
+    "2-menu.png": "Menu z zamawianiem",
+    "3-logo.png": "Logo i kolory marki"
+  },
+  "canvasNotes": ["Nagłówki: Fraunces, tekst: Inter"],
+  "expect": {
+    "colors": ["#f6efe4", "#2b1d16", "#c0622d", "#5f7a5b", "#fffaf3"],
+    "fonts": ["Fraunces", "Inter"],
+    "text": ["Zamów online", "Zobacz menu", "Kup ziarna", "Dodaj"],
+    "forbiddenColors": [],
+    "forbiddenPhrases": ["lorem ipsum"]
+  }
+}
