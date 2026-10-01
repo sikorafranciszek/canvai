@@ -1,7 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import { billing, costs } from '#config/billing'
-import Board from '#models/board'
 import DesignDoc from '#models/design_doc'
 import DesignPreview from '#models/design_preview'
 import { providerNotReadyMessage, providerReady } from '#services/ai/provider'
@@ -15,6 +14,7 @@ import { JOB_GENERATE_PREVIEW, enqueue } from '#services/queue'
 import { currentLocale, t } from '#services/i18n'
 import { trackFor } from '#services/analytics/events'
 import { aiBudgetDenial, countGeneration } from '#services/ops/ai_budget'
+import { boardAccess, type BoardAction } from '#services/board_access'
 
 const previewValidator = vine.compile(
   vine.object({
@@ -40,9 +40,8 @@ const PREVIEW_CSP = [
 
 /** Podgląd UI z wersji DESIGN.md (przykładowa strona HTML), rozliczany kredytami. */
 export default class DesignPreviewsController {
-  private async findBoard(userId: number, boardId: string | number) {
-    const board = await Board.find(boardId)
-    return board && board.userId === userId ? board : null
+  private async findBoard(userId: number, boardId: string | number, action: BoardAction = 'view') {
+    return (await boardAccess(userId, boardId, action))?.board ?? null
   }
 
   private async findDoc(boardId: number, version?: number) {
@@ -84,7 +83,7 @@ export default class DesignPreviewsController {
   async store(ctx: HttpContext) {
     const { auth, params, request, response } = ctx
     const user = auth.user!
-    const board = await this.findBoard(user.id, params.id)
+    const board = await this.findBoard(user.id, params.id, 'edit')
     if (!board) return response.notFound()
     const { version, force } = await previewValidator.validate(request.body())
 
@@ -118,8 +117,8 @@ export default class DesignPreviewsController {
     if (denial) return response.status(429).json({ message: denial, code: 'E_AI_BUDGET' })
 
     if (billing.enforced) {
-      await ensureAutomaticGrants(user.id)
-      const balance = await balanceOf(user.id)
+      await ensureAutomaticGrants(board.userId)
+      const balance = await balanceOf(board.userId)
       if (balance < costs.preview) {
         return response.status(402).json({
           message: t('billing.insufficient', { needed: costs.preview, balance }),
@@ -131,7 +130,7 @@ export default class DesignPreviewsController {
     const preview = await DesignPreview.create({ designDocId: doc.id, status: 'queued' })
     if (billing.enforced) {
       try {
-        await reserveCredits(user.id, costs.preview, { designPreviewId: preview.id })
+        await reserveCredits(board.userId, costs.preview, { designPreviewId: preview.id })
       } catch (error) {
         await preview.delete()
         if (error instanceof InsufficientCreditsError) {

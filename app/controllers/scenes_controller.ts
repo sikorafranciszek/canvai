@@ -1,9 +1,10 @@
 import { Exception } from '@adonisjs/core/exceptions'
 import type { HttpContext } from '@adonisjs/core/http'
-import Board from '#models/board'
 import BoardScene from '#models/board_scene'
 import { emptySceneDocument } from '#shared/scene'
 import { validateSceneEnvelope } from '#validators/scene'
+import { boardAccessOrStatus } from '#services/board_access'
+import { publish } from '#services/board_events'
 
 /**
  * Scena tablicy. Dokument sceny żyje w `board_scenes.document` (JSON),
@@ -12,9 +13,9 @@ import { validateSceneEnvelope } from '#validators/scene'
 export default class ScenesController {
   /** GET /api/boards/:id/scene — scena lub pusty dokument (lazy init). */
   async show({ auth, params, response }: HttpContext) {
-    const user = auth.user!
-    const board = await Board.find(params.id)
-    if (!board || board.userId !== user.id) return response.notFound()
+    const access = await boardAccessOrStatus(auth.user!.id, params.id, 'view')
+    if (typeof access === 'number') return response.status(access).send('')
+    const { board } = access
 
     const scene = await this.findOrCreate(board.id)
 
@@ -26,8 +27,9 @@ export default class ScenesController {
   /** PUT /api/boards/:id/scene — zapis z optymistyczną blokadą (409 przy rozjeździe). */
   async update({ auth, params, request, response }: HttpContext) {
     const user = auth.user!
-    const board = await Board.find(params.id)
-    if (!board || board.userId !== user.id) return response.notFound()
+    const access = await boardAccessOrStatus(user.id, params.id, 'edit')
+    if (typeof access === 'number') return response.status(access).send('')
+    const { board } = access
 
     // Czytamy RAW JSON, żeby zachować bezstratność (bodyparser domyślnie
     // zamienia puste stringi na null, co obcięłoby dokument).
@@ -44,10 +46,21 @@ export default class ScenesController {
       })
     }
 
+    const documentChanged = JSON.stringify(scene.document) !== JSON.stringify(document)
     scene.document = document
     if (appState !== null) scene.appState = appState
     scene.version = version + 1
     await scene.save()
+    // Pozostali uczestnicy dociągają nową wersję i scalają ją ze swoimi zmianami
+    // (sam ruch kamery nie zmienia treści — nie budzimy innych).
+    if (documentChanged) {
+      publish(
+        board.id,
+        'scene',
+        { version: scene.version, by: user.id },
+        request.header('x-client-id')
+      )
+    }
 
     return response.json({
       data: { document: scene.document, appState: scene.appState, version: scene.version },

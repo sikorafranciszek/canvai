@@ -4265,3 +4265,251 @@ input.title-edit {
   line-height: 1.4;
   color: var(--color-graphite);
 }
+
+/* ------------------------------------------------------------------ Współpraca na żywo */
+
+.presence {
+  display: flex;
+  align-items: center;
+  padding-right: 4px;
+}
+
+.presence__avatar {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-left: -6px;
+  border-radius: 50%;
+  border: 2px solid var(--color-soft-paper);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.presence__more {
+  margin-left: 4px;
+  font-size: 12px;
+  color: var(--color-graphite);
+}
+
+.collab-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.collab-layer--placing {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+.live-cursor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transition: transform 90ms linear;
+  will-change: transform;
+}
+
+.live-cursor__label {
+  position: absolute;
+  left: 14px;
+  top: 16px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.comment-pin-wrap {
+  position: absolute;
+  pointer-events: auto;
+}
+
+.comment-pin {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  transform: translate(-4px, -26px);
+  border-radius: 15px 15px 15px 2px;
+  border: 2px solid #fff;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: var(--shadow-subtle);
+  cursor: pointer;
+}
+
+.comment-pin--resolved {
+  opacity: 0.45;
+}
+
+.comment-pin--draft {
+  background: var(--color-ink);
+}
+
+.comment-pin__count {
+  position: absolute;
+  right: -8px;
+  top: -8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--color-ink);
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+}
+
+.comment-popover {
+  position: absolute;
+  left: 34px;
+  top: -30px;
+  width: 300px;
+  max-height: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--color-soft-paper);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-float);
+  z-index: 4;
+}
+
+.comment-popover__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.comment-popover__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.comment {
+  display: flex;
+  gap: 8px;
+}
+
+.comment__avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.comment__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.comment__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+}
+
+.comment__meta .btn {
+  margin-left: auto;
+}
+
+.comment__text {
+  margin: 2px 0 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.comment-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.comment-composer textarea {
+  resize: vertical;
+  min-height: 52px;
+  font-size: 13.5px;
+}
+
+.comment-composer__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.comments-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.comments-button__count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--color-deep-teal);
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.members-invite {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.members-invite .input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.members-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--color-hairline);
+}
+
+.members-list li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.btn--xs {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+}

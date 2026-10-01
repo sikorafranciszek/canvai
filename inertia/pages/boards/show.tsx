@@ -12,6 +12,14 @@ import { useBillingStore } from '~/lib/billing'
 import { useUiStore } from '~/lib/ui'
 import { useT } from '~/i18n'
 import { LanguageSwitcher } from '~/components/ui/LanguageSwitcher'
+import { useLiveStore } from '~/lib/board/live'
+import {
+  CommentsButton,
+  CommentsLayer,
+  CursorsLayer,
+  MembersButton,
+  PresenceAvatars,
+} from '~/components/collab/Collab'
 
 interface Board {
   id: number
@@ -19,9 +27,10 @@ interface Board {
   slug: string
   createdAt: string | null
   updatedAt: string | null
+  role?: 'owner' | 'editor' | 'viewer'
 }
 
-type SharedUser = { fullName: string | null; email: string; initials: string }
+type SharedUser = { id?: number; fullName: string | null; email: string; initials: string }
 
 const BoardsShow: React.FC<{ board: Board; user?: SharedUser }> = ({ board, user }) => {
   // react-konva wymaga przeglądarki (canvas). Render dopiero po stronie klienta —
@@ -36,6 +45,14 @@ const BoardsShow: React.FC<{ board: Board; user?: SharedUser }> = ({ board, user
     return () => design.dispose()
   }, [board.id])
 
+  // Współpraca na żywo: zdarzenia tablicy, obecność, kursory.
+  useEffect(() => {
+    useLiveStore.getState().connect(board.id)
+    return () => useLiveStore.getState().disconnect()
+  }, [board.id])
+  const role = board.role ?? 'owner'
+  const readOnly = role === 'viewer'
+
   // Koszt następnej generacji i saldo (plan decyduje o trybie Pro i eksportach).
   useEstimateSync()
   useEffect(() => {
@@ -46,7 +63,10 @@ const BoardsShow: React.FC<{ board: Board; user?: SharedUser }> = ({ board, user
   const { t } = useT()
   const toggleSidePanel = useUiStore((s) => s.toggleSidePanel)
 
-  const [Canvas, setCanvas] = useState<React.ComponentType<{ boardId: number }> | null>(null)
+  const [Canvas, setCanvas] = useState<React.ComponentType<{
+    boardId: number
+    readOnly?: boolean
+  }> | null>(null)
   const [Toolbar, setToolbar] = useState<React.ComponentType | null>(null)
 
   useEffect(() => {
@@ -83,8 +103,18 @@ const BoardsShow: React.FC<{ board: Board; user?: SharedUser }> = ({ board, user
           <span className="topbar__sep" aria-hidden>
             /
           </span>
-          <BoardTitle key={board.title} board={board} />
-          <SaveStatus />
+          {role === 'owner' ? (
+            <BoardTitle key={board.title} board={board} />
+          ) : (
+            <span className="title-edit t-truncate">{board.title}</span>
+          )}
+          {readOnly ? (
+            <span className="badge badge--outline" data-testid="readonly-badge">
+              {t('members.viewerBadge')}
+            </span>
+          ) : (
+            <SaveStatus />
+          )}
         </div>
 
         <div className="topbar__actions">
@@ -99,10 +129,13 @@ const BoardsShow: React.FC<{ board: Board; user?: SharedUser }> = ({ board, user
           >
             <PanelRight />
           </button>
+          <PresenceAvatars selfId={user?.id} />
           <LanguageSwitcher compact />
-          <BrandKitMenu />
-          <ShareButton boardId={board.id} />
-          <GenerateDesignDocButton />
+          <CommentsButton />
+          {readOnly ? null : <BrandKitMenu />}
+          <MembersButton boardId={board.id} isOwner={role === 'owner'} />
+          {role === 'owner' ? <ShareButton boardId={board.id} /> : null}
+          {readOnly ? null : <GenerateDesignDocButton />}
           {user ? (
             <span className="avatar" title={user.fullName ?? user.email} aria-hidden>
               {user.initials}
@@ -114,14 +147,16 @@ const BoardsShow: React.FC<{ board: Board; user?: SharedUser }> = ({ board, user
       <div className="workspace" data-clarity-mask="true">
         <div className="canvas-area">
           {Canvas ? (
-            <Canvas key={board.id} boardId={board.id} />
+            <Canvas key={board.id} boardId={board.id} readOnly={readOnly} />
           ) : (
             <div className="canvas-loading" data-testid="canvas-loading">
               <span className="spinner" />
               {t('editor.loading')}
             </div>
           )}
-          {Toolbar ? <Toolbar /> : null}
+          {Toolbar && !readOnly ? <Toolbar /> : null}
+          {Canvas ? <CommentsLayer boardId={board.id} /> : null}
+          {Canvas ? <CursorsLayer /> : null}
         </div>
 
         <SidePanel open={sidePanelOpen} />

@@ -27,6 +27,7 @@ import { entitlementsFor } from '#services/billing/plans'
 import { chargedFor } from '#services/billing/credits'
 import { track } from '#services/analytics/collector'
 import { recordAiUsage } from '#services/ops/ai_budget'
+import { publish } from '#services/board_events'
 
 /**
  * Orkiestracja generacji DESIGN.md:
@@ -217,6 +218,7 @@ async function generate(
     durationMs: Date.now() - started,
   }
   await doc.save()
+  publish(board.id, 'doc', { version: doc.version, status: 'ready' })
   track(
     'design_doc_ready',
     {

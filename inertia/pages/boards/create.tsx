@@ -10,11 +10,18 @@ const BoardsCreate: React.FC = () => {
   return (
     <div className="page" style={{ maxWidth: 560 }}>
       <Head title={t('boards.create.title')} />
-      <Link route="boards.index" className="btn btn--quiet btn--sm" style={{ alignSelf: 'flex-start' }}>
+      <Link
+        route="boards.index"
+        className="btn btn--quiet btn--sm"
+        style={{ alignSelf: 'flex-start' }}
+      >
         <ArrowLeft />
         {t('nav.boards')}
       </Link>
-      <div className="card" style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div
+        className="card"
+        style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 20 }}
+      >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <h1 className="t-title">{t('boards.create.title')}</h1>
           <p className="t-muted">{t('boards.create.description')}</p>

@@ -39,6 +39,7 @@ import {
   type FigmaImportResult,
 } from './api'
 import { DEFAULTS } from '~/lib/scene/palette'
+import { hasLocalChanges, mergeScenes } from '@shared/scene-merge'
 import { translate } from '~/i18n'
 
 export type BoardSaveStatus = SaveStatus | 'dirty' | 'loading'
@@ -54,13 +55,17 @@ const IMAGE_GAP = 48
 interface BoardState {
   boardId: number | null
   initialized: boolean
+  /** Rola „podgląd”: płótno tylko do odczytu, bez zapisu sceny. */
+  readOnly: boolean
   version: number
   saveStatus: BoardSaveStatus
   assets: AssetDto[]
   assetsLoading: boolean
   pendingUploads: PendingUpload[]
 
-  init: (boardId: number) => Promise<void>
+  init: (boardId: number, opts?: { readOnly?: boolean }) => Promise<void>
+  /** Inny uczestnik zapisał scenę — dociągnij i scal z lokalnymi zmianami. */
+  pullRemote: (version: number) => Promise<void>
   dispose: () => void
   refreshAssets: () => Promise<void>
   saveNow: (opts?: { keepalive?: boolean }) => Promise<void>
@@ -94,25 +99,33 @@ let engine: AutosaveEngine<SceneDocument, Record<string, unknown>> | null = null
 let unsubscribeScene: (() => void) | null = null
 let lastDocument: SceneDocument | null = null
 let lastCamera: Camera = DEFAULT_CAMERA
+// Ostatnia wersja dokumentu zsynchronizowana z serwerem — baza scalania trójstronnego.
+let syncedDocument: SceneDocument | null = null
+// Zdalna wersja czekająca na koniec gestu (przeciąganie, rysowanie).
+let deferredPull: number | null = null
+let pointerDown = false
 // Token kolejności init — unieważnia starsze (np. StrictMode podwójny mount).
 let initSeq = 0
 
 export const useBoardStore = create<BoardState>()((set, get) => ({
   boardId: null,
   initialized: false,
+  readOnly: false,
   version: 0,
   saveStatus: 'idle',
   assets: [],
   assetsLoading: false,
   pendingUploads: [],
 
-  async init(boardId) {
+  async init(boardId, opts) {
     if (get().boardId === boardId && get().initialized) return
     get().dispose()
 
     const seq = ++initSeq
+    const readOnly = Boolean(opts?.readOnly)
     set({
       boardId,
+      readOnly,
       initialized: false,
       version: 0,
       saveStatus: 'loading',
@@ -130,6 +143,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
 
       lastDocument = document
       lastCamera = useSceneStore.getState().camera
+      syncedDocument = document
 
       engine = new AutosaveEngine<SceneDocument, Record<string, unknown>>(
         {
@@ -141,14 +155,31 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
             return { version: fresh.version, document: fresh.document, appState: fresh.appState }
           },
           onStatus: (status) => set({ saveStatus: status }),
-          onConflict: () => {
-            toast.error(translate('session.conflict'))
+          // Konflikt = ktoś inny zapisał w międzyczasie: scalamy zamiast nadpisywać.
+          onConflict: () => {},
+          rebase: (fresh, pending) => {
+            const local = useSceneStore.getState().document
+            const merged = mergeScenes(syncedDocument ?? fresh.document, local, fresh.document)
+            syncedDocument = fresh.document
+            if (merged !== local) {
+              lastDocument = merged
+              useSceneStore.getState().applyRemoteDocument(merged)
+            }
+            return { document: merged, appState: pending.appState }
+          },
+          onSaved: (payload) => {
+            syncedDocument = payload.document
           },
         },
         version
       )
 
       unsubscribeScene = useSceneStore.subscribe((state) => {
+        if (get().readOnly) {
+          lastDocument = state.document
+          lastCamera = state.camera
+          return
+        }
         if (state.document !== lastDocument || state.camera !== lastCamera) {
           lastDocument = state.document
           lastCamera = state.camera
@@ -168,8 +199,37 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
     }
   },
 
+  async pullRemote(version) {
+    const boardId = get().boardId
+    if (boardId == null || !engine || version <= engine.currentVersion) return
+    if (pointerDown) {
+      deferredPull = Math.max(deferredPull ?? 0, version)
+      return
+    }
+    const fresh = await getScene(boardId).catch(() => null)
+    if (!fresh || !engine || get().boardId !== boardId || fresh.version <= engine.currentVersion) {
+      return
+    }
+    const local = useSceneStore.getState().document
+    const merged = mergeScenes(syncedDocument ?? fresh.document, local, fresh.document)
+    syncedDocument = fresh.document
+    engine.setVersion(fresh.version)
+    set({ version: fresh.version })
+    lastDocument = merged
+    if (merged !== local) useSceneStore.getState().applyRemoteDocument(merged)
+    // Lokalne zmiany, których serwer jeszcze nie ma, idą w zapisie z nową wersją;
+    // bez nich zaplanowany zapis jest zbędny (zawierałby starą scenę).
+    if (!get().readOnly && hasLocalChanges(fresh.document, merged)) {
+      engine.schedule(merged, { camera: useSceneStore.getState().camera })
+    } else {
+      engine.cancelPending()
+    }
+  },
+
   dispose() {
     initSeq++
+    syncedDocument = null
+    deferredPull = null
     unsubscribeScene?.()
     unsubscribeScene = null
     engine?.dispose()
@@ -533,4 +593,20 @@ export function useCanvasAssets(): AssetDto[] {
     const onCanvas = new Set(elements.map(elementAssetId).filter((id): id is string => id !== null))
     return assets.filter((a) => onCanvas.has(String(a.id)))
   }, [assets, elements])
+}
+
+// Zdalne zmiany nie wchodzą w trakcie gestu (przeciąganie, rysowanie, zaznaczanie) —
+// dociągamy je zaraz po puszczeniu przycisku.
+if (typeof window !== 'undefined') {
+  window.addEventListener('pointerdown', () => {
+    pointerDown = true
+  })
+  window.addEventListener('pointerup', () => {
+    pointerDown = false
+    if (deferredPull != null) {
+      const version = deferredPull
+      deferredPull = null
+      void useBoardStore.getState().pullRemote(version)
+    }
+  })
 }

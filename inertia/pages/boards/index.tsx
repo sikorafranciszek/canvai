@@ -25,6 +25,8 @@ interface Board {
   title: string
   slug: string
   isSample?: boolean
+  role?: 'owner' | 'editor' | 'viewer'
+  ownerName?: string | null
   createdAt: string | null
   updatedAt: string | null
   editedAt: string | null
@@ -206,6 +208,11 @@ function BoardCard({
                 {t('boards.sample')}
               </span>
             ) : null}
+            {board.role && board.role !== 'owner' ? (
+              <span className="badge badge--outline" data-testid="shared-badge">
+                {t('boards.sharedBy', { name: board.ownerName ?? '—' })}
+              </span>
+            ) : null}
             <DocBadge doc={board.designDoc} />
           </div>
         </div>
@@ -220,19 +227,23 @@ function BoardCard({
               icon: <SquareArrowOutUpRight />,
               onSelect: () => router.visit(`/boards/${board.id}`),
             },
-            {
-              label: t('common.rename'),
-              icon: <Pencil />,
-              onSelect: onRename,
-              testId: 'board-rename',
-            },
-            {
-              label: t('common.delete'),
-              icon: <Trash2 />,
-              onSelect: onDelete,
-              danger: true,
-              testId: 'board-delete',
-            },
+            ...(board.role && board.role !== 'owner'
+              ? []
+              : [
+                  {
+                    label: t('common.rename'),
+                    icon: <Pencil />,
+                    onSelect: onRename,
+                    testId: 'board-rename',
+                  },
+                  {
+                    label: t('common.delete'),
+                    icon: <Trash2 />,
+                    onSelect: onDelete,
+                    danger: true,
+                    testId: 'board-delete',
+                  },
+                ]),
           ]}
         />
       </div>

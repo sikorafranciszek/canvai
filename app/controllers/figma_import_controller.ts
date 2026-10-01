@@ -3,12 +3,12 @@ import encryption from '@adonisjs/core/services/encryption'
 import logger from '@adonisjs/core/services/logger'
 import vine from '@vinejs/vine'
 import Asset from '#models/asset'
-import Board from '#models/board'
 import { entitlementsFor } from '#services/billing/plans'
 import { serializeAsset, storeBuffer } from '#services/assets_service'
 import { FigmaError, importFigma, parseFigmaUrl } from '#services/figma_import'
 import { t } from '#services/i18n'
 import { trackFor } from '#services/analytics/events'
+import { boardAccess } from '#services/board_access'
 
 const importValidator = vine.compile(
   vine.object({
@@ -32,8 +32,8 @@ export default class FigmaImportController {
   async store(ctx: HttpContext) {
     const { auth, params, request, response } = ctx
     const user = auth.user!
-    const board = await Board.find(params.id)
-    if (!board || board.userId !== user.id) return response.notFound()
+    const board = (await boardAccess(user.id, params.id, 'edit'))?.board
+    if (!board) return response.notFound()
     const input = await request.validateUsing(importValidator)
     if (!parseFigmaUrl(input.url)) {
       return response.status(422).json({ message: t('figma.badUrl'), code: 'E_FIGMA_URL' })
@@ -51,7 +51,7 @@ export default class FigmaImportController {
       return response.status(422).json({ message: t('figma.tokenRequired'), code: 'E_FIGMA_TOKEN' })
     }
 
-    const { limits } = await entitlementsFor(user.id)
+    const { limits } = await entitlementsFor(board.userId)
     const [{ $extras }] = await Asset.query().where('board_id', board.id).count('* as total')
     if (Number($extras.total) + 1 > limits.materialsPerBoard) {
       return response.status(402).json({

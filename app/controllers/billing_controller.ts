@@ -49,6 +49,7 @@ async function summary(userId: number) {
       ...limits,
       boards: finite(limits.boards),
       materialsPerBoard: finite(limits.materialsPerBoard),
+      collaborators: finite(limits.collaborators),
     },
   }
 }

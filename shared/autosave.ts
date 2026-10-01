@@ -9,9 +9,10 @@
  *   szybkie rysowanie koliduje w jeden `save` po ~1 s ciszy.
  * - Sukces zapisu → nowa wersja, status `saved`.
  * - Konflikt (HTTP 409) → pobranie świeżego stanu (`reload`), wywołanie
- *   `onConflict` (komunikat w UI), a następnie JEDEN ponowny zapis z nową
- *   wersją (rebase, last-write-wins z jawnym komunikatem). Kolejny konflikt
- *   kończy się statusem `error` — bez nieskończonej pętli.
+ *   `onConflict`, a następnie JEDEN ponowny zapis z nową wersją. Z opcją
+ *   `rebase` zapisywany jest wynik scalenia (zmiany innych osób + lokalne),
+ *   bez niej — lokalny dokument (last-write-wins z jawnym komunikatem).
+ *   Kolejny konflikt kończy się statusem `error` — bez nieskończonej pętli.
  * - Inny błąd (sieć, 422, 500) → status `error`.
  */
 
@@ -46,6 +47,16 @@ export interface AutosaveOptions<D = unknown, A = unknown> {
   reload: () => Promise<FreshState<D, A>>
   onStatus: (status: SaveStatus) => void
   onConflict: (fresh: FreshState<D, A>) => void
+  /** Scalenie świeżego stanu serwera z lokalnym (współpraca na żywo). */
+  rebase?: (
+    fresh: FreshState<D, A>,
+    pending: { document: D; appState: A }
+  ) => {
+    document: D
+    appState: A
+  }
+  /** Po udanym zapisie — co trafiło na serwer i z jaką wersją. */
+  onSaved?: (payload: { document: D; appState: A }, version: number) => void
   setTimeoutFn?: (callback: () => void, ms: number) => ReturnType<typeof setTimeout>
   clearTimeoutFn?: (handle: ReturnType<typeof setTimeout>) => void
 }
@@ -74,6 +85,18 @@ export class AutosaveEngine<D = unknown, A = unknown> {
 
   setVersion(version: number): void {
     this.#version = version
+  }
+
+  /** Czy czeka zaplanowany (jeszcze niewysłany) zapis. */
+  get hasPending(): boolean {
+    return this.#queued !== null
+  }
+
+  /** Porzuca zaplanowany zapis (np. gdy zdalna wersja już go zawiera). */
+  cancelPending(): void {
+    if (this.#timer) this.#clearTimeoutFn(this.#timer)
+    this.#timer = null
+    this.#queued = null
   }
 
   /** Planuje zapis po ciszy (debounce). Kolejne wywołania restartują timer. */
@@ -109,6 +132,7 @@ export class AutosaveEngine<D = unknown, A = unknown> {
           document: payload.document,
           appState: payload.appState,
         })
+        this.opts.onSaved?.(payload, this.#version)
         this.opts.onStatus('saved')
       } catch (error) {
         if (error instanceof AutosaveConflictError) {
@@ -126,14 +150,16 @@ export class AutosaveEngine<D = unknown, A = unknown> {
 
           this.#version = fresh.version
           this.opts.onConflict(fresh)
+          const next = this.opts.rebase ? this.opts.rebase(fresh, payload) : payload
 
           // Rebase: jeden ponowny zapis z aktualną wersją serwera.
           try {
             this.#version = await this.opts.save({
               version: this.#version,
-              document: payload.document,
-              appState: payload.appState,
+              document: next.document,
+              appState: next.appState,
             })
+            this.opts.onSaved?.(next, this.#version)
             this.opts.onStatus('saved')
           } catch {
             this.opts.onStatus('error')

@@ -1,7 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
+import { boardAccess } from '#services/board_access'
 import vine from '@vinejs/vine'
 import BrandKit from '#models/brand_kit'
-import Board from '#models/board'
 import DesignDoc from '#models/design_doc'
 import { entitlementsFor } from '#services/billing/plans'
 import { t } from '#services/i18n'
@@ -76,8 +76,8 @@ export default class BrandKitsController {
     if (!(await this.guard(ctx))) return
     const { auth, request, response } = ctx
     const { boardId, version, name } = await request.validateUsing(createValidator)
-    const board = await Board.find(boardId)
-    if (!board || board.userId !== auth.user!.id) return response.notFound()
+    const board = (await boardAccess(auth.user!.id, boardId, 'view'))?.board
+    if (!board) return response.notFound()
     const query = DesignDoc.query().where('board_id', board.id).where('status', 'ready')
     const doc = version
       ? await query.where('version', version).first()

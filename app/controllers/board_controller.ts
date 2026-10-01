@@ -9,12 +9,26 @@ import { entitlementsFor } from '#services/billing/plans'
 import { currentLocale, t } from '#services/i18n'
 import { trackFor } from '#services/analytics/events'
 import { BOARD_TEMPLATES, TEMPLATE_CAMERA, buildTemplateScene } from '#shared/board-templates'
+import User from '#models/user'
+import { boardAccess, memberBoardIds } from '#services/board_access'
 
 export default class BoardController {
-  async index({ auth, inertia }: HttpContext) {
+  async index({ auth, inertia, session, response }: HttpContext) {
     const user = auth.user!
-    const boards = await Board.query().where('user_id', user.id).orderBy('updated_at', 'desc')
+    // Zaproszenie przyjęte przed zalogowaniem / rejestracją — dokończ je teraz.
+    const pendingInvite = session.get('pendingInvite') as string | undefined
+    if (pendingInvite) return response.redirect().toPath(`/invites/${pendingInvite}`)
+
+    const shared = await memberBoardIds(user.id)
+    const boards = await Board.query()
+      .where((q) => {
+        q.where('user_id', user.id)
+        if (shared.size) q.orWhereIn('id', [...shared.keys()])
+      })
+      .orderBy('updated_at', 'desc')
     const ids = boards.map((b) => b.id)
+    const ownerIds = [...new Set(boards.map((b) => b.userId).filter((id) => id !== user.id))]
+    const owners = ownerIds.length ? await User.query().whereIn('id', ownerIds) : []
 
     // Dane kart: liczba assetów, okładka (pierwszy obraz z miniaturą),
     // ostatni DESIGN.md i czas ostatniej edycji sceny.
@@ -44,6 +58,14 @@ export default class BoardController {
             title: b.title,
             slug: b.slug,
             isSample: b.isSample,
+            role: b.userId === user.id ? 'owner' : (shared.get(b.id) ?? 'viewer'),
+            ownerName:
+              b.userId === user.id
+                ? null
+                : (() => {
+                    const o = owners.find((x) => x.id === b.userId)
+                    return o?.fullName?.trim() || o?.email || null
+                  })(),
             createdAt: toIso(b.createdAt),
             updatedAt: toIso(b.updatedAt),
             editedAt: toIso(edited),
@@ -106,10 +128,9 @@ export default class BoardController {
   }
 
   async show({ auth, inertia, params, response }: HttpContext) {
-    const board = await Board.find(params.id)
-    if (!board || board.userId !== auth.user!.id) {
-      return response.redirect().toPath('/boards')
-    }
+    const access = await boardAccess(auth.user!.id, params.id, 'view')
+    if (!access) return response.redirect().toPath('/boards')
+    const { board, role } = access
 
     return inertia.render(
       'boards/show' as any,
@@ -120,6 +141,8 @@ export default class BoardController {
           slug: board.slug,
           createdAt: board.createdAt?.toISO(),
           updatedAt: board.updatedAt?.toISO(),
+          role,
+          isSample: board.isSample,
         },
       } as any
     )

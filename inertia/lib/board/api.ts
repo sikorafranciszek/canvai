@@ -41,9 +41,20 @@ function readCookie(name: string): string | null {
 }
 
 /** Nagłówek CSRF dla zapytań mutujących (Shield: enableXsrfCookie). */
+/**
+ * Identyfikator tej karty przeglądarki — serwer nie odsyła nam naszych własnych
+ * zdarzeń na żywo (zmiana sceny, materiałów, komentarzy).
+ */
+export const CLIENT_ID: string =
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`
+
 export function csrfHeaders(): Record<string, string> {
   const token = readCookie('XSRF-TOKEN')
-  return token ? { 'X-XSRF-TOKEN': token } : {}
+  return token
+    ? { 'X-XSRF-TOKEN': token, 'X-Client-Id': CLIENT_ID }
+    : { 'X-Client-Id': CLIENT_ID }
 }
 
 async function parseJson<T>(res: Response): Promise<T> {

@@ -50,6 +50,8 @@ interface DesignState {
   setProMode: (on: boolean) => void
   selectVersion: (version: number) => Promise<void>
   generate: (opts?: { force?: boolean }) => Promise<void>
+  /** Nowa wersja od innego uczestnika — odśwież listę (bieżący widok zostaje). */
+  refreshRemote: () => Promise<void>
   /** Ręczna edycja tokenów bieżącej wersji → nowa wersja. Zwraca `true` po sukcesie. */
   applyEdits: (edits: DocEdits) => Promise<boolean>
 }
@@ -177,6 +179,20 @@ export const useDesignStore = create<DesignState>()((set, get) => {
         toast.error(error instanceof Error ? error.message : translate('doc.loadVersionFailed'))
       } finally {
         set({ loading: false })
+      }
+    },
+
+    async refreshRemote() {
+      const boardId = get().boardId
+      if (boardId == null || isPending(get().active)) return
+      try {
+        const versions = await refreshVersions(boardId)
+        if (!get().current) {
+          const latest = versions.find((v) => v.status === 'ready')
+          if (latest) set({ current: await getDesignDoc(boardId, latest.version) })
+        }
+      } catch {
+        // Chwilowy błąd sieci — lista odświeży się przy następnym zdarzeniu.
       }
     },
 

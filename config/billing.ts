@@ -32,6 +32,8 @@ export interface PlanLimits {
   portal: boolean
   /** Brand kity: kolory, fonty i zasady marki do ponownego użycia. */
   brandKits: boolean
+  /** Ilu współpracowników (edytorów i podglądających) można zaprosić do tablicy. */
+  collaborators: number
 }
 
 const PAID: PlanLimits = {
@@ -44,6 +46,7 @@ const PAID: PlanLimits = {
   api: true,
   portal: true,
   brandKits: true,
+  collaborators: 3,
 }
 
 export const plans: Record<PlanId, PlanLimits> = {
@@ -57,10 +60,11 @@ export const plans: Record<PlanId, PlanLimits> = {
     api: false,
     portal: false,
     brandKits: false,
+    collaborators: 0,
   },
   payg: PAID,
-  pro: PAID,
-  team: { ...PAID, materialsPerBoard: 80 },
+  pro: { ...PAID, collaborators: 5 },
+  team: { ...PAID, materialsPerBoard: 80, collaborators: 50 },
 }
 
 /** Cennik akcji w kredytach. */

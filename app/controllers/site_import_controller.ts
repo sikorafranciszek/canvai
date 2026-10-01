@@ -2,13 +2,13 @@ import type { HttpContext } from '@adonisjs/core/http'
 import logger from '@adonisjs/core/services/logger'
 import vine from '@vinejs/vine'
 import Asset from '#models/asset'
-import Board from '#models/board'
 import { entitlementsFor } from '#services/billing/plans'
 import { serializeAsset, storeBuffer, storeLink } from '#services/assets_service'
 import { safeFetch } from '#services/safe_fetch'
 import { analyzeSite, siteStyleNote } from '#services/site_import'
 import { t } from '#services/i18n'
 import { trackFor } from '#services/analytics/events'
+import { boardAccess } from '#services/board_access'
 
 const importValidator = vine.compile(
   vine.object({
@@ -26,11 +26,11 @@ const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
 export default class SiteImportController {
   async store(ctx: HttpContext) {
     const { auth, params, request, response } = ctx
-    const board = await Board.find(params.id)
-    if (!board || board.userId !== auth.user!.id) return response.notFound()
+    const board = (await boardAccess(auth.user!.id, params.id, 'edit'))?.board
+    if (!board) return response.notFound()
     const { url } = await request.validateUsing(importValidator)
 
-    const { limits } = await entitlementsFor(auth.user!.id)
+    const { limits } = await entitlementsFor(board.userId)
     const [{ $extras }] = await Asset.query().where('board_id', board.id).count('* as total')
     if (Number($extras.total) + 2 > limits.materialsPerBoard) {
       return response.status(402).json({

@@ -117,6 +117,54 @@ export class AssetSchema extends BaseModel {
   declare width: number | null
 }
 
+export class BoardCommentSchema extends BaseModel {
+  static $columns = ['boardId', 'body', 'createdAt', 'id', 'parentId', 'resolvedAt', 'updatedAt', 'userId', 'x', 'y'] as const
+  $columns = BoardCommentSchema.$columns
+  @column()
+  declare boardId: number
+  @column()
+  declare body: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare parentId: number | null
+  @column.dateTime()
+  declare resolvedAt: DateTime | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number | null
+  @column()
+  declare x: number | null
+  @column()
+  declare y: number | null
+}
+
+export class BoardMemberSchema extends BaseModel {
+  static $columns = ['acceptedAt', 'boardId', 'createdAt', 'email', 'id', 'invitedById', 'role', 'token', 'userId'] as const
+  $columns = BoardMemberSchema.$columns
+  @column.dateTime()
+  declare acceptedAt: DateTime | null
+  @column()
+  declare boardId: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare email: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare invitedById: number | null
+  @column()
+  declare role: string
+  @column()
+  declare token: string
+  @column()
+  declare userId: number | null
+}
+
 export class BoardSceneSchema extends BaseModel {
   static $columns = ['appState', 'boardId', 'createdAt', 'document', 'id', 'updatedAt', 'version'] as const
   $columns = BoardSceneSchema.$columns

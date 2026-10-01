@@ -1,5 +1,4 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import Board from '#models/board'
 import DesignDoc from '#models/design_doc'
 import Job from '#models/job'
 import { providerNotReadyMessage, providerReady } from '#services/ai/provider'
@@ -25,6 +24,8 @@ import { estimateGeneration } from '#services/billing/estimate'
 import { renderExport } from '#services/design/exports'
 import { assessQuality } from '#services/design/quality'
 import { printBrand } from '#services/portal'
+import { boardAccess, type BoardAction } from '#services/board_access'
+import { publish } from '#services/board_events'
 import { createEditedVersion, SpecEditError } from '#services/design/edit'
 import { trackFor } from '#services/analytics/events'
 import { aiBudgetDenial, countGeneration } from '#services/ops/ai_budget'
@@ -34,10 +35,9 @@ import { aiBudgetDenial, countGeneration } from '#services/ops/ai_budget'
  * Wszystko wyłącznie dla właściciela tablicy (obcy dostaje 404).
  */
 export default class DesignDocsController {
-  private async findBoard(userId: number, boardId: string | number) {
-    const board = await Board.find(boardId)
-    if (!board || board.userId !== userId) return null
-    return board
+  /** Tablica, do której użytkownik ma dostęp (`view` albo `edit`). Rozliczenia — konto właściciela. */
+  private async findBoard(userId: number, boardId: string | number, action: BoardAction = 'view') {
+    return (await boardAccess(userId, boardId, action))?.board ?? null
   }
 
   private async serialize(doc: DesignDoc, withContent: boolean) {
@@ -91,7 +91,7 @@ export default class DesignDocsController {
   /** POST /api/boards/:id/design-doc/edit — poprawione tokeny jako nowa wersja (bez AI i kredytów). */
   async edit(ctx: HttpContext) {
     const { auth, params, request, response } = ctx
-    const board = await this.findBoard(auth.user!.id, params.id)
+    const board = await this.findBoard(auth.user!.id, params.id, 'edit')
     if (!board) return response.notFound()
     const { version, ...edits } = await request.validateUsing(editDesignDocValidator)
 
@@ -109,7 +109,7 @@ export default class DesignDocsController {
       .where('version', version)
       .first()
     if (!base) return response.notFound()
-    if (!(await this.versionVisible(auth.user!.id, board.id, base.version))) {
+    if (!(await this.versionVisible(board.userId, board.id, base.version))) {
       return response
         .status(403)
         .json({ message: t('billing.versionLocked'), code: 'E_PLAN_LIMIT' })
@@ -128,6 +128,7 @@ export default class DesignDocsController {
         },
         { boardId: board.id }
       )
+      publish(board.id, 'doc', { version: doc.version, status: 'ready' })
       return response.status(201).json({ data: await this.serialize(doc, true) })
     } catch (error) {
       if (error instanceof SpecEditError) {
@@ -141,11 +142,11 @@ export default class DesignDocsController {
   async store(ctx: HttpContext) {
     const { auth, params, request, response } = ctx
     const user = auth.user!
-    const board = await this.findBoard(user.id, params.id)
+    const board = await this.findBoard(user.id, params.id, 'edit')
     if (!board) return response.notFound()
 
     const { force, proMode = false } = await request.validateUsing(generateDesignDocValidator)
-    const { limits } = await entitlementsFor(user.id)
+    const { limits } = await entitlementsFor(board.userId)
     if (proMode && !limits.proReasoning) {
       return response.status(403).json({ message: t('billing.proOnly'), code: 'E_PLAN_FEATURE' })
     }
@@ -204,8 +205,8 @@ export default class DesignDocsController {
     // Kredyty: szacunek = opłata. Brak środków → 402, zanim cokolwiek powstanie.
     const estimate = billing.enforced ? await estimateGeneration(input, proMode) : null
     if (estimate) {
-      await ensureAutomaticGrants(user.id)
-      const balance = await balanceOf(user.id)
+      await ensureAutomaticGrants(board.userId)
+      const balance = await balanceOf(board.userId)
       if (balance < estimate.credits) {
         return response.status(402).json({
           message: t('billing.insufficient', { needed: estimate.credits, balance }),
@@ -225,7 +226,7 @@ export default class DesignDocsController {
     })
     if (estimate) {
       try {
-        await reserveCredits(user.id, estimate.credits, { designDocId: doc.id })
+        await reserveCredits(board.userId, estimate.credits, { designDocId: doc.id })
       } catch (error) {
         await doc.delete()
         if (error instanceof InsufficientCreditsError) {
@@ -279,7 +280,7 @@ export default class DesignDocsController {
       : await query.orderBy('version', 'desc').first()
 
     if (!doc && version) return response.notFound()
-    if (doc && !(await this.versionVisible(auth.user!.id, board.id, doc.version))) {
+    if (doc && !(await this.versionVisible(board.userId, board.id, doc.version))) {
       return response
         .status(403)
         .json({ message: t('billing.versionLocked'), code: 'E_PLAN_LIMIT' })
@@ -292,7 +293,7 @@ export default class DesignDocsController {
     const board = await this.findBoard(auth.user!.id, params.id)
     if (!board) return response.notFound()
 
-    const { limits } = await entitlementsFor(auth.user!.id)
+    const { limits } = await entitlementsFor(board.userId)
     const all = await DesignDoc.query().where('board_id', board.id).orderBy('version', 'desc')
     // Plan Free: widać tylko ostatnie wersje; starsze czekają na przejście na płatny plan.
     const docs = limits.versionsKept == null ? all : all.slice(0, limits.versionsKept)
@@ -314,7 +315,7 @@ export default class DesignDocsController {
       ? await query.where('version', version).first()
       : await query.orderBy('version', 'desc').first()
     if (!doc?.contentMd) return response.notFound()
-    if (!(await this.versionVisible(auth.user!.id, board.id, doc.version))) {
+    if (!(await this.versionVisible(board.userId, board.id, doc.version))) {
       return response
         .status(403)
         .json({ message: t('billing.versionLocked'), code: 'E_PLAN_LIMIT' })
@@ -338,7 +339,7 @@ export default class DesignDocsController {
       ? await query.where('version', version).first()
       : await query.orderBy('version', 'desc').first()
     if (!doc?.contentMd) return response.notFound()
-    if (!(await this.versionVisible(auth.user!.id, board.id, doc.version))) {
+    if (!(await this.versionVisible(board.userId, board.id, doc.version))) {
       return response.redirect().toPath('/billing')
     }
     trackFor(ctx, 'design_doc_printed', { version: doc.version }, { boardId: board.id })
@@ -351,7 +352,7 @@ export default class DesignDocsController {
           contentMd: doc.contentMd,
           generatedAt: doc.generatedAt?.toISO() ?? null,
         },
-        preparedBy: await printBrand(auth.user!.id),
+        preparedBy: await printBrand(board.userId),
         backHref: `/boards/${board.id}`,
       } as any
     )
@@ -374,7 +375,7 @@ export default class DesignDocsController {
    */
   async estimate({ auth, params, request, response }: HttpContext) {
     const user = auth.user!
-    const board = await this.findBoard(user.id, params.id)
+    const board = await this.findBoard(user.id, params.id, 'edit')
     if (!board) return response.notFound()
 
     const { pro = false } = await estimateValidator.validate(request.qs())
@@ -388,14 +389,14 @@ export default class DesignDocsController {
       latest.inputFingerprint === input.fingerprint &&
       latest.proMode === pro
 
-    await ensureAutomaticGrants(user.id)
+    await ensureAutomaticGrants(board.userId)
     const estimate = await estimateGeneration(input, pro)
     return response.json({
       data: {
         ...estimate,
         credits: billing.enforced ? estimate.credits : 0,
         unchanged,
-        balance: await balanceOf(user.id),
+        balance: await balanceOf(board.userId),
         enforced: billing.enforced,
       },
     })
@@ -407,7 +408,7 @@ export default class DesignDocsController {
     const board = await this.findBoard(auth.user!.id, params.id)
     if (!board) return response.notFound()
 
-    const { limits } = await entitlementsFor(auth.user!.id)
+    const { limits } = await entitlementsFor(board.userId)
     if (!limits.exports) {
       return response
         .status(403)

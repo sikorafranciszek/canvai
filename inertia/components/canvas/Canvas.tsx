@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { reportCursor } from '~/lib/board/live'
 import { Arrow, Ellipse, Group, Layer, Line, Rect, Stage, Text, Transformer } from 'react-konva'
 import type Konva from 'konva'
 import type { SceneDocument, SceneElement, ScenePoint } from '@shared/scene'
@@ -23,7 +24,7 @@ import { useT } from '~/i18n'
 const MIN_SCALE = 0.1
 const MAX_SCALE = 8
 
-export function Canvas({ boardId }: { boardId: number }) {
+export function Canvas({ boardId, readOnly = false }: { boardId: number; readOnly?: boolean }) {
   const document = useSceneStore((s) => s.document)
   const selection = useSceneStore((s) => s.selection)
   const tool = useSceneStore((s) => s.tool)
@@ -114,6 +115,8 @@ export function Canvas({ boardId }: { boardId: number }) {
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (isTypingTarget(e.target)) return
+      // Tryb podglądu: bez skrótów edycji (usuwanie, wklejanie, cofanie).
+      if (readOnly) return
 
       const store = useSceneStore.getState()
       const mod = e.ctrlKey || e.metaKey
@@ -214,9 +217,9 @@ export function Canvas({ boardId }: { boardId: number }) {
   // Wczytanie sceny + autosave + zapis przy beforeunload.
   useEffect(() => {
     const session = useBoardStore.getState()
-    void session.init(boardId)
+    void session.init(boardId, { readOnly })
     return () => session.dispose()
-  }, [boardId])
+  }, [boardId, readOnly])
 
   useEffect(() => {
     const onBeforeUnload = () => {
@@ -230,6 +233,7 @@ export function Canvas({ boardId }: { boardId: number }) {
   // Działa przy fokusie na płótnie i na stronie, ale NIE w polach tekstowych.
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
+      if (readOnly) return
       const target = e.target
       if (target instanceof HTMLElement) {
         const tag = target.tagName
@@ -315,6 +319,7 @@ export function Canvas({ boardId }: { boardId: number }) {
 
   const handleStageMouseDown = (e: any) => {
     if (e.evt.button === 1) return // środkowy przycisk = pan (obsłużone niżej)
+    if (readOnly) return
 
     const point = getWorldPointer()
 
@@ -343,7 +348,11 @@ export function Canvas({ boardId }: { boardId: number }) {
   }
 
   const handleStageMouseMove = () => {
-    if (!draft && !marquee) return
+    if (!draft && !marquee) {
+      const p = getWorldPointer()
+      reportCursor(p.x, p.y)
+      return
+    }
     const point = getWorldPointer()
 
     if (marquee) {
@@ -521,7 +530,11 @@ export function Canvas({ boardId }: { boardId: number }) {
     transformer.getLayer()?.batchDraw()
   }
 
-  const handleTextCommit = (id: string, text: string, size?: { width?: number; height?: number }) => {
+  const handleTextCommit = (
+    id: string,
+    text: string,
+    size?: { width?: number; height?: number }
+  ) => {
     setEditingId(null)
     const store = useSceneStore.getState()
     const baseline = store.document
@@ -548,6 +561,7 @@ export function Canvas({ boardId }: { boardId: number }) {
     e.preventDefault()
     dragDepth.current = 0
     setIsDragOver(false)
+    if (readOnly) return
     const files: File[] = Array.from(e.dataTransfer.files)
     if (files.length === 0) return
     const rect = e.currentTarget.getBoundingClientRect()
@@ -621,7 +635,7 @@ export function Canvas({ boardId }: { boardId: number }) {
         y={camera.y}
         scaleX={camera.scale}
         scaleY={camera.scale}
-        draggable={tool === 'pan' || isMiddlePan}
+        draggable={readOnly || tool === 'pan' || isMiddlePan}
         onMouseDown={(e) => {
           handleStageMouseDown(e)
           handleMouseDown(e)
@@ -634,7 +648,7 @@ export function Canvas({ boardId }: { boardId: number }) {
         data-testid="canvas-stage"
       >
         {/* Warstwa statyczna: elementy sceny. */}
-        <Layer listening={tool === 'select'}>{stageChildren}</Layer>
+        <Layer listening={tool === 'select' && !readOnly}>{stageChildren}</Layer>
 
         {/* Placeholdery uploadu (optymistyczne, z paskiem postępu). */}
         {pendingUploads.length > 0 && (
@@ -668,7 +682,11 @@ export function Canvas({ boardId }: { boardId: number }) {
                   listening={false}
                 />
                 <Text
-                  text={u.status === 'error' ? t('canvas.uploadError') : `${Math.round(u.progress * 100)}%`}
+                  text={
+                    u.status === 'error'
+                      ? t('canvas.uploadError')
+                      : `${Math.round(u.progress * 100)}%`
+                  }
                   x={8}
                   y={u.height / 2 - 2}
                   width={u.width - 16}
@@ -715,25 +733,25 @@ export function Canvas({ boardId }: { boardId: number }) {
         {/* Uchwyty zaznaczenia (resize/rotate) — osobna warstwa, która MUSI słuchać
             zdarzeń; w warstwie z listening={false} uchwyty były martwe. */}
         <Layer listening={tool === 'select'}>
-            <Transformer
-              ref={transformerRef}
-              rotateEnabled
-              anchorSize={9}
-              padding={2}
-              ignoreStroke
-              rotationSnaps={[0, 90, 180, 270]}
-              enabledAnchors={transformerAnchors}
+          <Transformer
+            ref={transformerRef}
+            rotateEnabled
+            anchorSize={9}
+            padding={2}
+            ignoreStroke
+            rotationSnaps={[0, 90, 180, 270]}
+            enabledAnchors={transformerAnchors}
             // Proporcje trzymamy tylko dla obrazów i tekstu (Shift odwraca zachowanie).
             keepRatio={selectedElement?.type === 'image' || selectedElement?.type === 'text'}
-              borderStroke={SELECTION}
-              anchorStroke={SELECTION}
-              anchorFill="#fdfbfa"
-              anchorCornerRadius={2}
-              boundBoxFunc={(oldBox, newBox) =>
-                Math.abs(newBox.width) < 4 || Math.abs(newBox.height) < 4 ? oldBox : newBox
-              }
-              onTransformEnd={handleTransformEnd}
-            />
+            borderStroke={SELECTION}
+            anchorStroke={SELECTION}
+            anchorFill="#fdfbfa"
+            anchorCornerRadius={2}
+            boundBoxFunc={(oldBox, newBox) =>
+              Math.abs(newBox.width) < 4 || Math.abs(newBox.height) < 4 ? oldBox : newBox
+            }
+            onTransformEnd={handleTransformEnd}
+          />
         </Layer>
       </Stage>
 
@@ -765,9 +783,7 @@ export function Canvas({ boardId }: { boardId: number }) {
               <div className="t-body-lg" style={{ fontWeight: 500 }}>
                 {t('canvas.empty.title')}
               </div>
-              <div className="t-muted t-small">
-                {t('canvas.empty.subtitle')}
-              </div>
+              <div className="t-muted t-small">{t('canvas.empty.subtitle')}</div>
             </div>
             <div className="hint-list">
               <div className="hint">
@@ -807,7 +823,7 @@ export function Canvas({ boardId }: { boardId: number }) {
       )}
 
       {/* Upload z dysku. */}
-      <div className="float float--upload">
+      <div className="float float--upload" hidden={readOnly}>
         <button
           type="button"
           className="btn btn--quiet btn--sm"
@@ -912,7 +928,12 @@ function DraftShape({ draft }: { draft: { kind: Tool; start: ScenePoint; points:
  * Zamiana skali węzła (po transformacji) na trwałe wymiary elementu.
  * Pozycja zawsze z węzła — przy ciągnięciu za lewy/górny uchwyt zmienia się też x/y.
  */
-function transformPatch(el: SceneElement, node: Konva.Node, scaleX: number, scaleY: number): Partial<SceneElement> {
+function transformPatch(
+  el: SceneElement,
+  node: Konva.Node,
+  scaleX: number,
+  scaleY: number
+): Partial<SceneElement> {
   const base = { x: node.x(), y: node.y(), rotation: node.rotation() }
   switch (el.type) {
     case 'rectangle':

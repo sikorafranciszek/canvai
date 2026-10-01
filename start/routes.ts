@@ -62,6 +62,9 @@ router
   .get('/verify-email/:token', [controllers.EmailVerification, 'verify'])
   .as('verification.verify')
 
+/** Zaproszenie do tablicy (bez wymaganego logowania — kontroler przekieruje). */
+router.get('/invites/:token', [controllers.BoardMembers, 'accept']).as('invites.accept')
+
 /**
  * API v1 i serwer MCP — token Bearer (`cvai_…`), bez sesji i CSRF.
  * Dla Cursora / Claude Code / skryptów: odczyt tablic, DESIGN.md i tokenów.
@@ -168,6 +171,17 @@ router
     router.put('/boards/:id/share', [controllers.BoardShares, 'update'])
     router.post('/boards/:id/share/rotate', [controllers.BoardShares, 'rotate'])
     router.post('/assets/:id/accept', [controllers.BoardShares, 'accept'])
+    // Współpraca: członkowie, zdarzenia na żywo, kursory, komentarze
+    router.get('/boards/:id/members', [controllers.BoardMembers, 'index'])
+    router.post('/boards/:id/members', [controllers.BoardMembers, 'store'])
+    router.patch('/boards/:id/members/:memberId', [controllers.BoardMembers, 'update'])
+    router.delete('/boards/:id/members/:memberId', [controllers.BoardMembers, 'destroy'])
+    router.get('/boards/:id/events', [controllers.BoardEvents, 'stream'])
+    router.post('/boards/:id/cursor', [controllers.BoardEvents, 'cursor'])
+    router.get('/boards/:id/comments', [controllers.BoardComments, 'index'])
+    router.post('/boards/:id/comments', [controllers.BoardComments, 'store'])
+    router.patch('/comments/:id', [controllers.BoardComments, 'update'])
+    router.delete('/comments/:id', [controllers.BoardComments, 'destroy'])
     router.get('/brand-kits', [controllers.BrandKits, 'index'])
     router.post('/brand-kits', [controllers.BrandKits, 'store'])
     router.patch('/brand-kits/:id', [controllers.BrandKits, 'update'])

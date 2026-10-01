@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { DateTime } from 'luxon'
 import { safeFetch } from '#services/safe_fetch'
 import { readFile } from 'node:fs/promises'
 import { Exception } from '@adonisjs/core/exceptions'
@@ -407,8 +408,11 @@ export async function pruneOrphanAssets(boardId: number): Promise<number[]> {
   if (!scene) return []
   const referenced = referencedAssetIds(scene.document)
   // Materiały od klienta (skrzynka portalu) czekają na właściciela — nie są sierotami.
+  // Świeże materiały (< 15 min) mogą jeszcze czekać na zapis sceny u innego
+  // uczestnika tablicy albo w drugiej karcie — nie ruszamy ich.
+  const fresh = DateTime.utc().minus({ minutes: 15 })
   const orphans = (await Asset.query().where('board_id', boardId).where('inbox', false)).filter(
-    (a) => !referenced.has(a.id)
+    (a) => !referenced.has(a.id) && (!a.createdAt || a.createdAt < fresh)
   )
   for (const asset of orphans) {
     await deleteAssetFiles(asset)

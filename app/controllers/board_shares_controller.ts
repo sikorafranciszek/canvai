@@ -11,6 +11,7 @@ import { newShareToken } from '#services/portal'
 import { serializeAsset } from '#services/assets_service'
 import { t } from '#services/i18n'
 import { trackFor } from '#services/analytics/events'
+import { boardAccess } from '#services/board_access'
 
 const updateValidator = vine.compile(
   vine.object({
@@ -103,8 +104,8 @@ export default class BoardSharesController {
   /** POST /api/assets/:id/accept — materiał od klienta trafił na płótno. */
   async accept({ auth, params, response }: HttpContext) {
     const asset = await Asset.find(params.id)
-    const board = asset ? await this.findBoard(auth.user!.id, asset.boardId) : null
-    if (!asset || !board) return response.notFound()
+    const access = asset ? await boardAccess(auth.user!.id, asset.boardId, 'edit') : null
+    if (!asset || !access) return response.notFound()
     asset.inbox = false
     await asset.save()
     return response.json({ data: serializeAsset(asset) })

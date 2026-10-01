@@ -72,6 +72,11 @@ interface SceneStore {
   redo: () => void
   /** Ładuje dokument z serwera (bez historii) — używa BLA-9 przy GET sceny. */
   loadDocument: (document: SceneDocument) => void
+  /**
+   * Zmiany innych uczestników (scalone z lokalnymi). Zachowuje zaznaczenie;
+   * historia cofania jest czyszczona — cofnięcie nie może skasować cudzej pracy.
+   */
+  applyRemoteDocument: (document: SceneDocument) => void
   /** Usuwa elementy o podanych id (używane przy kasowaniu assetu). */
   deleteElements: (ids: string[]) => void
   reset: () => void
@@ -232,6 +237,16 @@ export const useSceneStore = create<SceneStore>()((set, get) => ({
       canUndo: false,
       canRedo: false,
     }),
+
+  applyRemoteDocument: (document) =>
+    set((state) => ({
+      document,
+      selection: withSelection(document, state.selection),
+      past: [],
+      future: [],
+      canUndo: false,
+      canRedo: false,
+    })),
 
   deleteElements: (ids) => {
     const state = get()

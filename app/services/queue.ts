@@ -14,6 +14,7 @@ import { isLocale } from '#shared/i18n'
 import { track } from '#services/analytics/collector'
 import Board from '#models/board'
 import { raiseAlert } from '#services/ops/alerts'
+import { publish } from '#services/board_events'
 
 /**
  * Kolejka zadań na tabeli `jobs` (bez Redisa). Worker in-process
@@ -59,6 +60,7 @@ const handlers: Record<string, JobHandler> = {
       // Nieudana generacja nic nie kosztuje — rezerwacja wraca w całości.
       await releaseAll({ designDocId: docId })
       raiseAlert('design_doc_failed', `DESIGN.md generation failed (doc ${docId}): ${message}`)
+      if (board) publish(board.id, 'doc', { status: 'failed' })
     },
     async onRetry(job, message) {
       await DesignDoc.query()

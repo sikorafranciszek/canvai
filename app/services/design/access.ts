@@ -1,13 +1,20 @@
 import Board from '#models/board'
 import DesignDoc from '#models/design_doc'
 import { renderExport, type ExportFormat } from '#services/design/exports'
+import { boardAccess, memberBoardIds } from '#services/board_access'
 
 /**
  * Odczyt tablic i dokumentów dla klientów zewnętrznych (REST v1, MCP) —
- * zawsze w granicach właściciela.
+ * tablice własne i te, do których użytkownik został zaproszony.
  */
 export async function listBoards(userId: number) {
-  const boards = await Board.query().where('user_id', userId).orderBy('updated_at', 'desc')
+  const shared = await memberBoardIds(userId)
+  const boards = await Board.query()
+    .where((q) => {
+      q.where('user_id', userId)
+      if (shared.size) q.orWhereIn('id', [...shared.keys()])
+    })
+    .orderBy('updated_at', 'desc')
   const docs = boards.length
     ? await DesignDoc.query()
         .whereIn(
@@ -31,8 +38,8 @@ export async function listBoards(userId: number) {
 }
 
 export async function readyDoc(userId: number, boardId: number, version?: number) {
-  const board = await Board.find(boardId)
-  if (!board || board.userId !== userId) return { board: null, doc: null }
+  const board = (await boardAccess(userId, boardId, 'view'))?.board
+  if (!board) return { board: null, doc: null }
   const query = DesignDoc.query().where('board_id', board.id).where('status', 'ready')
   const doc = version
     ? await query.where('version', version).first()

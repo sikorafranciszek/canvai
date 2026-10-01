@@ -577,6 +577,10 @@ test.group('Design doc API', (group) => {
 
     const logo = await Asset.findOrFail(logoId)
     const keys = [logo.storageKey, logo.thumbKey].filter(Boolean) as string[]
+    // Świeże materiały (< 15 min) są chronione przed sprzątaniem — postarzamy wszystkie.
+    await Asset.query()
+      .where('board_id', board.id)
+      .update({ created_at: DateTime.utc().minus({ hours: 1 }).toJSDate() })
 
     // Obcy nie może sprzątać cudzej tablicy.
     const intruder = await login(client)
