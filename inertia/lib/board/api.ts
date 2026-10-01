@@ -176,7 +176,9 @@ export async function createLinkAsset(boardId: number, url: string): Promise<Ass
     credentials: 'same-origin',
   })
   if (!res.ok) {
-    throw new Error(await extractErrorMessage(res, translate('api.linkFailed', { status: res.status })))
+    throw new Error(
+      await extractErrorMessage(res, translate('api.linkFailed', { status: res.status }))
+    )
   }
   const body = await parseJson<{ data: AssetDto[] }>(res)
   return body.data[0]
@@ -227,7 +229,8 @@ export async function deleteAsset(assetId: string): Promise<void> {
     headers: csrfHeaders(),
     credentials: 'same-origin',
   })
-  if (!res.ok && res.status !== 404) throw new Error(translate('api.deleteFailed', { status: res.status }))
+  if (!res.ok && res.status !== 404)
+    throw new Error(translate('api.deleteFailed', { status: res.status }))
 }
 
 async function extractErrorMessage(res: Response, fallback: string): Promise<string> {
@@ -278,6 +281,66 @@ export interface DesignDocDto {
   jobId: number | null
   progress: DesignDocProgress | null
   contentMd?: string | null
+  editedFromVersion?: number | null
+  quality?: QualityReport
+  tokens?: DocTokens
+}
+
+export type WcagLevel = 'AAA' | 'AA' | 'AA-large' | 'fail'
+
+export interface QualityReport {
+  score: number
+  grade: 'excellent' | 'good' | 'fair' | 'weak'
+  grounded: number
+  total: number
+  assumed: { kind: 'color' | 'font' | 'component' | 'spacing'; name: string }[]
+  gaps: {
+    id: string
+    severity: 'high' | 'medium' | 'low'
+    params?: Record<string, string | number>
+  }[]
+  contrast: {
+    text: { name: string; hex: string; token: string }
+    background: { name: string; hex: string }
+    ratio: number
+    level: WcagLevel
+    suggestion: string | null
+  }[]
+}
+
+export interface DocTokens {
+  colors: {
+    token: string
+    name: string
+    hex: string
+    role: string
+    assumed: boolean
+    confirmed: boolean
+  }[]
+  families: { token: string; name: string; role: string; assumed: boolean; confirmed: boolean }[]
+  radii: { name: string; value: string }[]
+}
+
+export interface DocEdits {
+  colors?: { token: string; hex?: string; confirm?: boolean }[]
+  families?: { token: string; name?: string; confirm?: boolean }[]
+  radii?: { name: string; value: string }[]
+}
+
+/** Poprawione tokeny → nowa wersja DESIGN.md (bez AI i kredytów). */
+export async function editDesignDoc(
+  boardId: number,
+  version: number,
+  edits: DocEdits
+): Promise<DesignDocDto> {
+  const res = await fetch(`/api/boards/${boardId}/design-doc/edit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+    body: JSON.stringify({ version, ...edits }),
+    credentials: 'same-origin',
+  })
+  if (!res.ok) throw new Error(await extractErrorMessage(res, translate('tokens.saveFailed')))
+  return (await parseJson<{ data: DesignDocDto }>(res)).data
 }
 
 export class DesignDocRequestError extends Error {

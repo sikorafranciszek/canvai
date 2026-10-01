@@ -93,6 +93,17 @@ export function preflightError(input: GenerationInput): string | null {
   return null
 }
 
+/**
+ * Plan Free: stopka z linkiem (darmowa reklama); płatne plany — bez niej.
+ * Dokument jest po angielsku, więc stopka też (niezależnie od języka interfejsu).
+ */
+export async function withPlanFooter(markdown: string, userId: number): Promise<string> {
+  const { limits: planLimits } = await entitlementsFor(userId)
+  return planLimits.watermark
+    ? `${markdown.trimEnd()}\n\n---\n\n_${runWithLocale('en', () => t('billing.watermark'))}_\n`
+    : markdown
+}
+
 export async function runGeneration(
   doc: DesignDoc,
   onProgress: (progress: GenerationProgress) => Promise<void> | void
@@ -189,12 +200,7 @@ async function generate(
     }
   )
 
-  // Plan Free: stopka z linkiem (darmowa reklama); płatne plany — bez niej.
-  // Dokument jest po angielsku, więc stopka też (niezależnie od języka interfejsu).
-  const { limits: planLimits } = await entitlementsFor(board.userId)
-  const content = planLimits.watermark
-    ? `${markdown.trimEnd()}\n\n---\n\n_${runWithLocale('en', () => t('billing.watermark'))}_\n`
-    : markdown
+  const content = await withPlanFooter(markdown, board.userId)
 
   doc.status = 'ready'
   doc.contentMd = content

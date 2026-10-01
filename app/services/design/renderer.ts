@@ -1,4 +1,5 @@
 import { specReferences, type DesignSpec } from '#services/design/spec'
+import { contrastChecks } from '#services/design/quality'
 
 /**
  * Składanie DESIGN.md („Style Reference”) z ustrukturyzowanego `DesignSpec`.
@@ -49,7 +50,8 @@ function refs(sources: number[]): string {
   return sources.map((id) => `[A${id}]`).join('')
 }
 
-function sourceLabel(sources: number[], assumed: boolean): string {
+function sourceLabel(sources: number[], assumed: boolean, confirmed = false): string {
+  if (confirmed) return sources.length ? `${refs(sources)} · confirmed` : 'confirmed by client'
   if (sources.length) return refs(sources)
   return assumed ? `assumed ${ASSUMED}` : '—'
 }
@@ -259,7 +261,7 @@ export function renderDesignMd(
         `\`${c.hex}\``,
         `\`${c.token}\``,
         c.role,
-        sourceLabel(c.sources, c.assumed),
+        sourceLabel(c.sources, c.assumed, c.confirmed),
       ])
     )
   )
@@ -274,7 +276,7 @@ export function renderDesignMd(
         f.weights.length ? `- **Weights:** ${f.weights.join(', ')}` : '',
         f.sizes.length ? `- **Sizes:** ${f.sizes.join(', ')}` : '',
         f.lineHeights.length ? `- **Line height:** ${f.lineHeights.join(', ')}` : '',
-        `- **Source:** ${sourceLabel(f.sources, f.assumed)}`,
+        `- **Source:** ${sourceLabel(f.sources, f.assumed, f.confirmed)}`,
       ]
         .filter(Boolean)
         .join('\n')
@@ -372,6 +374,29 @@ export function renderDesignMd(
   )
 
   section("Do's and Don'ts", `### Do\n${bullets(spec.dos)}`, `### Don't\n${bullets(spec.donts)}`)
+
+  // Dostępność: kontrast par tekst/tło liczony przez kod (WCAG 2.x).
+  const contrast = contrastChecks(spec)
+  if (contrast.length) {
+    const failing = contrast.filter((c) => c.ratio < 4.5)
+    section(
+      'Accessibility',
+      'Text contrast checked against WCAG 2.2 (AA: 4.5:1 for body text, 3:1 for large text ≥ 24px or ≥ 18.7px bold). Every interactive element needs a visible focus indicator with at least 3:1 contrast.',
+      table(
+        ['Text', 'Background', 'Ratio', 'WCAG', 'Use instead'],
+        contrast.map((c) => [
+          `${c.text.name} \`${c.text.hex}\``,
+          `${c.background.name} \`${c.background.hex}\``,
+          `${c.ratio.toFixed(2)}:1`,
+          c.level === 'fail' ? '⚠ fail' : c.level === 'AA-large' ? '⚠ large text only' : c.level,
+          c.suggestion && c.suggestion !== c.text.hex ? `\`${c.suggestion}\`` : '—',
+        ])
+      ),
+      failing.length
+        ? `⚠ ${failing.length} pair(s) fail AA for body text — use the suggested shade for small text, or reserve the original color for large text and decoration.`
+        : ''
+    )
+  }
 
   if (spec.surfaces.length) {
     section(

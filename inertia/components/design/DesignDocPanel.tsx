@@ -26,6 +26,7 @@ import { Menu } from '~/components/ui/Menu'
 import { exportUrl, useBillingStore } from '~/lib/billing'
 import { usePreviewStore } from '~/lib/board/preview'
 import { PreviewDialog } from '~/components/design/PreviewDialog'
+import { QualityView, TokenEditor } from '~/components/design/DocInsights'
 import { createBrandKit, useBrandKitStore } from '~/lib/brand_kits'
 import { diffLines, diffStats } from '@shared/line-diff'
 import { designDocDownloadUrl, type DesignDocDto } from '~/lib/board/api'
@@ -68,6 +69,7 @@ export function DesignDocPanel() {
   const centerOnAsset = useBoardStore((s) => s.centerOnAsset)
 
   const [showDiff, setShowDiff] = useState(false)
+  const [view, setView] = useState<'doc' | 'quality' | 'tokens'>('doc')
   const scroller = useRef<HTMLDivElement>(null)
 
   const assetLabel = (id: number) =>
@@ -309,7 +311,44 @@ export function DesignDocPanel() {
               </div>
             ) : null}
 
-            {diff ? (
+            {current.quality ? (
+              <div className="doc-views">
+                <div className="segmented segmented--text" role="group" aria-label={t('doc.views')}>
+                  {(['doc', 'quality', 'tokens'] as const).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      aria-pressed={view === v}
+                      data-testid={`design-doc-view-${v}`}
+                      onClick={() => {
+                        setShowDiff(false)
+                        setView(v)
+                      }}
+                    >
+                      {t(`doc.view.${v}`)}
+                      {v === 'quality' ? (
+                        <span
+                          className={`doc-views__score doc-views__score--${current.quality!.score >= 70 ? 'good' : current.quality!.score >= 50 ? 'warning' : 'critical'}`}
+                        >
+                          {current.quality!.score}
+                        </span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+                {current.editedFromVersion ? (
+                  <span className="t-small t-muted">
+                    {t('doc.editedFrom', { version: current.editedFromVersion })}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+
+            {view === 'quality' && current.quality && !diff ? (
+              <QualityView doc={current} onEdit={() => setView('tokens')} />
+            ) : view === 'tokens' && current.tokens && !diff ? (
+              <TokenEditor key={current.version} doc={current} />
+            ) : diff ? (
               <DiffView
                 lines={diff}
                 previousVersion={previous!.version}

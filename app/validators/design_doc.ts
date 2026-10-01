@@ -25,6 +25,37 @@ export const estimateValidator = vine.compile(
   })
 )
 
+/** POST /api/boards/:id/design-doc/edit — ręczna edycja tokenów (nowa wersja bez AI). */
+export const editDesignDocValidator = vine.compile(
+  vine.object({
+    version: vine.number().withoutDecimals().positive(),
+    colors: vine
+      .array(
+        vine.object({
+          token: vine.string().maxLength(80),
+          hex: vine.string().maxLength(9).optional(),
+          confirm: vine.boolean().optional(),
+        })
+      )
+      .maxLength(40)
+      .optional(),
+    families: vine
+      .array(
+        vine.object({
+          token: vine.string().maxLength(80),
+          name: vine.string().trim().maxLength(60).optional(),
+          confirm: vine.boolean().optional(),
+        })
+      )
+      .maxLength(10)
+      .optional(),
+    radii: vine
+      .array(vine.object({ name: vine.string().maxLength(80), value: vine.string().maxLength(40) }))
+      .maxLength(20)
+      .optional(),
+  })
+)
+
 /** GET /api/boards/:id/design-doc/export?format=css|tailwind|tokens&version= */
 export const exportValidator = vine.compile(
   vine.object({

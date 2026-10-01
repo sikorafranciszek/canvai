@@ -363,6 +363,66 @@ test.group('Design doc API', (group) => {
     assert.match(res.text(), /^# Sklep z kawą — Style Reference/)
   })
 
+  test('ocena jakości i edycja tokenów: nowa wersja bez AI, wartość podmieniona w całym dokumencie', async ({
+    client,
+    assert,
+  }) => {
+    const { user, cookies } = await login(client)
+    const board = await createBoard(user)
+    await seedBoard(client, cookies, board)
+    await client.post(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies }).json({})
+    await runPendingJobs()
+
+    const v1 = (
+      await client.get(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies })
+    ).body().data
+    assert.isNumber(v1.quality.score)
+    assert.isArray(v1.quality.gaps)
+    assert.isAbove(v1.tokens.colors.length, 0)
+
+    const color = v1.tokens.colors[0]
+    const family = v1.tokens.families[0]
+    const res = await client
+      .post(`/api/boards/${board.id}/design-doc/edit`)
+      .headers({ cookie: cookies })
+      .json({
+        version: v1.version,
+        colors: [{ token: color.token, hex: '#123456' }],
+        families: [{ token: family.token, name: 'Fraunces' }],
+      })
+    res.assertStatus(201)
+    const v2 = res.body().data
+    assert.equal(v2.version, v1.version + 1)
+    assert.equal(v2.editedFromVersion, v1.version)
+    assert.include(v2.contentMd, '#123456')
+    assert.notInclude(v2.contentMd.toLowerCase(), color.hex)
+    assert.include(v2.contentMd, '### Fraunces')
+    const edited = v2.tokens.colors.find((c: any) => c.token === color.token)
+    assert.isTrue(edited.confirmed)
+    assert.isFalse(edited.assumed)
+    assert.equal((await DesignDoc.findOrFail(v2.id)).creditsCharged, 0)
+
+    // Bez zmian → 422; zły kolor → 422; ponowna generacja bez zmian materiałów zwraca edycję.
+    ;(
+      await client
+        .post(`/api/boards/${board.id}/design-doc/edit`)
+        .headers({ cookie: cookies })
+        .json({ version: v2.version, colors: [{ token: color.token, hex: '#123456' }] })
+    ).assertStatus(422)
+    ;(
+      await client
+        .post(`/api/boards/${board.id}/design-doc/edit`)
+        .headers({ cookie: cookies })
+        .json({ version: v2.version, colors: [{ token: color.token, hex: 'red' }] })
+    ).assertStatus(422)
+    const again = await client
+      .post(`/api/boards/${board.id}/design-doc`)
+      .headers({ cookie: cookies })
+      .json({})
+    again.assertStatus(200)
+    assert.equal(again.body().data.doc.version, v2.version)
+  })
+
   test('obcy użytkownik dostaje 404 na każdym endpoincie', async ({ client }) => {
     const owner = await login(client)
     const board = await createBoard(owner.user)

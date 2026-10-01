@@ -7,6 +7,7 @@ import { hasContent, preflightError, prepareGeneration } from '#services/design/
 import { JOB_GENERATE_DESIGN_DOC, enqueue } from '#services/queue'
 import {
   designDocVersionValidator,
+  editDesignDocValidator,
   estimateValidator,
   exportValidator,
   generateDesignDocValidator,
@@ -22,6 +23,8 @@ import {
 } from '#services/billing/credits'
 import { estimateGeneration } from '#services/billing/estimate'
 import { renderExport } from '#services/design/exports'
+import { assessQuality } from '#services/design/quality'
+import { createEditedVersion, SpecEditError } from '#services/design/edit'
 import { trackFor } from '#services/analytics/events'
 import { aiBudgetDenial, countGeneration } from '#services/ops/ai_budget'
 
@@ -56,7 +59,80 @@ export default class DesignDocsController {
       generatedAt: doc.generatedAt?.toISO() ?? null,
       jobId: doc.jobId,
       progress: (job?.payload?.progress as Record<string, unknown> | undefined) ?? null,
+      editedFromVersion: doc.editedFromVersion ?? null,
       ...(withContent ? { contentMd: doc.contentMd } : {}),
+      ...(withContent && doc.spec && doc.status === 'ready'
+        ? {
+            quality: assessQuality(doc.spec, doc.sources?.length ?? 0),
+            tokens: {
+              colors: doc.spec.colors.map((c) => ({
+                token: c.token,
+                name: c.name,
+                hex: c.hex,
+                role: c.role,
+                assumed: c.assumed,
+                confirmed: Boolean(c.confirmed),
+              })),
+              families: doc.spec.typography.families.map((f) => ({
+                token: f.token,
+                name: f.name,
+                role: f.role,
+                assumed: f.assumed,
+                confirmed: Boolean(f.confirmed),
+              })),
+              radii: doc.spec.radii,
+            },
+          }
+        : {}),
+    }
+  }
+
+  /** POST /api/boards/:id/design-doc/edit — poprawione tokeny jako nowa wersja (bez AI i kredytów). */
+  async edit(ctx: HttpContext) {
+    const { auth, params, request, response } = ctx
+    const board = await this.findBoard(auth.user!.id, params.id)
+    if (!board) return response.notFound()
+    const { version, ...edits } = await request.validateUsing(editDesignDocValidator)
+
+    const busy = await DesignDoc.query()
+      .where('board_id', board.id)
+      .whereIn('status', ['queued', 'running'])
+      .first()
+    if (busy) {
+      return response
+        .status(409)
+        .json({ message: t('doc.inProgress'), code: 'E_DESIGN_DOC_IN_PROGRESS' })
+    }
+    const base = await DesignDoc.query()
+      .where('board_id', board.id)
+      .where('version', version)
+      .first()
+    if (!base) return response.notFound()
+    if (!(await this.versionVisible(auth.user!.id, board.id, base.version))) {
+      return response
+        .status(403)
+        .json({ message: t('billing.versionLocked'), code: 'E_PLAN_LIMIT' })
+    }
+    try {
+      const doc = await createEditedVersion(base, edits)
+      trackFor(
+        ctx,
+        'design_doc_edited',
+        {
+          from: base.version,
+          version: doc.version,
+          colors: edits.colors?.length ?? 0,
+          families: edits.families?.length ?? 0,
+          radii: edits.radii?.length ?? 0,
+        },
+        { boardId: board.id }
+      )
+      return response.status(201).json({ data: await this.serialize(doc, true) })
+    } catch (error) {
+      if (error instanceof SpecEditError) {
+        return response.status(422).json({ message: error.message, code: 'E_EDIT_INVALID' })
+      }
+      throw error
     }
   }
 

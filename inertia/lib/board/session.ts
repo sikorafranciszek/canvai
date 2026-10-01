@@ -322,7 +322,9 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
     const bounds = store.document.elements.map(getElementBounds)
     const x = bounds.length ? Math.max(...bounds.map((b) => b.x + b.width)) + 160 : 0
     const y = bounds.length ? Math.min(...bounds.map((b) => b.y)) : 0
-    const lines = text.split('\n').reduce((n, line) => n + Math.max(1, Math.ceil(line.length / 52)), 0)
+    const lines = text
+      .split('\n')
+      .reduce((n, line) => n + Math.max(1, Math.ceil(line.length / 52)), 0)
     const el: SceneStickyElement = {
       ...createTextSticky(text, { x, y }),
       width: 440,
@@ -372,7 +374,11 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
     for (const asset of assets) {
       if (asset.kind === 'link') {
         const title = asset.linkMeta?.title?.trim()
-        const el = createLinkSticky(title ? `${title}\n${asset.filename}` : asset.filename, { x: cursorX, y: top }, String(asset.id))
+        const el = createLinkSticky(
+          title ? `${title}\n${asset.filename}` : asset.filename,
+          { x: cursorX, y: top },
+          String(asset.id)
+        )
         store.addElement(el)
         cursorX += el.width + IMAGE_GAP
         continue
@@ -396,7 +402,9 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
     }
     await Promise.all(assets.map((a) => acceptInboxAsset(String(a.id)).catch(() => {})))
     set({
-      assets: get().assets.map((a) => (assetIds.includes(String(a.id)) ? { ...a, inbox: false } : a)),
+      assets: get().assets.map((a) =>
+        assetIds.includes(String(a.id)) ? { ...a, inbox: false } : a
+      ),
     })
     get().centerOnAsset(String(assets[0].id))
   },

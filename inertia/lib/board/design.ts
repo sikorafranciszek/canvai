@@ -9,7 +9,9 @@ import { router } from '@inertiajs/react'
 import { fetchEstimate, useBillingStore, type CostEstimate } from '~/lib/billing'
 import {
   DesignDocRequestError,
+  editDesignDoc,
   generateDesignDoc,
+  type DocEdits,
   getDesignDoc,
   listDesignDocs,
   type DesignDocDto,
@@ -48,6 +50,8 @@ interface DesignState {
   setProMode: (on: boolean) => void
   selectVersion: (version: number) => Promise<void>
   generate: (opts?: { force?: boolean }) => Promise<void>
+  /** Ręczna edycja tokenów bieżącej wersji → nowa wersja. Zwraca `true` po sukcesie. */
+  applyEdits: (edits: DocEdits) => Promise<boolean>
 }
 
 let pollTimer: ReturnType<typeof setTimeout> | null = null
@@ -173,6 +177,22 @@ export const useDesignStore = create<DesignState>()((set, get) => {
         toast.error(error instanceof Error ? error.message : translate('doc.loadVersionFailed'))
       } finally {
         set({ loading: false })
+      }
+    },
+
+    async applyEdits(edits) {
+      const { boardId, current } = get()
+      if (boardId == null || !current) return false
+      try {
+        const doc = await editDesignDoc(boardId, current.version, edits)
+        set({ current: doc, reusedNotice: false })
+        await refreshVersions(boardId)
+        await loadPrevious(boardId, doc)
+        toast.success(translate('tokens.saved', { version: doc.version }))
+        return true
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : translate('tokens.saveFailed'))
+        return false
       }
     },
 

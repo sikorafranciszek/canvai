@@ -72,6 +72,10 @@ export default class DesignDoc extends BaseModel {
   @column({ consume: (v) => Boolean(v) })
   declare proMode: boolean
 
+  /** Wersja utworzona ręczną edycją tokenów z podanej wersji (bez generacji AI). */
+  @column()
+  declare editedFromVersion: number | null
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime | null
 
