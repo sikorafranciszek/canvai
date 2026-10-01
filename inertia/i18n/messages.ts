@@ -696,6 +696,14 @@ export const pl = {
   'boards.template.blankDesc': 'Zacznij od zera.',
   'boards.sample': 'Przykład',
   'boards.sampleTip': 'Przykładowa tablica z gotowym DESIGN.md — nie liczy się do limitu planu. Możesz ją usunąć.',
+  'unsubscribe.title': 'Wypisano z maili',
+  'unsubscribe.body': 'Nie wyślemy Ci już przypomnień ani podsumowań. Maile dotyczące konta (np. reset hasła) nadal będą przychodzić.',
+  'unsubscribe.invalid': 'Link jest nieprawidłowy',
+  'unsubscribe.invalidBody': 'Zmień ustawienia powiadomień po zalogowaniu.',
+  'unsubscribe.settings': 'Ustawienia powiadomień',
+  'settings.notifications.title': 'Powiadomienia e-mail',
+  'settings.notifications.desc': 'Przypomnienia o tablicach bez DESIGN.md, wygasających kredytach i cotygodniowe podsumowanie (Pro).',
+  'settings.notifications.label': 'Wysyłaj przypomnienia i podsumowania',
 } as const
 
 export type MessageKey = keyof typeof pl
@@ -1379,4 +1387,12 @@ export const en: Record<MessageKey, string> = {
   'boards.template.blankDesc': 'Start from scratch.',
   'boards.sample': 'Example',
   'boards.sampleTip': 'Example board with a ready DESIGN.md — doesn\'t count toward your plan limit. You can delete it.',
+  'unsubscribe.title': 'You\'re unsubscribed',
+  'unsubscribe.body': 'We won\'t send reminders or summaries anymore. Account emails (e.g. password reset) will still arrive.',
+  'unsubscribe.invalid': 'This link is invalid',
+  'unsubscribe.invalidBody': 'Change your notification settings after signing in.',
+  'unsubscribe.settings': 'Notification settings',
+  'settings.notifications.title': 'Email notifications',
+  'settings.notifications.desc': 'Reminders about boards without a DESIGN.md, expiring credits and a weekly summary (Pro).',
+  'settings.notifications.label': 'Send reminders and summaries',
 }

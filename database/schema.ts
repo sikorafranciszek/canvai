@@ -326,6 +326,21 @@ export class DesignPreviewSchema extends BaseModel {
   declare status: string
 }
 
+export class EmailLogSchema extends BaseModel {
+  static $columns = ['id', 'kind', 'ref', 'sentAt', 'userId'] as const
+  $columns = EmailLogSchema.$columns
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare kind: string
+  @column()
+  declare ref: string
+  @column.dateTime()
+  declare sentAt: DateTime
+  @column()
+  declare userId: number
+}
+
 export class JobSchema extends BaseModel {
   static $columns = ['attempts', 'createdAt', 'id', 'lastError', 'lockedAt', 'payload', 'runAt', 'status', 'type', 'updatedAt'] as const
   $columns = JobSchema.$columns
@@ -434,7 +449,7 @@ export class UserTokenSchema extends BaseModel {
 }
 
 export class UserSchema extends BaseModel {
-  static $columns = ['createdAt', 'crmTags', 'disabledAt', 'email', 'emailVerifiedAt', 'figmaToken', 'fullName', 'id', 'locale', 'password', 'referralCode', 'referredById', 'updatedAt'] as const
+  static $columns = ['createdAt', 'crmTags', 'disabledAt', 'email', 'emailVerifiedAt', 'figmaToken', 'fullName', 'id', 'locale', 'marketingEmails', 'password', 'referralCode', 'referredById', 'updatedAt'] as const
   $columns = UserSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -454,6 +469,8 @@ export class UserSchema extends BaseModel {
   declare id: number
   @column()
   declare locale: string | null
+  @column()
+  declare marketingEmails: boolean
   @column({ serializeAs: null })
   declare password: string
   @column()

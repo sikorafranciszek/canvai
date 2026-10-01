@@ -1,9 +1,21 @@
 import { backupConfigured, ops } from '#config/ops'
-import { dailyAt, registerTask } from '#services/ops/scheduler'
+import { dailyAt, every, registerTask } from '#services/ops/scheduler'
 
 /**
  * Rejestr zadań cyklicznych aplikacji. Importowany przez worker (`start/worker.ts`).
  */
+registerTask({
+  name: 'lifecycle_emails',
+  due: every(60),
+  async run() {
+    const { runLifecycleEmails } = await import('#services/lifecycle_mail')
+    const sent = await runLifecycleEmails()
+    return Object.entries(sent)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(', ')
+  },
+})
+
 registerTask({
   name: 'backup',
   due: (last, now) => backupConfigured() && dailyAt(ops.backup.hourUtc)(last, now),

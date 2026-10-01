@@ -10,6 +10,10 @@ export default class User extends compose(UserSchema, withAuthFinder(hash)) {
   @column({ serializeAs: null })
   declare figmaToken: string | null
 
+  /** Zgoda na maile cykliczne (przypomnienia, podsumowania); wypis jednym kliknięciem. */
+  @column({ consume: (v) => Boolean(v) })
+  declare marketingEmails: boolean
+
   /** Tagi nadawane w CRM (np. „agencja”, „beta”). */
   @column({ prepare: jsonPrepare, consume: jsonConsume })
   declare crmTags: string[] | null

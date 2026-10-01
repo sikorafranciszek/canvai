@@ -29,6 +29,7 @@ export default class SettingsController {
           email: user.email,
           emailVerifiedAt: user.emailVerifiedAt?.toISO() ?? null,
           createdAt: user.createdAt?.toISO() ?? null,
+          marketingEmails: user.marketingEmails,
         },
         api: {
           enabled: limits.api,

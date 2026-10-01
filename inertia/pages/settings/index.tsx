@@ -1,5 +1,5 @@
 import { Form, Link } from '@adonisjs/inertia/react'
-import { Head } from '@inertiajs/react'
+import { Head, router } from '@inertiajs/react'
 import { BadgeCheck, Copy, KeyRound, Lock, Trash2 } from 'lucide-react'
 import type React from 'react'
 import { useEffect, useState } from 'react'
@@ -15,6 +15,7 @@ interface Account {
   email: string
   emailVerifiedAt: string | null
   createdAt: string | null
+  marketingEmails?: boolean
 }
 
 type FormState = { errors: Record<string, string>; processing: boolean }
@@ -202,6 +203,36 @@ function ApiSection({ api }: { api: ApiSettings }) {
             ))}
           </ul>
         ) : null}
+      </div>
+    </Section>
+  )
+}
+
+function NotificationsSection({ enabled }: { enabled: boolean }) {
+  const { t } = useT()
+  return (
+    <Section
+      title={t('settings.notifications.title')}
+      description={t('settings.notifications.desc')}
+      testId="settings-notifications"
+    >
+      <div id="notifications">
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            className="switch"
+            checked={enabled}
+            data-testid="notifications-toggle"
+            onChange={(e) =>
+              router.patch(
+                '/settings/notifications',
+                { marketingEmails: e.target.checked },
+                { preserveScroll: true }
+              )
+            }
+          />
+          {t('settings.notifications.label')}
+        </label>
       </div>
     </Section>
   )
@@ -461,6 +492,8 @@ export default function Settings({ account, api }: { account: Account; api: ApiS
       <ApiSection api={api} />
 
       <FigmaSection />
+
+      <NotificationsSection enabled={account.marketingEmails !== false} />
 
       <Section title={t('settings.language.title')} description={t('settings.language.desc')}>
         <LanguageSwitcher />

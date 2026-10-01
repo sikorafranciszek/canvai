@@ -40,7 +40,13 @@ const shieldConfig = defineConfig({
     // Webhooki (podpis HMAC) oraz API v1 / MCP (token Bearer, bez sesji).
     exceptRoutes: (ctx) => {
       const url = ctx.request.url()
-      return url === '/webhooks/polar' || url === '/mcp' || url.startsWith('/api/v1/')
+      // Wypis one-click (RFC 8058): POST od klienta poczty, autoryzuje podpisany token.
+      return (
+        url === '/webhooks/polar' ||
+        url === '/mcp' ||
+        url.startsWith('/api/v1/') ||
+        (ctx.request.method() === 'POST' && url.startsWith('/unsubscribe/'))
+      )
     },
 
     /**

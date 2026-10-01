@@ -87,6 +87,10 @@ router.get('/c/:token/print', [controllers.Portal, 'print']).as('portal.print')
 /** Webhooki Polar.sh (podpis Standard Webhooks zamiast sesji i CSRF). */
 router.post('/webhooks/polar', [controllers.Webhooks, 'polar'])
 
+/** Wypis z maili cyklicznych (link z maila, bez logowania; POST = RFC 8058 one-click). */
+router.get('/unsubscribe/:token', [controllers.Notifications, 'unsubscribe']).as('unsubscribe')
+router.post('/unsubscribe/:token', [controllers.Notifications, 'unsubscribeOneClick'])
+
 /** Wybór języka (cookie + konto zalogowanego). */
 router.post('/locale', [controllers.Locale, 'update']).as('locale.update')
 
@@ -111,6 +115,9 @@ router
     router
       .put('/settings/password', [controllers.Settings, 'updatePassword'])
       .as('settings.password')
+    router
+      .patch('/settings/notifications', [controllers.Notifications, 'update'])
+      .as('settings.notifications')
     router.post('/settings/api-tokens', [controllers.ApiTokens, 'store']).as('apiTokens.store')
     router
       .delete('/settings/api-tokens/:id', [controllers.ApiTokens, 'destroy'])
