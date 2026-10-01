@@ -211,6 +211,14 @@ export const pl = {
     'Osiągnięto dzienny limit {limit} generacji na konto. Spróbuj ponownie jutro albo napisz do nas.',
   'ops.budgetUserTokens':
     'Osiągnięto dzienny limit zużycia AI dla konta. Spróbuj ponownie jutro albo napisz do nas.',
+  'figma.badUrl': 'To nie jest link do pliku Figmy (figma.com/design/…).',
+  'figma.tokenRequired': 'Podaj osobisty token Figmy (Figma → Settings → Security → Personal access tokens).',
+  'figma.auth': 'Figma odrzuciła token albo nie masz dostępu do tego pliku.',
+  'figma.notFound': 'Nie znaleziono pliku albo ramki w Figmie.',
+  'figma.rateLimited': 'Figma ogranicza liczbę zapytań — spróbuj za chwilę.',
+  'figma.empty': 'W pliku nie ma ramek do zaimportowania — wskaż konkretną ramkę (link z node-id).',
+  'figma.failed': 'Import z Figmy się nie udał.',
+  'figma.frameNote': 'Figma: {file} — {frame}',
 } as const
 
 export type ServerMessageKey = keyof typeof pl
@@ -411,4 +419,12 @@ export const en: Record<ServerMessageKey, string> = {
     'You reached the daily limit of {limit} generations per account. Try again tomorrow or contact us.',
   'ops.budgetUserTokens':
     'You reached the daily AI usage limit for your account. Try again tomorrow or contact us.',
+  'figma.badUrl': 'This is not a Figma file link (figma.com/design/…).',
+  'figma.tokenRequired': 'Enter your Figma personal access token (Figma → Settings → Security → Personal access tokens).',
+  'figma.auth': 'Figma rejected the token or you don\'t have access to this file.',
+  'figma.notFound': 'The Figma file or frame was not found.',
+  'figma.rateLimited': 'Figma is rate limiting requests — try again in a moment.',
+  'figma.empty': 'There are no frames to import — link to a specific frame (link with node-id).',
+  'figma.failed': 'The Figma import failed.',
+  'figma.frameNote': 'Figma: {file} — {frame}',
 }

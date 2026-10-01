@@ -432,7 +432,7 @@ export class UserTokenSchema extends BaseModel {
 }
 
 export class UserSchema extends BaseModel {
-  static $columns = ['createdAt', 'crmTags', 'disabledAt', 'email', 'emailVerifiedAt', 'fullName', 'id', 'locale', 'password', 'referralCode', 'referredById', 'updatedAt'] as const
+  static $columns = ['createdAt', 'crmTags', 'disabledAt', 'email', 'emailVerifiedAt', 'figmaToken', 'fullName', 'id', 'locale', 'password', 'referralCode', 'referredById', 'updatedAt'] as const
   $columns = UserSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -444,6 +444,8 @@ export class UserSchema extends BaseModel {
   declare email: string
   @column.dateTime()
   declare emailVerifiedAt: DateTime | null
+  @column()
+  declare figmaToken: string | null
   @column()
   declare fullName: string | null
   @column({ isPrimary: true })

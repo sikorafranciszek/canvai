@@ -214,6 +214,56 @@ export async function importSite(boardId: number, url: string): Promise<SiteImpo
   return ((await res.json()) as { data: SiteImportResult }).data
 }
 
+export interface FigmaImportResult {
+  assets: AssetDto[]
+  note: string
+  summary: { file: string; frames: number; colors: number; fonts: string[] }
+}
+
+export class FigmaImportError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string | null
+  ) {
+    super(message)
+  }
+}
+
+/** Import z Figmy: ramki jako obrazy + notatka z dokładnymi stylami. */
+export async function importFigma(
+  boardId: number,
+  input: { url: string; token?: string; remember?: boolean }
+): Promise<FigmaImportResult> {
+  const res = await fetch(`/api/boards/${boardId}/import-figma`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...csrfHeaders() },
+    credentials: 'same-origin',
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string; code?: string }
+    throw new FigmaImportError(body.message ?? translate('figma.failedShort'), body.code ?? null)
+  }
+  return ((await res.json()) as { data: FigmaImportResult }).data
+}
+
+export async function figmaStatus(): Promise<{ connected: boolean }> {
+  const res = await fetch('/api/figma', { credentials: 'same-origin' })
+  if (!res.ok) return { connected: false }
+  return ((await res.json()) as { data: { connected: boolean } }).data
+}
+
+export async function setFigmaToken(token: string | null): Promise<{ connected: boolean }> {
+  const res = await fetch('/api/figma', {
+    method: token ? 'PUT' : 'DELETE',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...csrfHeaders() },
+    credentials: 'same-origin',
+    body: token ? JSON.stringify({ token }) : undefined,
+  })
+  if (!res.ok) throw new Error(await extractErrorMessage(res, translate('figma.failedShort')))
+  return ((await res.json()) as { data: { connected: boolean } }).data
+}
+
 /** Materiał od klienta trafił na płótno — zdejmij go ze skrzynki. */
 export async function acceptInboxAsset(assetId: string): Promise<void> {
   await fetch(`/api/assets/${assetId}/accept`, {

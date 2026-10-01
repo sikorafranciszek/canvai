@@ -35,6 +35,8 @@ import {
   pruneAssets,
   acceptInboxAsset,
   importSite as apiImportSite,
+  importFigma as apiImportFigma,
+  type FigmaImportResult,
 } from './api'
 import { DEFAULTS } from '~/lib/scene/palette'
 import { translate } from '~/i18n'
@@ -78,6 +80,12 @@ interface BoardState {
   placeInboxAssets: (assetIds: string[]) => Promise<void>
   /** Import strony z URL: link + obraz + notatka ze stylem na płótnie. */
   importSite: (url: string) => Promise<boolean>
+  /** Import z Figmy: ramki + notatka z dokładnymi stylami. Rzuca błąd (dialog go pokazuje). */
+  importFigma: (input: {
+    url: string
+    token?: string
+    remember?: boolean
+  }) => Promise<FigmaImportResult>
 }
 
 // Silnik autosave i subskrypcja żyją poza store'em (nie są serializowalne
@@ -359,6 +367,23 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       toast.error(error instanceof Error ? error.message : translate('siteImport.failedShort'))
       return false
     }
+  },
+
+  async importFigma(input) {
+    const boardId = get().boardId
+    if (boardId == null) throw new Error('no board')
+    const result = await apiImportFigma(boardId, input)
+    await get().refreshAssets()
+    await get().placeInboxAssets(result.assets.map((a) => String(a.id)))
+    get().addBrandKitNote(result.note)
+    toast.success(
+      translate('figma.done', {
+        file: result.summary.file,
+        frames: result.summary.frames,
+        fonts: result.summary.fonts.join(', ') || '—',
+      })
+    )
+    return result
   },
 
   async placeInboxAssets(assetIds) {

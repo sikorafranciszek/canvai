@@ -6,6 +6,10 @@ import { column } from '@adonisjs/lucid/orm'
 import { jsonConsume, jsonPrepare } from '#models/json_columns'
 
 export default class User extends compose(UserSchema, withAuthFinder(hash)) {
+  /** Token Figmy zaszyfrowany kluczem aplikacji — nigdy nie trafia do klienta. */
+  @column({ serializeAs: null })
+  declare figmaToken: string | null
+
   /** Tagi nadawane w CRM (np. „agencja”, „beta”). */
   @column({ prepare: jsonPrepare, consume: jsonConsume })
   declare crmTags: string[] | null

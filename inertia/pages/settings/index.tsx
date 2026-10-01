@@ -2,7 +2,8 @@ import { Form, Link } from '@adonisjs/inertia/react'
 import { Head } from '@inertiajs/react'
 import { BadgeCheck, Copy, KeyRound, Lock, Trash2 } from 'lucide-react'
 import type React from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { figmaStatus, setFigmaToken } from '~/lib/board/api'
 import { toast } from 'sonner'
 import { relativeTime } from '~/lib/format'
 import { LanguageSwitcher } from '~/components/ui/LanguageSwitcher'
@@ -206,6 +207,83 @@ function ApiSection({ api }: { api: ApiSettings }) {
   )
 }
 
+function FigmaSection() {
+  const { t } = useT()
+  const [connected, setConnected] = useState<boolean | null>(null)
+  const [token, setToken] = useState('')
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    void figmaStatus().then((s) => setConnected(s.connected))
+  }, [])
+
+  const update = async (value: string | null) => {
+    setBusy(true)
+    try {
+      const s = await setFigmaToken(value)
+      setConnected(s.connected)
+      setToken('')
+      toast.success(t(value ? 'settings.figma.saved' : 'settings.figma.removed'))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('figma.failedShort'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Section
+      title={t('settings.figma.title')}
+      description={t('settings.figma.desc')}
+      testId="settings-figma"
+    >
+      <div className="settings-form">
+        <p className="t-small">
+          {connected ? (
+            <span className="level level--good">{t('settings.figma.connected')}</span>
+          ) : connected === false ? (
+            <span className="level level--neutral">{t('settings.figma.notConnected')}</span>
+          ) : null}
+        </p>
+        <form
+          className="api-create"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (token.trim()) void update(token.trim())
+          }}
+        >
+          <div className="field" style={{ flex: 1 }}>
+            <label className="field__label" htmlFor="figma-settings-token">
+              {t('figma.token')}
+            </label>
+            <input
+              id="figma-settings-token"
+              className="input"
+              type="password"
+              autoComplete="off"
+              placeholder="figd_…"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+            />
+          </div>
+          <button
+            type="submit"
+            className="btn btn--primary"
+            disabled={busy || token.trim().length < 20}
+          >
+            {t('settings.figma.save')}
+          </button>
+          {connected ? (
+            <button type="button" className="btn" disabled={busy} onClick={() => void update(null)}>
+              {t('settings.figma.remove')}
+            </button>
+          ) : null}
+        </form>
+        <span className="field__hint">{t('figma.tokenHint')}</span>
+      </div>
+    </Section>
+  )
+}
+
 function Section({
   title,
   description,
@@ -381,6 +459,8 @@ export default function Settings({ account, api }: { account: Account; api: ApiS
       </Section>
 
       <ApiSection api={api} />
+
+      <FigmaSection />
 
       <Section title={t('settings.language.title')} description={t('settings.language.desc')}>
         <LanguageSwitcher />
