@@ -74,6 +74,7 @@ export default function Layout({ children }: { children: ReactElement<Data.Share
     component === 'boards/show' ||
     component.startsWith('errors/') ||
     component.startsWith('portal/') ||
+    component.startsWith('print/') ||
     !user
   ) {
     content = children

@@ -62,11 +62,19 @@ export async function fetchEstimate(boardId: number, pro: boolean): Promise<Cost
   }
 }
 
-export function exportUrl(
-  boardId: number,
-  format: 'css' | 'tailwind' | 'tokens',
-  version?: number
-) {
+export type ExportFormat =
+  | 'css'
+  | 'tailwind'
+  | 'tokens'
+  | 'tailwind3'
+  | 'scss'
+  | 'figma'
+  | 'cursor'
+  | 'claude'
+  | 'agents'
+  | 'prompt'
+
+export function exportUrl(boardId: number, format: ExportFormat, version?: number) {
   const qs = new URLSearchParams({ format })
   if (version) qs.set('version', String(version))
   return `/api/boards/${boardId}/design-doc/export?${qs}`

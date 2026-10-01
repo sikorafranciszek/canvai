@@ -20,6 +20,8 @@ import {
   Lock,
   RefreshCw,
   Sparkles,
+  Bot,
+  Printer,
 } from 'lucide-react'
 import { router } from '@inertiajs/react'
 import { Menu } from '~/components/ui/Menu'
@@ -27,6 +29,7 @@ import { exportUrl, useBillingStore } from '~/lib/billing'
 import { usePreviewStore } from '~/lib/board/preview'
 import { PreviewDialog } from '~/components/design/PreviewDialog'
 import { QualityView, TokenEditor } from '~/components/design/DocInsights'
+import { AiToolsDialog } from '~/components/design/AiToolsDialog'
 import { createBrandKit, useBrandKitStore } from '~/lib/brand_kits'
 import { diffLines, diffStats } from '@shared/line-diff'
 import { designDocDownloadUrl, type DesignDocDto } from '~/lib/board/api'
@@ -70,6 +73,7 @@ export function DesignDocPanel() {
 
   const [showDiff, setShowDiff] = useState(false)
   const [view, setView] = useState<'doc' | 'quality' | 'tokens'>('doc')
+  const [aiTools, setAiTools] = useState(false)
   const scroller = useRef<HTMLDivElement>(null)
 
   const assetLabel = (id: number) =>
@@ -203,8 +207,8 @@ export function DesignDocPanel() {
                 testId="design-doc-export"
                 triggerClassName="btn btn--quiet btn--icon btn--sm"
                 trigger={limits?.exports === false ? <Lock /> : <FileCode2 />}
-                actions={
-                  limits?.exports === false
+                actions={[
+                  ...(limits?.exports === false
                     ? [
                         {
                           label: t('doc.export.locked'),
@@ -212,16 +216,40 @@ export function DesignDocPanel() {
                           onSelect: () => router.visit('/billing'),
                         },
                       ]
-                    : (['css', 'tailwind', 'tokens'] as const).map((format) => ({
-                        label: t(`doc.export.${format}`),
-                        icon: <FileCode2 size={14} />,
-                        testId: `design-doc-export-${format}`,
-                        onSelect: () => {
-                          window.location.href = exportUrl(boardId, format, current!.version)
-                        },
-                      }))
-                }
+                    : (['css', 'tailwind', 'tailwind3', 'scss', 'tokens', 'figma'] as const).map(
+                        (format) => ({
+                          label: t(`doc.export.${format}`),
+                          icon: <FileCode2 size={14} />,
+                          testId: `design-doc-export-${format}`,
+                          onSelect: () => {
+                            window.location.href = exportUrl(boardId, format, current!.version)
+                          },
+                        })
+                      )),
+                  {
+                    label: t('doc.export.pdf'),
+                    icon: <Printer size={14} />,
+                    testId: 'design-doc-export-pdf',
+                    onSelect: () => {
+                      window.open(
+                        `/boards/${boardId}/design-doc/print?version=${current!.version}&autoprint=1`,
+                        '_blank',
+                        'noopener'
+                      )
+                    },
+                  },
+                ]}
               />
+              <button
+                type="button"
+                className="btn btn--quiet btn--icon btn--sm"
+                data-testid="design-doc-ai-tools"
+                aria-label={t('aiTools.title')}
+                data-tip={t('aiTools.title')}
+                onClick={() => setAiTools(true)}
+              >
+                <Bot />
+              </button>
               <a
                 className="btn btn--icon btn--sm"
                 data-testid="design-doc-download"
@@ -388,6 +416,15 @@ export function DesignDocPanel() {
       </div>
       <GenerationOptions />
       <PreviewDialog />
+      {boardId != null && current?.status === 'ready' ? (
+        <AiToolsDialog
+          open={aiTools}
+          onClose={() => setAiTools(false)}
+          boardId={boardId}
+          version={current.version}
+          allowed={limits?.exports !== false}
+        />
+      ) : null}
     </div>
   )
 }

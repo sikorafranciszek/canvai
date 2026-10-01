@@ -423,6 +423,26 @@ test.group('Design doc API', (group) => {
     assert.equal(again.body().data.doc.version, v2.version)
   })
 
+  test('wydruk / PDF: właściciel i portal klienta; obcy nie widzi', async ({ client, assert }) => {
+    const { user, cookies } = await login(client)
+    const board = await createBoard(user)
+    await seedBoard(client, cookies, board)
+    await client.post(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies }).json({})
+    await runPendingJobs()
+
+    const page = await client
+      .get(`/boards/${board.id}/design-doc/print`)
+      .headers({ cookie: cookies })
+    page.assertStatus(200)
+    assert.match(page.text(), /print\\?\/design_doc/)
+    assert.include(page.text(), 'Sklep z kawą')
+
+    const other = await login(client)
+    ;(
+      await client.get(`/boards/${board.id}/design-doc/print`).headers({ cookie: other.cookies })
+    ).assertStatus(404)
+  })
+
   test('obcy użytkownik dostaje 404 na każdym endpoincie', async ({ client }) => {
     const owner = await login(client)
     const board = await createBoard(owner.user)

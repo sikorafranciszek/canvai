@@ -195,6 +195,17 @@ export default function Portal({ portal }: { portal: PortalProps }) {
                 {t('portal.doc.desc')}
                 {portal.doc.generatedAt ? ` · ${formatDateTime(portal.doc.generatedAt)}` : ''}
               </p>
+              <div>
+                <a
+                  className="btn btn--sm"
+                  href={`/c/${portal.token}/print?autoprint=1`}
+                  target="_blank"
+                  rel="noopener"
+                  data-testid="portal-pdf"
+                >
+                  {t('print.button')}
+                </a>
+              </div>
               {portal.decision ? (
                 <div
                   className={`alert ${portal.decision.decision === 'approved' ? 'alert--notice' : 'alert--danger'}`}

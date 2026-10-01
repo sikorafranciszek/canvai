@@ -82,6 +82,7 @@ router
 router.get('/c/:token', [controllers.Portal, 'show']).as('portal.show')
 router.post('/c/:token/materials', [controllers.Portal, 'materials']).as('portal.materials')
 router.post('/c/:token/feedback', [controllers.Portal, 'feedback']).as('portal.feedback')
+router.get('/c/:token/print', [controllers.Portal, 'print']).as('portal.print')
 
 /** Webhooki Polar.sh (podpis Standard Webhooks zamiast sesji i CSRF). */
 router.post('/webhooks/polar', [controllers.Webhooks, 'polar'])
@@ -100,6 +101,7 @@ router
     router.patch('/boards/:id', [controllers.Board, 'update']).as('boards.update')
     router.delete('/boards/:id', [controllers.Board, 'destroy']).as('boards.destroy')
     router.get('/boards/:id/previews/:previewId', [controllers.DesignPreviews, 'html'])
+    router.get('/boards/:id/design-doc/print', [controllers.DesignDocs, 'print'])
 
     // Ustawienia konta
     router.get('/settings', [controllers.Settings, 'show']).as('settings.show')

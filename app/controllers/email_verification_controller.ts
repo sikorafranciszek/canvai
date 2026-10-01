@@ -48,7 +48,8 @@ export default class EmailVerificationController {
       // Polecenie nagradzamy dopiero za potwierdzony adres.
       const rewarded = await rewardReferral(user)
       trackFor(ctx, 'email_verified', {}, { userId: user.id })
-      if (rewarded) trackFor(ctx, 'referral_rewarded', { referrerId: user.referredById }, { userId: user.id })
+      if (rewarded)
+        trackFor(ctx, 'referral_rewarded', { referrerId: user.referredById }, { userId: user.id })
     }
     session.flash('success', t('account.verified'))
     const loggedInAsOwner = (await auth.check()) && auth.user?.id === user.id

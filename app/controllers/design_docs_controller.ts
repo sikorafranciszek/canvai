@@ -24,6 +24,7 @@ import {
 import { estimateGeneration } from '#services/billing/estimate'
 import { renderExport } from '#services/design/exports'
 import { assessQuality } from '#services/design/quality'
+import { printBrand } from '#services/portal'
 import { createEditedVersion, SpecEditError } from '#services/design/edit'
 import { trackFor } from '#services/analytics/events'
 import { aiBudgetDenial, countGeneration } from '#services/ops/ai_budget'
@@ -324,6 +325,36 @@ export default class DesignDocsController {
     response.header('Content-Disposition', 'attachment; filename="DESIGN.md"')
     response.header('X-Content-Type-Options', 'nosniff')
     return response.send(doc.contentMd)
+  }
+
+  /** GET /boards/:id/design-doc/print?version= — DESIGN.md do druku / zapisu jako PDF. */
+  async print(ctx: HttpContext) {
+    const { auth, params, request, response, inertia } = ctx
+    const board = await this.findBoard(auth.user!.id, params.id)
+    if (!board) return response.notFound()
+    const { version } = await designDocVersionValidator.validate(request.qs())
+    const query = DesignDoc.query().where('board_id', board.id).where('status', 'ready')
+    const doc = version
+      ? await query.where('version', version).first()
+      : await query.orderBy('version', 'desc').first()
+    if (!doc?.contentMd) return response.notFound()
+    if (!(await this.versionVisible(auth.user!.id, board.id, doc.version))) {
+      return response.redirect().toPath('/billing')
+    }
+    trackFor(ctx, 'design_doc_printed', { version: doc.version }, { boardId: board.id })
+    return inertia.render(
+      'print/design_doc' as any,
+      {
+        doc: {
+          title: board.title,
+          version: doc.version,
+          contentMd: doc.contentMd,
+          generatedAt: doc.generatedAt?.toISO() ?? null,
+        },
+        preparedBy: await printBrand(auth.user!.id),
+        backHref: `/boards/${board.id}`,
+      } as any
+    )
   }
 
   /** Czy wersja mieści się w limicie historii planu. */

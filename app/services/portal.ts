@@ -84,3 +84,19 @@ export async function notifyOwner(
     }
   })
 }
+
+export interface PrintBrand {
+  /** Kto przygotował dokument (nazwa agencji albo właściciela konta). */
+  name: string
+  logoUrl: string | null
+  accent: string | null
+  /** Bez wzmianki o canvai (white-label w planie Agency). */
+  whiteLabel: boolean
+}
+
+/** Oznaczenie autora na wydruku / PDF i w portalu klienta. */
+export async function printBrand(userId: number): Promise<PrintBrand> {
+  const owner = await User.find(userId)
+  const name = owner?.fullName?.trim() || owner?.email.split('@')[0] || 'canvai'
+  return { name, logoUrl: null, accent: null, whiteLabel: false }
+}

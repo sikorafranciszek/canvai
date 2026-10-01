@@ -1,6 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { listBoards, readyDoc, tokensFor } from '#services/design/access'
-import type { ExportFormat } from '#services/design/exports'
+import { EXPORT_FORMATS, type ExportFormat } from '#services/design/exports'
 import { track } from '#services/analytics/collector'
 
 /**
@@ -51,12 +51,12 @@ const TOOLS = [
     name: 'get_design_tokens',
     title: 'Get design tokens',
     description:
-      'Get the design tokens of a board as CSS custom properties (css), a Tailwind v4 @theme file (tailwind) or W3C design tokens JSON (tokens).',
+      'Get the design system of a board as a file: CSS custom properties (css), Tailwind v4 @theme (tailwind), Tailwind v3 config (tailwind3), SCSS variables (scss), W3C design tokens JSON (tokens), Tokens Studio JSON for Figma (figma), Cursor rules (cursor), CLAUDE.md (claude), AGENTS.md (agents) or a prompt for v0/Lovable/Bolt (prompt).',
     inputSchema: {
       type: 'object',
       properties: {
         board_id: { type: 'integer', description: 'Board id from list_boards' },
-        format: { type: 'string', enum: ['css', 'tailwind', 'tokens'], default: 'css' },
+        format: { type: 'string', enum: [...EXPORT_FORMATS], default: 'css' },
         version: { type: 'integer', description: 'Specific version (default: latest ready)' },
       },
       required: ['board_id'],
@@ -116,7 +116,7 @@ async function callTool(userId: number, name: string, args: Record<string, unkno
 
     case 'get_design_tokens': {
       const format = (args.format ?? 'css') as ExportFormat
-      if (!['css', 'tailwind', 'tokens'].includes(format))
+      if (!(EXPORT_FORMATS as readonly string[]).includes(format))
         throw new RpcError(-32602, 'Invalid format')
       const { board, doc } = await readyDoc(
         userId,

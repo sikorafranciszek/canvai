@@ -1,4 +1,5 @@
 import vine from '@vinejs/vine'
+import { EXPORT_FORMATS } from '#services/design/exports'
 
 /**
  * POST /api/boards/:id/design-doc — `force` wymusza generację mimo braku zmian,
@@ -59,7 +60,7 @@ export const editDesignDocValidator = vine.compile(
 /** GET /api/boards/:id/design-doc/export?format=css|tailwind|tokens&version= */
 export const exportValidator = vine.compile(
   vine.object({
-    format: vine.enum(['css', 'tailwind', 'tokens']),
+    format: vine.enum(EXPORT_FORMATS),
     version: vine.number().withoutDecimals().positive().optional(),
   })
 )

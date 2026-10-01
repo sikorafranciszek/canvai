@@ -90,7 +90,12 @@ export default class SiteImportController {
     trackFor(
       ctx,
       'site_imported',
-      { host: style.host, colors: style.colors.length, fonts: style.fonts.length, image: assets.length > 1 },
+      {
+        host: style.host,
+        colors: style.colors.length,
+        fonts: style.fonts.length,
+        image: assets.length > 1,
+      },
       { boardId: board.id }
     )
     return response.status(201).json({

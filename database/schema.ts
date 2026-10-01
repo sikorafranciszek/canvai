@@ -7,6 +7,21 @@
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
+export class AiUsageDailySchema extends BaseModel {
+  static $columns = ['day', 'generations', 'tokensIn', 'tokensOut', 'userId'] as const
+  $columns = AiUsageDailySchema.$columns
+  @column({ isPrimary: true })
+  declare day: DateTime
+  @column()
+  declare generations: number
+  @column()
+  declare tokensIn: bigint | number
+  @column()
+  declare tokensOut: bigint | number
+  @column()
+  declare userId: number
+}
+
 export class ApiTokenSchema extends BaseModel {
   static $columns = ['createdAt', 'id', 'lastUsedAt', 'name', 'prefix', 'revokedAt', 'tokenHash', 'userId'] as const
   $columns = ApiTokenSchema.$columns
@@ -244,7 +259,7 @@ export class CrmNoteSchema extends BaseModel {
 }
 
 export class DesignDocSchema extends BaseModel {
-  static $columns = ['boardId', 'contentMd', 'createdAt', 'creditsCharged', 'error', 'generatedAt', 'id', 'inputFingerprint', 'jobId', 'model', 'proMode', 'promptVersion', 'sources', 'spec', 'status', 'usage', 'version'] as const
+  static $columns = ['boardId', 'contentMd', 'createdAt', 'creditsCharged', 'editedFromVersion', 'error', 'generatedAt', 'id', 'inputFingerprint', 'jobId', 'model', 'proMode', 'promptVersion', 'sources', 'spec', 'status', 'usage', 'version'] as const
   $columns = DesignDocSchema.$columns
   @column()
   declare boardId: number
@@ -254,6 +269,8 @@ export class DesignDocSchema extends BaseModel {
   declare createdAt: DateTime | null
   @column()
   declare creditsCharged: number | null
+  @column()
+  declare editedFromVersion: number | null
   @column()
   declare error: string | null
   @column.dateTime()
@@ -351,6 +368,19 @@ export class PortalFeedbackSchema extends BaseModel {
   declare name: string
   @column()
   declare version: number | null
+}
+
+export class SchedulerRunSchema extends BaseModel {
+  static $columns = ['lastMessage', 'lastRunAt', 'lastStatus', 'task'] as const
+  $columns = SchedulerRunSchema.$columns
+  @column()
+  declare lastMessage: string | null
+  @column.dateTime()
+  declare lastRunAt: DateTime | null
+  @column()
+  declare lastStatus: string | null
+  @column({ isPrimary: true })
+  declare task: string
 }
 
 export class SubscriptionSchema extends BaseModel {

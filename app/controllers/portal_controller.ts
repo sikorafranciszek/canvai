@@ -5,7 +5,7 @@ import DesignDoc from '#models/design_doc'
 import PortalFeedback from '#models/portal_feedback'
 import { entitlementsFor } from '#services/billing/plans'
 import { storeLink, storeUploadedFile } from '#services/assets_service'
-import { findActiveShare, notifyOwner, rateLimited } from '#services/portal'
+import { findActiveShare, notifyOwner, printBrand, rateLimited } from '#services/portal'
 import { absoluteUrl } from '#services/app_url'
 import { t } from '#services/i18n'
 import { track } from '#services/analytics/collector'
@@ -43,6 +43,38 @@ export default class PortalController {
   }
 
   /** GET /c/:token */
+  /** GET /c/:token/print — DESIGN.md dla klienta do druku / PDF. */
+  async print({ params, inertia, response }: HttpContext) {
+    const found = await this.resolve(String(params.token))
+    if (!found || !found.share.showDoc) {
+      response.status(404)
+      return inertia.render('errors/not_found' as any, {} as any)
+    }
+    const { share, board, owner } = found
+    const doc = await DesignDoc.query()
+      .where('board_id', board.id)
+      .where('status', 'ready')
+      .orderBy('version', 'desc')
+      .first()
+    if (!doc?.contentMd) {
+      response.status(404)
+      return inertia.render('errors/not_found' as any, {} as any)
+    }
+    return inertia.render(
+      'print/design_doc' as any,
+      {
+        doc: {
+          title: board.title,
+          version: doc.version,
+          contentMd: doc.contentMd,
+          generatedAt: doc.generatedAt?.toISO() ?? null,
+        },
+        preparedBy: await printBrand(owner.id),
+        backHref: `/c/${share.token}`,
+      } as any
+    )
+  }
+
   async show({ params, inertia, response }: HttpContext) {
     const found = await this.resolve(String(params.token))
     if (!found) {
@@ -162,7 +194,11 @@ export default class PortalController {
       { name: payload.name, board: board.title, count: Math.max(created.length, stored.length, 1) },
       absoluteUrl(ctx, `/boards/${board.id}`)
     )
-    track('portal_materials', { count: created.length, note: Boolean(payload.note) }, { userId: owner.id, boardId: board.id })
+    track(
+      'portal_materials',
+      { count: created.length, note: Boolean(payload.note) },
+      { userId: owner.id, boardId: board.id }
+    )
     session.flash('success', 'portal.sent')
     return response.redirect().back()
   }
@@ -189,7 +225,11 @@ export default class PortalController {
       session.flash('error', t('portal.rateLimited'))
       return response.redirect().back()
     }
-    track('portal_feedback', { decision: payload.decision, version: doc.version }, { userId: owner.id, boardId: board.id })
+    track(
+      'portal_feedback',
+      { decision: payload.decision, version: doc.version },
+      { userId: owner.id, boardId: board.id }
+    )
     await PortalFeedback.create({
       boardId: board.id,
       designDocId: doc.id,

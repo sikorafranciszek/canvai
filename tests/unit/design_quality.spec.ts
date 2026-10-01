@@ -120,3 +120,29 @@ test.group('Ocena jakości DESIGN.md', () => {
     assert.notInclude(markdown, 'color „Alert”')
   })
 })
+
+test.group('Eksporty dla narzędzi', () => {
+  test('Tailwind v3, SCSS, Tokens Studio, reguły Cursora, CLAUDE.md i prompt', async ({
+    assert,
+  }) => {
+    const { renderExport, EXPORT_FORMATS } = await import('#services/design/exports')
+    const s = spec({ radii: [{ element: 'cards', value: '12px' }] })
+    for (const format of EXPORT_FORMATS) {
+      const file = renderExport(s, format)
+      assert.isAbove(file.body.length, 50, format)
+    }
+    const tw = renderExport(s, 'tailwind3').body
+    assert.include(tw, 'module.exports')
+    assert.include(tw, '"text-muted": "#444444"')
+    assert.include(tw, '"cards": "12px"')
+    assert.include(renderExport(s, 'scss').body, '$color-background: #0f0f0f;')
+    const studio = JSON.parse(renderExport(s, 'figma').body)
+    assert.equal(studio.chat.color.canvas.value, '#0f0f0f')
+    assert.equal(studio.chat.borderRadius.cards.type, 'borderRadius')
+    const cursor = renderExport(s, 'cursor').body
+    assert.match(cursor, /^---\ndescription: Chat design system/)
+    assert.include(cursor, '`--color-text` #ffffff')
+    assert.include(renderExport(s, 'claude').body, '@DESIGN.md')
+    assert.notInclude(renderExport(s, 'prompt').body, '[A1]')
+  })
+})
