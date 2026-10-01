@@ -20,9 +20,9 @@ import {
 } from '#services/design/board_context'
 import { PROMPT_VERSION } from '#services/design/prompts'
 import { renderDesignMd } from '#services/design/renderer'
-import { groundSpec } from '#services/design/spec'
+import { groundSpec, verifyColorEvidence } from '#services/design/spec'
 import type { SceneDocument } from '#shared/scene'
-import { t } from '#services/i18n'
+import { runWithLocale, t } from '#services/i18n'
 import { entitlementsFor } from '#services/billing/plans'
 import { chargedFor } from '#services/billing/credits'
 import { track } from '#services/analytics/collector'
@@ -153,6 +153,11 @@ export async function runGeneration(
   if (!spec) {
     throw new InvalidModelOutputError(t('gen.notGrounded', { errors: previousErrors.join('; ') }))
   }
+  // Kolory, których nie widać w żadnym materiale, to propozycje modelu → założenia †.
+  verifyColorEvidence(
+    spec,
+    new Map(assets.map((a) => [a.id, (analyses.get(a.id)?.palette ?? []).map((p) => p.hex)]))
+  )
 
   // Render
   await onProgress({ stage: 'render', done: 0, total: 1 })
@@ -163,16 +168,15 @@ export async function runGeneration(
     {
       boardTitle: board.title,
       version: doc.version,
-      model: doc.model ?? provider.compositionModel,
-      promptVersion: PROMPT_VERSION,
       generatedAt: generatedAt.toFormat("yyyy-MM-dd HH:mm 'UTC'"),
     }
   )
 
   // Plan Free: stopka z linkiem (darmowa reklama); płatne plany — bez niej.
+  // Dokument jest po angielsku, więc stopka też (niezależnie od języka interfejsu).
   const { limits: planLimits } = await entitlementsFor(board.userId)
   const content = planLimits.watermark
-    ? `${markdown.trimEnd()}\n\n---\n\n_${t('billing.watermark')}_\n`
+    ? `${markdown.trimEnd()}\n\n---\n\n_${runWithLocale('en', () => t('billing.watermark'))}_\n`
     : markdown
 
   doc.status = 'ready'

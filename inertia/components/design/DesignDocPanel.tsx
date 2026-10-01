@@ -9,7 +9,6 @@ import {
   AlertCircle,
   Clock,
   Copy,
-  Cpu,
   Download,
   Eye,
   Bookmark,
@@ -175,13 +174,21 @@ export function DesignDocPanel() {
                     const kit = await createBrandKit(boardId, current!.version)
                     void useBrandKitStore.getState().load()
                     toast.success(t('brandKits.saved', { name: kit.name }), {
-                      action: { label: t('brandKits.manage'), onClick: () => router.visit('/brand-kits') },
+                      action: {
+                        label: t('brandKits.manage'),
+                        onClick: () => router.visit('/brand-kits'),
+                      },
                     })
                   } catch (error) {
                     const status = (error as { status?: number }).status
                     toast.error(error instanceof Error ? error.message : t('brandKits.failed'), {
                       ...(status === 403
-                        ? { action: { label: t('billing.upgrade'), onClick: () => router.visit('/billing') } }
+                        ? {
+                            action: {
+                              label: t('billing.upgrade'),
+                              onClick: () => router.visit('/billing'),
+                            },
+                          }
                         : {}),
                     })
                   }
@@ -448,12 +455,6 @@ function DocMeta({ doc }: { doc: DesignDocDto }) {
         <Clock />
         {relativeTime(doc.generatedAt)}
       </span>
-      {doc.model ? (
-        <span>
-          <Cpu />
-          {doc.model} · prompt {doc.promptVersion}
-        </span>
-      ) : null}
       {u ? (
         <>
           <span>

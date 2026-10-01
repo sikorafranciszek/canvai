@@ -182,12 +182,92 @@ function nameValue(item: unknown, nameKey = 'name', valueKey = 'value'): SpecNam
   return name && value ? { name, value } : null
 }
 
+// ---------------------------------------------------------------------------
+// Wartości CSS
+// ---------------------------------------------------------------------------
+
+const LENGTH = String.raw`-?(?:\d+\.?\d*|\.\d+)(?:px|rem|em|%|vw|vh|ch|ex)?`
+const LENGTHS = new RegExp(`^${LENGTH}(?:\\s+${LENGTH}){0,3}$`)
+
+/** Usuwa komentarze w nawiasach — „50% (24px circle)” → „50%”; funkcje CSS (`rgba(…)`) zostają. */
+function stripNotes(value: string): string {
+  let prev = ''
+  let out = value
+  while (out !== prev) {
+    prev = out
+    out = out.replace(/(^|[^a-z0-9-])\([^()]*\)/gi, '$1')
+  }
+  return out
+    .replace(/^[~≈]\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Wartość długości gotowa do wklejenia w CSS albo `null`, gdy model zwrócił opis
+ * zamiast wartości. `unitless` — dopuszcza liczby bez jednostki (line-height).
+ */
+export function cssLength(raw: string, { unitless = false } = {}): string | null {
+  const value = stripNotes(raw)
+  if (!value) return null
+  if (/^(0|auto|normal|none)$/i.test(value)) return value.toLowerCase()
+  if (LENGTHS.test(value)) {
+    // „8” → „8px” (poza line-height, gdzie liczba bez jednostki jest poprawna).
+    return unitless ? value : value.replace(/(^|\s)(-?(?:\d+\.?\d*|\.\d+))(?=\s|$)/g, '$1$2px')
+  }
+  if (/\b(pill|full|fully rounded|capsule)\b/i.test(value)) return '9999px'
+  if (/\b(circle|circular|round)\b/i.test(value)) return '50%'
+  const lead = value.match(/^-?(?:\d+\.?\d*|\.\d+)(?:px|rem|em|%|vw|vh|ch|ex)(?![\w.])/)
+  if (lead) return lead[0]
+  return null
+}
+
+const SHADOW_WORDS = new Set([
+  'inset',
+  'rgb',
+  'rgba',
+  'hsl',
+  'hsla',
+  'oklch',
+  'oklab',
+  'transparent',
+  'black',
+  'white',
+  'currentcolor',
+  'px',
+  'rem',
+  'em',
+])
+
+/** Cień jako poprawny `box-shadow` (bez opisów słownych) albo `null`. */
+export function cssShadow(raw: string): string | null {
+  const value = stripNotes(raw)
+  if (/^none$/i.test(value)) return 'none'
+  if (!/\d/.test(value) || /[^\w\s#().,%/-]/.test(value)) return null
+  const words = value.replace(/#[0-9a-f]{3,8}\b/gi, '').match(/[a-z]+/gi) ?? []
+  return words.every((w) => SHADOW_WORDS.has(w.toLowerCase())) ? value : null
+}
+
 export function validateDesignSpec(input: unknown): DesignSpec {
   const root = isObject(input) && isObject(input.spec) ? input.spec : input
   if (!isObject(root)) throw new InvalidModelOutputError(t('spec.notObject'))
   const v = root
 
   const problems: string[] = []
+  /** Wartości, których nie da się użyć w CSS — trafiają do Open Questions. */
+  const unclear: string[] = []
+  const length = (where: string, raw: unknown, opts?: { unitless?: boolean }) => {
+    const value = str(raw, 80)
+    if (!value) return ''
+    const clean = cssLength(value, opts)
+    if (!clean) unclear.push(`${where}: „${value}”`)
+    return clean ?? ''
+  }
+  const lengthItem = (where: string, item: SpecNameValue | null): SpecNameValue | null => {
+    if (!item) return null
+    const value = length(`${where} „${item.name}”`, item.value)
+    return value ? { name: item.name, value } : null
+  }
 
   const colors = list(v.colors, (c) => {
     if (!isObject(c)) return null
@@ -238,33 +318,33 @@ export function validateDesignSpec(input: unknown): DesignSpec {
   const scale = list(typo.scale, (r) => {
     if (!isObject(r)) return null
     const role = str(r.role, 40)
-    const size = str(r.size, 20)
+    const size = role ? length(`font size „${role}”`, r.size) : ''
     if (!role || !size) return null
     return {
       role,
       family: str(r.family, 60) || '—',
-      weight: str(r.weight, 10) || '—',
+      weight: str(r.weight, 10).match(/\d{3}/)?.[0] ?? '—',
       size,
-      lineHeight: str(r.lineHeight, 10) || '—',
-      letterSpacing: str(r.letterSpacing, 20) || '—',
+      lineHeight: length(`line height „${role}”`, r.lineHeight, { unitless: true }) || '—',
+      letterSpacing: length(`letter spacing „${role}”`, r.letterSpacing) || '—',
       token: token(r.token, 'text', role),
     }
   })
 
   const sp = isObject(v.spacing) ? v.spacing : {}
   const spacing = {
-    baseUnit: str(sp.baseUnit, 20) || '4px',
+    baseUnit: length('spacing base unit', sp.baseUnit) || '4px',
     density: str(sp.density, 40) || 'comfortable',
-    scale: list(sp.scale, (s) => nameValue(s)),
+    scale: list(sp.scale, (s) => lengthItem('spacing', nameValue(s))),
     assumed: sp.assumed === true,
   }
 
   const lay = isObject(v.layout) ? v.layout : {}
   const layout = {
-    pageMaxWidth: str(lay.pageMaxWidth, 20),
-    sectionGap: str(lay.sectionGap, 20),
-    cardPadding: str(lay.cardPadding, 20),
-    elementGap: str(lay.elementGap, 20),
+    pageMaxWidth: length('page max-width', lay.pageMaxWidth),
+    sectionGap: length('section gap', lay.sectionGap),
+    cardPadding: length('card padding', lay.cardPadding),
+    elementGap: length('element gap', lay.elementGap),
     description: text(lay.description),
   }
 
@@ -307,8 +387,14 @@ export function validateDesignSpec(input: unknown): DesignSpec {
     colors,
     typography: { families, scale },
     spacing,
-    radii: list(v.radii, (r) => nameValue(r, 'element')),
-    shadows: list(v.shadows, (s) => nameValue(s)),
+    radii: list(v.radii, (r) => lengthItem('radius', nameValue(r, 'element'))),
+    shadows: list(v.shadows, (s) => {
+      const item = nameValue(s)
+      if (!item) return null
+      const value = cssShadow(item.value)
+      if (!value) unclear.push(`shadow „${item.name}”: „${item.value}”`)
+      return value ? { name: item.name, value } : null
+    }),
     layout,
     components,
     screens,
@@ -319,13 +405,14 @@ export function validateDesignSpec(input: unknown): DesignSpec {
     surfaces: list(v.surfaces, (s) => {
       if (!isObject(s)) return null
       const name = str(s.name, 60)
-      const value = str(s.value, 40)
+      const raw = str(s.value, 60)
+      const value = normalizeHex(raw) ?? (/^(rgba?|hsla?|oklch)\([^()]*\)$/i.test(raw) ? raw : null)
       if (!name || !value) return null
       const level = Number(s.level)
       return {
         level: Number.isFinite(level) ? level : 0,
         name,
-        value: normalizeHex(value) ?? value,
+        value,
         purpose: str(s.purpose, 300),
       }
     }),
@@ -345,6 +432,11 @@ export function validateDesignSpec(input: unknown): DesignSpec {
       8
     ),
     openQuestions: strList(v.openQuestions, 20),
+  }
+  if (unclear.length) {
+    spec.openQuestions.push(
+      `These values were descriptions rather than CSS and were left out of the tokens — confirm exact values: ${unclear.slice(0, 12).join('; ')}.`
+    )
   }
 
   if (!spec.name) problems.push(t('spec.problem.name'))
@@ -442,4 +534,60 @@ export function specReferences(spec: DesignSpec): Map<number, Set<string>> {
   refsInText([spec.voice.tone, ...spec.voice.examples].join(' ')).forEach((id) => add(id, 'Voice'))
   spec.flows.flatMap(refsInText).forEach((id) => add(id, 'Flows'))
   return map
+}
+
+// ---------------------------------------------------------------------------
+// Kolory a materiały
+// ---------------------------------------------------------------------------
+
+function toOklab(hex: string): [number, number, number] {
+  const lin = (i: number) => {
+    const c = Number.parseInt(hex.slice(i, i + 2), 16) / 255
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  }
+  const [r, g, b] = [lin(1), lin(3), lin(5)]
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b)
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
+  return [
+    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+  ]
+}
+
+export function colorDistance(a: string, b: string): number {
+  const [x, y] = [toOklab(a), toOklab(b)]
+  return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2])
+}
+
+/** Próg podobieństwa (OKLab): odcień z materiału ± drobne przybliżenie modelu. */
+const SAME_COLOR = 0.06
+
+/**
+ * Kolor cytujący materiał musi być widoczny w palecie odczytanej z tego materiału
+ * w etapie 1 (albo w innym materiale — wtedy źródło jest poprawiane). Kolor, którego
+ * nie ma w żadnej palecie, to propozycja modelu (np. „typowy” czerwony błędu) —
+ * dostaje flagę założenia †, żeby nie udawał faktu z materiałów.
+ * `palettes`: assetId → kolory hex z analizy. Zwraca nazwy oznaczonych kolorów.
+ */
+export function verifyColorEvidence(spec: DesignSpec, palettes: Map<number, string[]>): string[] {
+  const flagged: string[] = []
+  const near = (id: number, hex: string) =>
+    (palettes.get(id) ?? []).some((p) => colorDistance(p, hex) <= SAME_COLOR)
+  for (const c of spec.colors) {
+    if (c.assumed || c.sources.length === 0) continue
+    // Źródła bez palety (link, notatka, PDF bez obrazu) — nie ma z czym porównać.
+    if (c.sources.every((id) => !(palettes.get(id) ?? []).length)) continue
+    if (c.sources.some((id) => near(id, c.hex))) continue
+    const elsewhere = [...palettes.keys()].filter((id) => near(id, c.hex))
+    if (elsewhere.length) {
+      c.sources = elsewhere
+      continue
+    }
+    c.assumed = true
+    c.sources = []
+    flagged.push(c.name)
+  }
+  return flagged
 }

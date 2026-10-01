@@ -57,7 +57,6 @@ export default class DesignPreviewsController {
       version,
       status: preview.status,
       error: preview.error,
-      model: preview.model,
       creditsCharged: preview.creditsCharged,
       createdAt: preview.createdAt?.toISO() ?? null,
       generatedAt: preview.generatedAt?.toISO() ?? null,
@@ -146,7 +145,12 @@ export default class DesignPreviewsController {
     })
     preview.jobId = job.id
     await preview.save()
-    trackFor(ctx, 'preview_requested', { version: doc.version, force: Boolean(force) }, { boardId: board.id })
+    trackFor(
+      ctx,
+      'preview_requested',
+      { version: doc.version, force: Boolean(force) },
+      { boardId: board.id }
+    )
     return response
       .status(202)
       .json({ data: this.serialize(preview, board.id, doc.version), reused: false })

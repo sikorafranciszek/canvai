@@ -12,6 +12,7 @@ import { setProviderOverride } from '#services/ai/provider'
 import { MockProvider } from '#services/ai/mock_provider'
 import { AiProviderError } from '#services/ai/types'
 import { runPendingJobs } from '#services/queue'
+import { PROMPT_VERSION } from '#services/design/prompts'
 
 /**
  * Pipeline DESIGN.md end-to-end po API, na dostawcy `mock` (zero sieci).
@@ -28,7 +29,11 @@ test.group('Design doc API', (group) => {
 
   async function login(client: any) {
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    const user = await User.create({ emailVerifiedAt: DateTime.utc(), email: `design-${suffix}@test.com`, password: 'password123' })
+    const user = await User.create({
+      emailVerifiedAt: DateTime.utc(),
+      email: `design-${suffix}@test.com`,
+      password: 'password123',
+    })
     const res = await client
       .post('/login')
       .json({ email: user.email, password: 'password123' })
@@ -198,8 +203,12 @@ test.group('Design doc API', (group) => {
     res.assertStatus(200)
     const doc = res.body().data
     assert.equal(doc.status, 'ready', doc.error)
-    assert.equal(doc.promptVersion, 'v2')
-    assert.equal(doc.model, 'mock-text')
+    // Model i wersja promptu zostają w bazie, ale nie trafiają do klienta ani dokumentu.
+    assert.notProperty(doc, 'model')
+    assert.notProperty(doc, 'promptVersion')
+    const stored = await DesignDoc.findOrFail(doc.id)
+    assert.equal(stored.promptVersion, PROMPT_VERSION)
+    assert.equal(stored.model, 'mock-text')
 
     const md: string = doc.contentMd
     assert.match(md, /^# Sklep z kawą — Style Reference\n/)
@@ -455,7 +464,10 @@ test.group('Design doc API', (group) => {
     assert.notInclude(res.body().data.contentMd, 'A999999')
   })
 
-  test('materiał usunięty z płótna nie trafia do DESIGN.md, a prune go sprząta', async ({ client, assert }) => {
+  test('materiał usunięty z płótna nie trafia do DESIGN.md, a prune go sprząta', async ({
+    client,
+    assert,
+  }) => {
     const { user, cookies } = await login(client)
     const board = await createBoard(user)
     const { imageIds, linkId } = await seedBoard(client, cookies, board)
@@ -475,7 +487,9 @@ test.group('Design doc API', (group) => {
 
     await client.post(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies }).json({})
     await runPendingJobs()
-    const doc = (await client.get(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies })).body().data
+    const doc = (
+      await client.get(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies })
+    ).body().data
     assert.equal(doc.status, 'ready', doc.error)
     assert.equal(doc.usage.assets, 3)
     assert.notInclude(doc.contentMd, `A${logoId}`)
@@ -486,10 +500,14 @@ test.group('Design doc API', (group) => {
 
     // Obcy nie może sprzątać cudzej tablicy.
     const intruder = await login(client)
-    const denied = await client.post(`/api/boards/${board.id}/assets/prune`).headers({ cookie: intruder.cookies })
+    const denied = await client
+      .post(`/api/boards/${board.id}/assets/prune`)
+      .headers({ cookie: intruder.cookies })
     denied.assertStatus(404)
 
-    const res = await client.post(`/api/boards/${board.id}/assets/prune`).headers({ cookie: cookies })
+    const res = await client
+      .post(`/api/boards/${board.id}/assets/prune`)
+      .headers({ cookie: cookies })
     res.assertStatus(200)
     assert.deepEqual(res.body().data.removed, [logoId])
     assert.isNull(await Asset.find(logoId))
@@ -498,11 +516,17 @@ test.group('Design doc API', (group) => {
     for (const id of [imageIds[0], imageIds[1], linkId]) assert.isNotNull(await Asset.find(id))
   })
 
-  test('i18n: komunikaty API w języku z cookie / Accept-Language, a błąd generacji w języku zlecającego', async ({ client, assert }) => {
+  test('i18n: komunikaty API w języku z cookie / Accept-Language, a błąd generacji w języku zlecającego', async ({
+    client,
+    assert,
+  }) => {
     const { user, cookies } = await login(client)
     const board = await createBoard(user)
 
-    const pl = await client.post(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies }).json({})
+    const pl = await client
+      .post(`/api/boards/${board.id}/design-doc`)
+      .headers({ cookie: cookies })
+      .json({})
     assert.match(pl.body().message, /^Tablica jest pusta/)
 
     const en = await client
@@ -514,7 +538,10 @@ test.group('Design doc API', (group) => {
     // Cookie `locale` ma pierwszeństwo przed nagłówkiem.
     const cookieEn = await client
       .post(`/api/boards/${board.id}/design-doc`)
-      .headers({ 'cookie': [...[cookies].flat(), 'dc_locale=en'].join('; '), 'accept-language': 'pl' })
+      .headers({
+        'cookie': [...[cookies].flat(), 'dc_locale=en'].join('; '),
+        'accept-language': 'pl',
+      })
       .json({})
     assert.match(cookieEn.body().message, /^The board is empty/)
 
@@ -531,7 +558,9 @@ test.group('Design doc API', (group) => {
       .headers({ 'cookie': cookies, 'accept-language': 'en' })
       .json({})
     await runPendingJobs()
-    const doc = (await client.get(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies })).body().data
+    const doc = (
+      await client.get(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies })
+    ).body().data
     assert.equal(doc.status, 'failed')
     assert.equal(doc.error, 'Insufficient balance on the AI provider account')
   })

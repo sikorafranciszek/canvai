@@ -14,7 +14,6 @@ export interface PreviewDto {
   version: number
   status: 'queued' | 'running' | 'ready' | 'failed'
   error: string | null
-  model: string | null
   creditsCharged: number | null
   createdAt: string | null
   generatedAt: string | null

@@ -10,11 +10,15 @@ import type { AnalyzeAssetInput, ComposeInput, PreviewInput } from '#services/ai
  * `DesignSpec`, markdown składa `renderer.ts`. Treść dokumentu po angielsku —
  * jest przeznaczona dla AI generującego UI.
  *
+ * v3: ostrzejsze ugruntowanie — dosłowny OCR, kolory tekstu per rola, mikrocopy
+ * tylko z materiałów (propozycje oznaczone), zakaz dopisywania funkcji „znanego”
+ * produktu z wiedzy modelu, wartości tokenów jako czysty CSS.
+ *
  * Bezpieczeństwo (lens 7): wszystko, co pochodzi z tablicy — nazwy plików,
  * notatki, tekst z obrazów, metadane linków — trafia do bloku `<untrusted>`
  * i jest opisane w prompcie systemowym jako DANE, nigdy instrukcje.
  */
-export const PROMPT_VERSION = 'v2'
+export const PROMPT_VERSION = 'v3'
 
 /** Neutralizuje próbę zamknięcia ogrodzenia z wnętrza treści. */
 export function fenceUntrusted(label: string, content: string): string {
@@ -36,11 +40,15 @@ export const ANALYZE_SYSTEM_PROMPT = [
   'Describe only what is actually visible or implied. Do not guess brands, fonts or values you cannot read —',
   'if a font is uncertain, give its category (e.g. "geometric sans-serif", "transitional serif").',
   'Measure what you can: corner radii, border weights, shadow softness, spacing rhythm, density.',
+  'Note the actual color of each kind of text (e.g. "usernames #aaaaaa, one member name green #2ba640, message text #ffffff")',
+  'and of every badge/icon — never generalise ("each user has its own color") unless several examples really show it.',
+  'If the image is a screenshot of a recognisable product, describe ONLY what is visible in this image —',
+  'do not add icons, states, colors or features you know from that product but cannot see here.',
   'Colors as hex (#rrggbb) with a role (primary, secondary, accent, background, surface, text, muted, border, success, warning, danger).',
   'Reply ONLY with a JSON object of this shape:',
   '{"role": "screen|component|logo|moodboard|diagram|photo|illustration|document|link|other",',
   ' "summary": "2-4 sentences in English: what this is and what it implies for the design",',
-  ' "ocrText": "verbatim visible UI text (labels, headings, buttons); empty if none",',
+  ' "ocrText": "visible UI text copied EXACTLY character by character (labels, headings, buttons, placeholders) — no corrections, no translation; empty if none",',
   ' "palette": [{"hex": "#rrggbb", "role": "primary"}],',
   ' "typography": [{"usage": "H1 heading", "family": "…", "size": "32px", "weight": "600"}],',
   ' "components": ["e.g. filled primary button, ~8px radius, 44px tall"],',
@@ -89,7 +97,7 @@ const SPEC_SHAPE = `{
  "components": [{"name": "Filled Action Button", "role": "high-emphasis action", "description": "exact background/text colors (name + hex), border, radius, padding, type size/weight, placement", "states": ["hover: …", "focus: …", "disabled: …"], "sources": [12], "assumed": false}],
  "screens": [{"name": "Home", "purpose": "…", "elements": ["hero", "…"], "sources": [12]}],
  "flows": ["Home [A12] → Checkout [A14]: …"],
- "voice": {"tone": "tone of copy", "examples": ["verbatim or proposed microcopy"]},
+ "voice": {"tone": "tone of copy", "examples": ["Verbatim text from the materials", "Proposed: suggested extra copy"]},
  "dos": ["Use …"],
  "donts": ["Don't …"],
  "surfaces": [{"level": 0, "name": "Page Canvas", "value": "#faf8f5", "purpose": "…"}],
@@ -115,6 +123,20 @@ export const COMPOSE_SYSTEM_PROMPT = [
   '- If the materials do not show something the UI needs (e.g. spacing scale, error color, font), you MAY propose a',
   '  sensible value that fits the observed style, but set "assumed": true (or leave sources empty) and add an',
   '  entry to "openQuestions". Never invent screens or brands that are not supported by the materials.',
+  "- Colors: cite an asset only if the color appears in that asset's analysed palette or text colors. Status colors",
+  '  (error/warning/success), hover/pressed shades and other colors not visible in the materials are proposals:',
+  '  "assumed": true, empty sources.',
+  '- Never import knowledge of a recognisable product (e.g. a screenshot of YouTube, Slack, Stripe): describe only',
+  '  icons, badges, states and flows visible in the materials. Invisible states (hover, focus, error, empty) may be',
+  '  proposed, but write them as "hover (proposed): …" and mark the component "assumed" if most of it is proposed.',
+  '- Flows only from board arrows/notes or interactions clearly visible in a screenshot; otherwise leave "flows" empty.',
+  '- Microcopy: voice.examples are verbatim strings from ocrText or notes (copy spelling exactly). Extra example copy',
+  '  you suggest must start with "Proposed: ".',
+  '- Product name: take it from the board title, notes or a logo. A tab, filter or section label in a screenshot',
+  '  (e.g. "Top chat", "Dashboard") is NOT the product name — if unknown, use a short descriptive name.',
+  '- Any spacing scale not measured from the materials: "assumed": true.',
+  '- Token values (sizes, radii, spacing, shadows, layout) must be valid CSS only — e.g. "50%", "8px", "9999px",',
+  '  "rgba(0, 0, 0, 0.08) 0px 1px 2px 0px". Put explanations in names/descriptions, never inside the value.',
   '- Use arrows (flows) and frames from the board structure for "screens" and "flows".',
   'Target sizes: 5-12 colors, 1-3 font families with a 4-8 row type scale, 6-14 components, 5-8 dos and donts,',
   '3-5 agent component prompts. No field may be empty except where there is genuinely nothing to say.',
@@ -181,7 +203,7 @@ export const PREVIEW_SYSTEM_PROMPT = [
   'DESIGN.md below — the most representative screen (landing page for a website, main screen for an app).',
   UNTRUSTED_RULE,
   'Follow the document strictly: use ONLY its colors, fonts, type scale, spacing, radii and shadows (define them as',
-  'CSS custom properties in :root), apply its component descriptions, states, voice and do/don\'t rules.',
+  "CSS custom properties in :root), apply its component descriptions, states, voice and do/don't rules.",
   'Use realistic copy that fits the product (in the language the board implies; default English), not lorem ipsum.',
   'TECHNICAL RULES:',
   '- A single self-contained HTML5 document with one <style> block. Responsive (mobile first, one breakpoint).',

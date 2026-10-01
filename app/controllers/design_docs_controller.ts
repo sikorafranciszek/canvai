@@ -46,8 +46,6 @@ export default class DesignDocsController {
       version: doc.version,
       status: doc.status,
       error: doc.error,
-      model: doc.model,
-      promptVersion: doc.promptVersion,
       usage: doc.usage,
       creditsCharged: doc.creditsCharged,
       proMode: doc.proMode,

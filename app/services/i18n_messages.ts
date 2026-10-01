@@ -57,10 +57,8 @@ export const pl = {
   'gen.unknownError': 'nieznany błąd',
 
   // Dostawca AI
-  'ai.noKey':
-    'Brak klucza DEEPSEEK_API_KEY w pliku .env — ustaw klucz albo przełącz AI_PROVIDER=mock',
-  'ai.noKeyDeepseek':
-    'Brak klucza DEEPSEEK_API_KEY w .env — generacja przez DeepSeek jest niedostępna',
+  'ai.noKey': 'Generowanie AI nie jest skonfigurowane na serwerze (brak klucza API)',
+  'ai.noKeyDeepseek': 'Generowanie AI nie jest skonfigurowane na serwerze (brak klucza API)',
   'ai.imageTooLarge': 'Obraz przekracza limit dostawcy ({mb} MiB)',
   'ai.tooManyImages': 'Za dużo obrazów w jednym zapytaniu do modelu',
   'ai.truncated': 'Odpowiedź modelu została ucięta (limit tokenów wyjścia)',
@@ -69,7 +67,7 @@ export const pl = {
   'ai.noResponse': 'Dostawca AI nie odpowiedział',
   'ai.timeout': 'Przekroczono czas odpowiedzi dostawcy AI',
   'ai.noConnection': 'Brak połączenia z dostawcą AI',
-  'ai.badKey': 'Dostawca AI odrzucił klucz API (sprawdź DEEPSEEK_API_KEY)',
+  'ai.badKey': 'Dostawca AI odrzucił klucz API serwera',
   'ai.noCredit': 'Brak środków na koncie dostawcy AI',
   'ai.rateLimited': 'Dostawca AI ogranicza liczbę zapytań (429)',
   'ai.unavailable': 'Dostawca AI jest chwilowo niedostępny ({status})',
@@ -143,7 +141,8 @@ export const pl = {
   'field.token': 'Token',
 
   // Import strony
-  'siteImport.failed': 'Nie udało się pobrać tej strony (niedostępna, blokuje roboty albo to nie HTML).',
+  'siteImport.failed':
+    'Nie udało się pobrać tej strony (niedostępna, blokuje roboty albo to nie HTML).',
   'siteImport.linkNote': 'Strona referencyjna klienta — styl, kolory i fonty z tej witryny',
   'siteImport.imageNote': 'Obraz podglądu strony {host}',
 
@@ -164,13 +163,16 @@ export const pl = {
   'portal.mail.button': 'Otwórz tablicę',
   'portal.mail.materials.subject': '{name} przesłał(a) materiały do „{board}”',
   'portal.mail.materials.heading': 'Nowe materiały od klienta',
-  'portal.mail.materials.intro': '{name} przesłał(a) {count} materiał(y) do tablicy „{board}”. Czekają w zakładce Materiały → Od klienta.',
+  'portal.mail.materials.intro':
+    '{name} przesłał(a) {count} materiał(y) do tablicy „{board}”. Czekają w zakładce Materiały → Od klienta.',
   'portal.mail.approved.subject': '{name} zaakceptował(a) DESIGN.md — „{board}”',
   'portal.mail.approved.heading': 'DESIGN.md zaakceptowany',
-  'portal.mail.approved.intro': '{name} zaakceptował(a) wersję v{version} DESIGN.md tablicy „{board}”.',
+  'portal.mail.approved.intro':
+    '{name} zaakceptował(a) wersję v{version} DESIGN.md tablicy „{board}”.',
   'portal.mail.changes.subject': '{name} prosi o zmiany — „{board}”',
   'portal.mail.changes.heading': 'Klient prosi o zmiany',
-  'portal.mail.changes.intro': '{name} prosi o zmiany w wersji v{version} DESIGN.md tablicy „{board}”:',
+  'portal.mail.changes.intro':
+    '{name} prosi o zmiany w wersji v{version} DESIGN.md tablicy „{board}”:',
 
   // Rozliczenia
   'api.unauthorized': 'Brak lub nieprawidłowy token API (nagłówek Authorization: Bearer cvai_…)',
@@ -180,9 +182,11 @@ export const pl = {
   'api.tokenLimit': 'Możesz mieć najwyżej {max} aktywnych tokenów.',
   'ai.previewInvalid': 'Model nie zwrócił poprawnego dokumentu HTML podglądu',
   'preview.needsReady': 'Podgląd powstaje z gotowej wersji DESIGN.md — najpierw ją wygeneruj.',
-  'preview.needsSpec': 'Ta wersja powstała przed wprowadzeniem podglądu — wygeneruj DESIGN.md ponownie.',
+  'preview.needsSpec':
+    'Ta wersja powstała przed wprowadzeniem podglądu — wygeneruj DESIGN.md ponownie.',
   'preview.inProgress': 'Podgląd tej wersji już się generuje.',
-  'account.disposableEmail': 'Tymczasowe skrzynki e-mail nie są obsługiwane — podaj swój stały adres.',
+  'account.disposableEmail':
+    'Tymczasowe skrzynki e-mail nie są obsługiwane — podaj swój stały adres.',
   'billing.insufficient':
     'Za mało kredytów: ta generacja kosztuje {needed}, a masz {balance}. Dokup kredyty w zakładce Rozliczenia.',
   'billing.proOnly': 'Tryb Pro reasoning jest dostępny w płatnych planach.',
@@ -252,8 +256,8 @@ export const en: Record<ServerMessageKey, string> = {
   'gen.interruptedTooMany': 'Job interrupted too many times',
   'gen.unknownError': 'unknown error',
 
-  'ai.noKey': 'DEEPSEEK_API_KEY is missing in .env — set the key or switch to AI_PROVIDER=mock',
-  'ai.noKeyDeepseek': 'DEEPSEEK_API_KEY is missing in .env — DeepSeek generation is unavailable',
+  'ai.noKey': 'AI generation is not configured on the server (missing API key)',
+  'ai.noKeyDeepseek': 'AI generation is not configured on the server (missing API key)',
   'ai.imageTooLarge': 'Image exceeds the provider limit ({mb} MiB)',
   'ai.tooManyImages': 'Too many images in a single model request',
   'ai.truncated': 'The model response was cut off (output token limit)',
@@ -262,7 +266,7 @@ export const en: Record<ServerMessageKey, string> = {
   'ai.noResponse': 'The AI provider did not respond',
   'ai.timeout': 'The AI provider timed out',
   'ai.noConnection': 'Cannot connect to the AI provider',
-  'ai.badKey': 'The AI provider rejected the API key (check DEEPSEEK_API_KEY)',
+  'ai.badKey': 'The AI provider rejected the server API key',
   'ai.noCredit': 'Insufficient balance on the AI provider account',
   'ai.rateLimited': 'The AI provider is rate limiting requests (429)',
   'ai.unavailable': 'The AI provider is temporarily unavailable ({status})',
@@ -353,13 +357,16 @@ export const en: Record<ServerMessageKey, string> = {
   'portal.mail.button': 'Open the board',
   'portal.mail.materials.subject': '{name} sent materials to “{board}”',
   'portal.mail.materials.heading': 'New materials from your client',
-  'portal.mail.materials.intro': '{name} sent {count} material(s) to the board “{board}”. They are waiting in Materials → From client.',
+  'portal.mail.materials.intro':
+    '{name} sent {count} material(s) to the board “{board}”. They are waiting in Materials → From client.',
   'portal.mail.approved.subject': '{name} approved the DESIGN.md — “{board}”',
   'portal.mail.approved.heading': 'DESIGN.md approved',
-  'portal.mail.approved.intro': '{name} approved version v{version} of the DESIGN.md for “{board}”.',
+  'portal.mail.approved.intro':
+    '{name} approved version v{version} of the DESIGN.md for “{board}”.',
   'portal.mail.changes.subject': '{name} requested changes — “{board}”',
   'portal.mail.changes.heading': 'Your client requested changes',
-  'portal.mail.changes.intro': '{name} requested changes to version v{version} of the DESIGN.md for “{board}”:',
+  'portal.mail.changes.intro':
+    '{name} requested changes to version v{version} of the DESIGN.md for “{board}”:',
 
   // Billing
   'api.unauthorized': 'Missing or invalid API token (Authorization: Bearer cvai_… header)',
@@ -371,7 +378,8 @@ export const en: Record<ServerMessageKey, string> = {
   'preview.needsReady': 'Previews are built from a ready DESIGN.md version — generate one first.',
   'preview.needsSpec': 'This version predates previews — generate DESIGN.md again.',
   'preview.inProgress': 'A preview of this version is already being generated.',
-  'account.disposableEmail': 'Temporary email addresses are not supported — please use your regular address.',
+  'account.disposableEmail':
+    'Temporary email addresses are not supported — please use your regular address.',
   'billing.insufficient':
     'Not enough credits: this generation costs {needed} and you have {balance}. Top up in Billing.',
   'billing.proOnly': 'Pro reasoning is available on paid plans.',

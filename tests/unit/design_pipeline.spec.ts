@@ -276,8 +276,6 @@ test.group('Design pipeline / spec & renderer', () => {
       {
         boardTitle: 'Kawa\n# hack',
         version: 2,
-        model: 'm',
-        promptVersion: 'v2',
         generatedAt: 'now',
       }
     )
@@ -553,7 +551,7 @@ test.group('Design pipeline / deepseek provider', () => {
       assert.fail('powinno rzucić')
     } catch (error) {
       assert.instanceOf(error, AiProviderError)
-      assert.include((error as Error).message, 'DEEPSEEK_API_KEY')
+      assert.include((error as Error).message, 'API')
       assert.notInclude((error as Error).message, 'test-key')
     }
     assert.equal(calls, 0)

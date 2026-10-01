@@ -261,8 +261,6 @@ export interface DesignDocDto {
   version: number
   status: DesignDocStatus
   error: string | null
-  model: string | null
-  promptVersion: string | null
   usage: {
     assets: number
     analyzed: number
