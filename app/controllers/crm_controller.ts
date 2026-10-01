@@ -19,7 +19,7 @@ import { referralStats } from '#services/billing/referrals'
 import { deleteAssetFiles } from '#services/assets_service'
 import { issueToken } from '#services/account_tokens'
 import { sendPasswordResetEmail } from '#services/account_mail'
-import { isAdmin } from '#services/crm/admin'
+import { adminDenial, isAdmin } from '#services/crm/admin'
 import { rateLimited } from '#services/portal'
 import {
   FUNNEL,
@@ -109,9 +109,10 @@ export default class CrmController {
       session.flash('error', 'crm.login.invalid')
       return response.redirect().toPath('/login')
     }
-    if (!isAdmin(user)) {
-      logger.warn({ email }, 'crm login denied (not an admin)')
-      session.flash('error', 'crm.login.denied')
+    const denial = adminDenial(user)
+    if (denial) {
+      logger.warn({ email, reason: denial, admins: crm.adminEmails.length }, 'crm login denied')
+      session.flash('error', `crm.login.${denial}`)
       return response.redirect().toPath('/login')
     }
     await auth.use('web').login(user)

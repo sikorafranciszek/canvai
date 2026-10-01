@@ -30,8 +30,14 @@ export const analytics = {
 /** Panel CRM (crm.canvai.dev) — dostęp tylko dla administratorów. */
 export const crm = {
   host: env.get('CRM_HOST') || (app.inProduction ? 'crm.canvai.dev' : 'crm.localhost'),
+  // Odporne na typowe pomyłki w panelu: cudzysłowy, spacje, średniki zamiast przecinków.
   adminEmails: (env.get('ADMIN_EMAILS') || '')
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean),
+    .split(/[,;\s]+/)
+    .map((e) =>
+      e
+        .trim()
+        .replace(/^["']+|["']+$/g, '')
+        .toLowerCase()
+    )
+    .filter((e) => e.includes('@')),
 }

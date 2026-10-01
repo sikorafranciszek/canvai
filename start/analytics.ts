@@ -42,6 +42,14 @@ if (analytics.sink === 'clickhouse') {
   })
 }
 
+// Widoczne w logach kontenera: czy ADMIN_EMAILS dotarło do aplikacji.
+if (app.getEnvironment() === 'web') {
+  const { crm } = await import('#config/analytics')
+  process.stdout.write(
+    `[crm] host ${crm.host}, administratorzy: ${crm.adminEmails.length}${crm.adminEmails.length ? ` (${crm.adminEmails.map((e) => e.replace(/^(.).*(@.*)$/, '$1…$2')).join(', ')})` : ' — ustaw ADMIN_EMAILS'}\n`
+  )
+}
+
 app.terminating(async () => {
   await shutdown()
 })

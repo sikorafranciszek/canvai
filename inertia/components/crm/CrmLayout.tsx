@@ -13,6 +13,13 @@ import { Brand } from '~/components/ui/Brand'
 export const CRM_FLASH: Record<string, string> = {
   'crm.login.invalid': 'Nieprawidłowy e-mail lub hasło.',
   'crm.login.denied': 'To konto nie ma dostępu do CRM.',
+  'crm.login.not_listed':
+    'Ten adres nie jest na liście administratorów (zmienna ADMIN_EMAILS). Po zmianie zmiennej zrób Redeploy aplikacji.',
+  'crm.login.no_admins':
+    'Brak skonfigurowanych administratorów — ustaw ADMIN_EMAILS w Coolify i zrób Redeploy.',
+  'crm.login.unverified':
+    'Najpierw potwierdź adres e-mail (link z maila po rejestracji w aplikacji).',
+  'crm.login.disabled': 'To konto jest zablokowane.',
   'crm.login.rateLimited': 'Za dużo prób logowania. Spróbuj ponownie za kilkanaście minut.',
   'crm.flash.credits': 'Kredyty przyznane.',
   'crm.flash.verified': 'Adres e-mail oznaczony jako potwierdzony.',
