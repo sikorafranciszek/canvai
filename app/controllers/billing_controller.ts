@@ -15,7 +15,12 @@ import CreditTransaction from '#models/credit_transaction'
 import Subscription from '#models/subscription'
 import { absoluteUrl } from '#services/app_url'
 import { balanceOf, ensureAutomaticGrants, nextExpiry } from '#services/billing/credits'
-import { createCheckout, customerPortalUrl, productById } from '#services/billing/polar'
+import {
+  createCheckout,
+  customerPortalUrl,
+  normalizeTaxId,
+  productById,
+} from '#services/billing/polar'
 import CreditGrant from '#models/credit_grant'
 import { entitlementsFor } from '#services/billing/plans'
 import { t } from '#services/i18n'
@@ -25,6 +30,9 @@ import { trackFor } from '#services/analytics/events'
 const checkoutValidator = vine.compile(
   vine.object({
     product: vine.enum(Object.keys(products) as ProductId[]),
+    business: vine.boolean().optional(),
+    company: vine.string().trim().maxLength(200).optional(),
+    taxId: vine.string().trim().maxLength(40).optional(),
   })
 )
 
@@ -88,6 +96,7 @@ export default class BillingController {
             : null,
           referral: { url: absoluteUrl(ctx, `/signup?ref=${code}`), ...stats },
           checkoutReady: checkoutReady(),
+          businessProfile: { company: user.billingCompany, taxId: user.billingTaxId },
           hasPurchases: Boolean(sub) || base.plan !== 'free',
           justPurchased: request.qs().checkout === 'success',
           costs,
@@ -95,7 +104,12 @@ export default class BillingController {
           plans: Object.fromEntries(
             Object.entries(plans).map(([id, l]) => [
               id,
-              { ...l, boards: finite(l.boards), materialsPerBoard: finite(l.materialsPerBoard) },
+              {
+                ...l,
+                boards: finite(l.boards),
+                materialsPerBoard: finite(l.materialsPerBoard),
+                collaborators: finite(l.collaborators),
+              },
             ])
           ),
           products: Object.values(products).map((p) => ({
@@ -130,7 +144,8 @@ export default class BillingController {
   async checkout(ctx: HttpContext) {
     const { auth, request, inertia, session, response } = ctx
     const user = auth.user!
-    const { product: productId } = await request.validateUsing(checkoutValidator)
+    const input = await request.validateUsing(checkoutValidator)
+    const productId = input.product
     const product = productById(productId)
 
     if (!product?.polarProductId || !checkoutReady()) {
@@ -142,8 +157,27 @@ export default class BillingController {
       return response.redirect().toPath('/billing')
     }
 
+    // Zakup firmowy: dane do faktury zapamiętujemy na kolejne zakupy.
+    let business: { company: string; taxId: string } | null = null
+    if (input.business) {
+      const taxId = normalizeTaxId(input.taxId ?? '')
+      if (!taxId || !input.company) {
+        session.flash('error', t('billing.taxIdInvalid'))
+        return response.redirect().toPath('/billing')
+      }
+      business = { company: input.company, taxId }
+      user.billingCompany = input.company
+      user.billingTaxId = taxId
+      await user.save()
+    }
+
     try {
-      const url = await createCheckout(user, product, absoluteUrl(ctx, '/billing?checkout=success'))
+      const url = await createCheckout(
+        user,
+        product,
+        absoluteUrl(ctx, '/billing?checkout=success'),
+        business
+      )
       trackFor(ctx, 'checkout_started', { product: product.id, kind: product.kind })
       return inertia.location(url)
     } catch (error) {

@@ -28,6 +28,7 @@ import { chargedFor } from '#services/billing/credits'
 import { track } from '#services/analytics/collector'
 import { recordAiUsage } from '#services/ops/ai_budget'
 import { publish } from '#services/board_events'
+import { printBrand } from '#services/portal'
 
 /**
  * Orkiestracja generacji DESIGN.md:
@@ -103,6 +104,12 @@ export async function withPlanFooter(markdown: string, userId: number): Promise<
   return planLimits.watermark
     ? `${markdown.trimEnd()}\n\n---\n\n_${runWithLocale('en', () => t('billing.watermark'))}_\n`
     : markdown
+}
+
+/** Nazwa marki agencji, gdy właściciel ma white-label; inaczej `null`. */
+export async function whiteLabelName(userId: number): Promise<string | null> {
+  const brand = await printBrand(userId)
+  return brand.whiteLabel ? brand.name : null
 }
 
 export async function runGeneration(
@@ -198,6 +205,7 @@ async function generate(
       boardTitle: board.title,
       version: doc.version,
       generatedAt: generatedAt.toFormat("yyyy-MM-dd HH:mm 'UTC'"),
+      preparedBy: await whiteLabelName(board.userId),
     }
   )
 

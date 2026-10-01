@@ -109,6 +109,7 @@ export default class PortalController {
           token: share.token,
           board: { title: board.title },
           owner: { name: owner.fullName?.trim() || owner.email.split('@')[0] },
+          brand: await printBrand(owner.id),
           allowUpload: share.allowUpload,
           maxFiles: MAX_FILES,
           submitted: Number(sent[0].$extras.total),

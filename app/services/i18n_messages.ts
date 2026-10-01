@@ -259,6 +259,12 @@ export const pl = {
   'members.loginToJoin': 'Zaloguj się albo załóż konto na adres {email}, żeby dołączyć do tablicy.',
   'members.wrongAccount': 'To zaproszenie jest dla {email} — zaloguj się na to konto.',
   'members.joined': 'Dołączono do tablicy',
+  'brand.locked': 'Własna marka (white-label) jest dostępna w planie Agency.',
+  'brand.domainInvalid': 'Podaj własną domenę, np. projekty.twojaagencja.pl.',
+  'brand.domainTaken': 'Ta domena jest już używana przez inne konto.',
+  'brand.saved': 'Zapisano markę',
+  'brand.logoInvalid': 'Logo musi być obrazem PNG, JPG, WebP albo SVG do 4 MB.',
+  'billing.taxIdInvalid': 'Podaj poprawny NIP / numer VAT UE (np. PL1234567890).',
 } as const
 
 export type ServerMessageKey = keyof typeof pl
@@ -507,4 +513,10 @@ export const en: Record<ServerMessageKey, string> = {
   'members.loginToJoin': 'Sign in or create an account with {email} to join the board.',
   'members.wrongAccount': 'This invitation is for {email} — sign in with that account.',
   'members.joined': 'You joined the board',
+  'brand.locked': 'Custom branding (white-label) is available on the Agency plan.',
+  'brand.domainInvalid': 'Enter your own domain, e.g. projects.youragency.com.',
+  'brand.domainTaken': 'This domain is already used by another account.',
+  'brand.saved': 'Brand saved',
+  'brand.logoInvalid': 'The logo must be a PNG, JPG, WebP or SVG image up to 4 MB.',
+  'billing.taxIdInvalid': 'Enter a valid EU VAT / tax ID (e.g. PL1234567890).',
 }

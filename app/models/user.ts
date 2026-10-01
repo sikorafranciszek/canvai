@@ -14,6 +14,27 @@ export default class User extends compose(UserSchema, withAuthFinder(hash)) {
   @column({ consume: (v) => Boolean(v) })
   declare marketingEmails: boolean
 
+  /** Dane do faktury (zakupy firmowe w Polar). */
+  @column()
+  declare billingCompany: string | null
+
+  @column()
+  declare billingTaxId: string | null
+
+  /** White-label (plan Agency): marka w portalu klienta, PDF i DESIGN.md. */
+  @column()
+  declare brandName: string | null
+
+  @column({ serializeAs: null })
+  declare brandLogoKey: string | null
+
+  @column()
+  declare brandAccent: string | null
+
+  /** Własna domena portalu klienta (CNAME na aplikację). */
+  @column()
+  declare portalDomain: string | null
+
   /** Tagi nadawane w CRM (np. „agencja”, „beta”). */
   @column({ prepare: jsonPrepare, consume: jsonConsume })
   declare crmTags: string[] | null

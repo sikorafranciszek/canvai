@@ -31,6 +31,16 @@ export default class SettingsController {
           createdAt: user.createdAt?.toISO() ?? null,
           marketingEmails: user.marketingEmails,
         },
+        brand: {
+          allowed: limits.whiteLabel,
+          name: user.brandName,
+          accent: user.brandAccent,
+          logoUrl: user.brandLogoKey
+            ? `/brand/${user.id}/logo?v=${encodeURIComponent(user.brandLogoKey.slice(-12))}`
+            : null,
+          portalDomain: user.portalDomain,
+          appHost: new URL(absoluteUrl(ctx, '/')).host,
+        },
         api: {
           enabled: limits.api,
           endpoint: absoluteUrl(ctx, '/mcp'),

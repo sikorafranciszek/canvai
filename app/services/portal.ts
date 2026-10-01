@@ -94,9 +94,32 @@ export interface PrintBrand {
   whiteLabel: boolean
 }
 
-/** Oznaczenie autora na wydruku / PDF i w portalu klienta. */
+/**
+ * Oznaczenie autora na wydruku / PDF, w portalu klienta i w nagłówku DESIGN.md.
+ * White-label (plan Agency + ustawiona nazwa marki): marka agencji zamiast canvai.
+ */
 export async function printBrand(userId: number): Promise<PrintBrand> {
   const owner = await User.find(userId)
   const name = owner?.fullName?.trim() || owner?.email.split('@')[0] || 'canvai'
+  if (owner?.brandName) {
+    const { entitlementsFor } = await import('#services/billing/plans')
+    const { limits } = await entitlementsFor(owner.id)
+    if (limits.whiteLabel) {
+      return {
+        name: owner.brandName,
+        logoUrl: owner.brandLogoKey ? `/brand/${owner.id}/logo` : null,
+        accent: owner.brandAccent,
+        whiteLabel: true,
+      }
+    }
+  }
   return { name, logoUrl: null, accent: null, whiteLabel: false }
+}
+
+/** Podstawa adresu portalu: własna domena agencji (white-label) albo adres aplikacji. */
+export async function portalBase(userId: number, fallback: string): Promise<string> {
+  const owner = await User.find(userId)
+  if (!owner?.portalDomain) return fallback
+  const brand = await printBrand(userId)
+  return brand.whiteLabel ? `https://${owner.portalDomain}` : fallback
 }

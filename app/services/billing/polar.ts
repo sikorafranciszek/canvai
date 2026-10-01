@@ -43,20 +43,47 @@ async function api<T>(path: string, body: unknown): Promise<T> {
   return (await res.json()) as T
 }
 
-/** Tworzy sesję checkoutu dla produktu i zwraca jej URL. */
+/**
+ * NIP / numer VAT UE do Polar: wielkie litery, bez spacji i myślników; sam
+ * 10-cyfrowy NIP dostaje prefiks `PL`. `null` = format niepoprawny.
+ */
+export function normalizeTaxId(raw: string): string | null {
+  const id = raw.toUpperCase().replace(/[\s.-]/g, '')
+  if (/^\d{10}$/.test(id)) return `PL${id}`
+  return /^[A-Z]{2}[0-9A-Z]{2,13}$/.test(id) ? id : null
+}
+
+export interface CheckoutBusiness {
+  company: string
+  taxId: string
+}
+
+/**
+ * Tworzy sesję checkoutu dla produktu i zwraca jej URL. Zakup firmowy: Polar
+ * zbiera nazwę firmy, adres i NIP, nalicza VAT (odwrotne obciążenie w UE)
+ * i wystawia fakturę dostępną w portalu klienta.
+ */
 export async function createCheckout(
   user: User,
   product: Product,
-  successUrl: string
+  successUrl: string,
+  business?: CheckoutBusiness | null
 ): Promise<string> {
   if (!product.polarProductId) throw new PolarError(`Product ${product.id} is not configured`)
   const res = await api<{ url: string }>('/v1/checkouts/', {
     products: [product.polarProductId],
     customer_email: user.email,
-    customer_name: user.fullName ?? undefined,
+    customer_name: business?.company ?? user.fullName ?? undefined,
     external_customer_id: String(user.id),
     metadata: { user_id: String(user.id), product: product.id },
     success_url: successUrl,
+    ...(business
+      ? {
+          is_business_customer: true,
+          require_billing_address: true,
+          customer_tax_id: business.taxId,
+        }
+      : {}),
   })
   return res.url
 }
@@ -256,7 +283,12 @@ export async function handleWebhook(payload: WebhookPayload): Promise<WebhookOut
     case 'subscription.paused':
     case 'subscription.resumed': {
       const sub = await upsertSubscription(user.id, data)
-      if (sub) track('subscription_changed', { type, status: sub.status, plan: sub.plan }, { userId: user.id })
+      if (sub)
+        track(
+          'subscription_changed',
+          { type, status: sub.status, plan: sub.plan },
+          { userId: user.id }
+        )
       return 'processed'
     }
 

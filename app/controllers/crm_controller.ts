@@ -206,7 +206,7 @@ export default class CrmController {
   async users({ inertia, request }: HttpContext) {
     const qs = request.qs()
     const q = String(qs.q ?? '').trim()
-    const plan = ['free', 'payg', 'pro', 'team'].includes(qs.plan) ? String(qs.plan) : ''
+    const plan = ['free', 'payg', 'pro', 'team', 'agency'].includes(qs.plan) ? String(qs.plan) : ''
     const status = ['verified', 'unverified', 'disabled'].includes(qs.status)
       ? String(qs.status)
       : ''

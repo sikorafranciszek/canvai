@@ -497,8 +497,18 @@ export class UserTokenSchema extends BaseModel {
 }
 
 export class UserSchema extends BaseModel {
-  static $columns = ['createdAt', 'crmTags', 'disabledAt', 'email', 'emailVerifiedAt', 'figmaToken', 'fullName', 'id', 'locale', 'marketingEmails', 'password', 'referralCode', 'referredById', 'updatedAt'] as const
+  static $columns = ['billingCompany', 'billingTaxId', 'brandAccent', 'brandLogoKey', 'brandName', 'createdAt', 'crmTags', 'disabledAt', 'email', 'emailVerifiedAt', 'figmaToken', 'fullName', 'id', 'locale', 'marketingEmails', 'password', 'portalDomain', 'referralCode', 'referredById', 'updatedAt'] as const
   $columns = UserSchema.$columns
+  @column()
+  declare billingCompany: string | null
+  @column()
+  declare billingTaxId: string | null
+  @column()
+  declare brandAccent: string | null
+  @column()
+  declare brandLogoKey: string | null
+  @column()
+  declare brandName: string | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column()
@@ -521,6 +531,8 @@ export class UserSchema extends BaseModel {
   declare marketingEmails: boolean
   @column({ serializeAs: null })
   declare password: string
+  @column()
+  declare portalDomain: string | null
   @column()
   declare referralCode: string | null
   @column()

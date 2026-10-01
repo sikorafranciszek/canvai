@@ -2,6 +2,7 @@ import { Form } from '@adonisjs/inertia/react'
 import { Head } from '@inertiajs/react'
 import { CheckCircle2, FileUp, MessageSquareWarning, Send, ThumbsUp } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import type React from 'react'
 import { Brand } from '~/components/ui/Brand'
 import { LanguageSwitcher } from '~/components/ui/LanguageSwitcher'
 import { MarkdownView } from '~/components/design/MarkdownView'
@@ -13,6 +14,7 @@ interface PortalProps {
   token: string
   board: { title: string }
   owner: { name: string }
+  brand?: { name: string; logoUrl: string | null; accent: string | null; whiteLabel: boolean }
   allowUpload: boolean
   maxFiles: number
   submitted: number
@@ -50,12 +52,32 @@ export default function Portal({ portal }: { portal: PortalProps }) {
   useEffect(() => setName(readName()), [])
 
   return (
-    <div className="portal">
+    <div
+      className="portal"
+      style={
+        portal.brand?.whiteLabel && portal.brand.accent
+          ? ({
+              '--color-deep-teal': portal.brand.accent,
+              '--color-ink': portal.brand.accent,
+            } as React.CSSProperties)
+          : undefined
+      }
+    >
       <Head title={`${portal.board.title} — ${t('portal.title')}`} />
       <header className="portal__top">
-        <a href="https://canvai.dev" target="_blank" rel="noopener noreferrer">
-          <Brand />
-        </a>
+        {portal.brand?.whiteLabel ? (
+          <span className="portal__brand">
+            {portal.brand.logoUrl ? (
+              <img src={portal.brand.logoUrl} alt={portal.brand.name} className="portal__logo" />
+            ) : (
+              <b>{portal.brand.name}</b>
+            )}
+          </span>
+        ) : (
+          <a href="https://canvai.dev" target="_blank" rel="noopener noreferrer">
+            <Brand />
+          </a>
+        )}
         <span className="badge badge--outline">{t('portal.title')}</span>
         <div style={{ marginLeft: 'auto' }}>
           <LanguageSwitcher />
@@ -313,9 +335,13 @@ export default function Portal({ portal }: { portal: PortalProps }) {
       </main>
 
       <footer className="portal__footer">
-        <a href="https://canvai.dev" target="_blank" rel="noopener noreferrer">
-          {t('portal.poweredBy')}
-        </a>
+        {portal.brand?.whiteLabel ? (
+          <span className="t-small t-muted">{portal.brand.name}</span>
+        ) : (
+          <a href="https://canvai.dev" target="_blank" rel="noopener noreferrer">
+            {t('portal.poweredBy')}
+          </a>
+        )}
         <LegalLinks />
       </footer>
     </div>

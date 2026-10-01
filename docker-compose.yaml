@@ -53,6 +53,8 @@ services:
       - POLAR_PRODUCT_PACK_M=${POLAR_PRODUCT_PACK_M:-}
       - POLAR_PRODUCT_PACK_L=${POLAR_PRODUCT_PACK_L:-}
       - POLAR_PRODUCT_PRO=${POLAR_PRODUCT_PRO:-}
+      - POLAR_PRODUCT_TEAM=${POLAR_PRODUCT_TEAM:-}
+      - POLAR_PRODUCT_AGENCY=${POLAR_PRODUCT_AGENCY:-}
       # Analityka i logi (ClickHouse w tym samym stosie) + panel CRM.
       - CLICKHOUSE_URL=http://clickhouse:8123
       - CLICKHOUSE_USER=canvai

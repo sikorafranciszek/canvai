@@ -7,7 +7,7 @@ import BoardShare from '#models/board_share'
 import PortalFeedback from '#models/portal_feedback'
 import { entitlementsFor } from '#services/billing/plans'
 import { absoluteUrl } from '#services/app_url'
-import { newShareToken } from '#services/portal'
+import { newShareToken, portalBase } from '#services/portal'
 import { serializeAsset } from '#services/assets_service'
 import { t } from '#services/i18n'
 import { trackFor } from '#services/analytics/events'
@@ -39,7 +39,9 @@ export default class BoardSharesController {
     return {
       allowed: limits.portal,
       enabled: Boolean(active),
-      url: active ? absoluteUrl(ctx, `/c/${share!.token}`) : null,
+      url: active
+        ? `${await portalBase(board.userId, absoluteUrl(ctx, '').replace(/\/$/, ''))}/c/${share!.token}`
+        : null,
       allowUpload: share?.allowUpload ?? true,
       showDoc: share?.showDoc ?? true,
       feedback: feedback.map((f) => ({

@@ -3,7 +3,7 @@ import Asset from '#models/asset'
 import Board from '#models/board'
 import DesignDoc from '#models/design_doc'
 import { normalizeHex } from '#services/ai/schemas'
-import { withPlanFooter } from '#services/design/generator'
+import { whiteLabelName, withPlanFooter } from '#services/design/generator'
 import { renderDesignMd } from '#services/design/renderer'
 import { cssLength, type DesignSpec } from '#services/design/spec'
 
@@ -116,6 +116,7 @@ export async function createEditedVersion(base: DesignDoc, edits: SpecEdits): Pr
       boardTitle: board.title,
       version,
       generatedAt: generatedAt.toFormat("yyyy-MM-dd HH:mm 'UTC'"),
+      preparedBy: await whiteLabelName(board.userId),
     }
   )
 

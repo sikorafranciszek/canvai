@@ -87,6 +87,9 @@ router.post('/c/:token/materials', [controllers.Portal, 'materials']).as('portal
 router.post('/c/:token/feedback', [controllers.Portal, 'feedback']).as('portal.feedback')
 router.get('/c/:token/print', [controllers.Portal, 'print']).as('portal.print')
 
+/** Logo agencji (white-label) — publiczne, dla portalu klienta i PDF. */
+router.get('/brand/:userId/logo', [controllers.Brand, 'show'])
+
 /** Webhooki Polar.sh (podpis Standard Webhooks zamiast sesji i CSRF). */
 router.post('/webhooks/polar', [controllers.Webhooks, 'polar'])
 
@@ -121,6 +124,11 @@ router
     router
       .patch('/settings/notifications', [controllers.Notifications, 'update'])
       .as('settings.notifications')
+    router.patch('/settings/brand', [controllers.Brand, 'update']).as('settings.brand')
+    router.post('/settings/brand/logo', [controllers.Brand, 'logo']).as('settings.brand.logo')
+    router
+      .delete('/settings/brand/logo', [controllers.Brand, 'removeLogo'])
+      .as('settings.brand.logo.destroy')
     router.post('/settings/api-tokens', [controllers.ApiTokens, 'store']).as('apiTokens.store')
     router
       .delete('/settings/api-tokens/:id', [controllers.ApiTokens, 'destroy'])

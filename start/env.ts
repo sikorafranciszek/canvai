@@ -75,6 +75,8 @@ export default await Env.create(new URL('../', import.meta.url), {
   POLAR_PRODUCT_PACK_M: Env.schema.string.optional(),
   POLAR_PRODUCT_PACK_L: Env.schema.string.optional(),
   POLAR_PRODUCT_PRO: Env.schema.string.optional(),
+  POLAR_PRODUCT_TEAM: Env.schema.string.optional(),
+  POLAR_PRODUCT_AGENCY: Env.schema.string.optional(),
 
   /*
   |----------------------------------------------------------

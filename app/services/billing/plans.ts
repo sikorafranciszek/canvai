@@ -32,6 +32,7 @@ const UNLIMITED: PlanLimits = {
   portal: true,
   brandKits: true,
   collaborators: Number.POSITIVE_INFINITY,
+  whiteLabel: true,
 }
 
 export async function entitlementsFor(

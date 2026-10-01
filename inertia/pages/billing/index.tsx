@@ -8,16 +8,16 @@ import {
   CreditCard,
   ExternalLink,
   Gift,
-  Lock,
   RefreshCw,
   Sparkles,
 } from 'lucide-react'
 import { formatDateTime, relativeTime } from '~/lib/format'
 import { useT, type MessageKey } from '~/i18n'
 import type { PlanId, PlanLimits } from '~/lib/billing'
+import { useState } from 'react'
 
 interface Product {
-  id: 'pack_s' | 'pack_m' | 'pack_l' | 'pro' | 'team'
+  id: 'pack_s' | 'pack_m' | 'pack_l' | 'pro' | 'team' | 'agency'
   kind: 'pack' | 'subscription'
   credits: number
   price: string
@@ -49,6 +49,7 @@ interface BillingProps {
     endsAt: string | null
   } | null
   checkoutReady: boolean
+  businessProfile: { company: string | null; taxId: string | null }
   hasPurchases: boolean
   justPurchased: boolean
   costs: { perMaterial: number; compose: number; proMultiplier: number }
@@ -65,14 +66,22 @@ function perCredit(price: string, credits: number): string {
   return Number.isFinite(n) && credits > 0 ? `${currency}${(n / credits).toFixed(3)}` : price
 }
 
+interface Business {
+  enabled: boolean
+  company: string
+  taxId: string
+}
+
 function BuyButton({
   product,
   label,
   primary,
+  business,
 }: {
   product: Product
   label: string
   primary?: boolean
+  business?: Business
 }) {
   const { t } = useT()
   if (!product.available) {
@@ -87,6 +96,13 @@ function BuyButton({
       {({ processing }: { processing: boolean }) => (
         <>
           <input type="hidden" name="product" value={product.id} />
+          {business?.enabled ? (
+            <>
+              <input type="hidden" name="business" value="true" />
+              <input type="hidden" name="company" value={business.company} />
+              <input type="hidden" name="taxId" value={business.taxId} />
+            </>
+          ) : null}
           <button
             type="submit"
             className={`btn btn--block${primary ? ' btn--primary' : ''}`}
@@ -108,7 +124,13 @@ export default function Billing({ billing }: { billing: BillingProps }) {
   const packs = b.products.filter((p) => p.kind === 'pack')
   const pro = b.products.find((p) => p.id === 'pro')!
   const team = b.products.find((p) => p.id === 'team')!
+  const agency = b.products.find((p) => p.id === 'agency')!
   const boardsLimit = b.limits.boards
+  const [business, setBusiness] = useState<Business>({
+    enabled: Boolean(b.businessProfile?.taxId),
+    company: b.businessProfile?.company ?? '',
+    taxId: b.businessProfile?.taxId ?? '',
+  })
 
   const historyLabel = (row: HistoryRow) => {
     if (row.kind === 'grant') {
@@ -139,6 +161,11 @@ export default function Billing({ billing }: { billing: BillingProps }) {
       price: `${team.price}${t('billing.plans.perMonth')}`,
       credits: t('billing.plans.monthlyCredits', { n: team.credits }),
     },
+    {
+      id: 'agency',
+      price: `${agency.price}${t('billing.plans.perMonth')}`,
+      credits: t('billing.plans.monthlyCredits', { n: agency.credits }),
+    },
   ]
   const yes = <Check size={16} className="plan-table__yes" />
   const no = <span className="plan-table__no">—</span>
@@ -165,7 +192,11 @@ export default function Billing({ billing }: { billing: BillingProps }) {
     { label: t('billing.feature.watermark'), cell: (l) => (l.watermark ? no : yes) },
     { label: t('billing.feature.exports'), cell: (l) => (l.exports ? yes : no) },
     { label: t('billing.feature.pro'), cell: (l) => (l.proReasoning ? yes : no) },
-    { label: t('billing.feature.team'), cell: (_l, id) => (id === 'team' ? yes : no) },
+    {
+      label: t('billing.feature.collaborators'),
+      cell: (l) => (l.collaborators ? l.collaborators : no),
+    },
+    { label: t('billing.feature.whiteLabel'), cell: (l) => (l.whiteLabel ? yes : no) },
   ]
 
   return (
@@ -274,6 +305,37 @@ export default function Billing({ billing }: { billing: BillingProps }) {
             {t('billing.checkoutOff')}
           </div>
         ) : null}
+        <div className="business-toggle card card--outlined" data-testid="business-toggle">
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={business.enabled}
+              onChange={(e) => setBusiness({ ...business, enabled: e.target.checked })}
+            />
+            {t('billing.business.label')}
+          </label>
+          {business.enabled ? (
+            <div className="business-toggle__fields">
+              <input
+                className="input"
+                placeholder={t('billing.business.company')}
+                value={business.company}
+                maxLength={200}
+                aria-label={t('billing.business.company')}
+                onChange={(e) => setBusiness({ ...business, company: e.target.value })}
+              />
+              <input
+                className="input"
+                placeholder={t('billing.business.taxId')}
+                value={business.taxId}
+                maxLength={40}
+                aria-label={t('billing.business.taxId')}
+                onChange={(e) => setBusiness({ ...business, taxId: e.target.value })}
+              />
+              <span className="t-small t-muted">{t('billing.business.hint')}</span>
+            </div>
+          ) : null}
+        </div>
         <div className="packs">
           {packs.map((p, i) => (
             <article
@@ -289,7 +351,12 @@ export default function Billing({ billing }: { billing: BillingProps }) {
               <span className="t-small t-muted">
                 {t('billing.perCredit', { price: perCredit(p.price, p.credits) })}
               </span>
-              <BuyButton product={p} label={t('billing.buy')} primary={i === 1} />
+              <BuyButton
+                product={p}
+                label={t('billing.buy')}
+                primary={i === 1}
+                business={business}
+              />
             </article>
           ))}
         </div>
@@ -312,8 +379,6 @@ export default function Billing({ billing }: { billing: BillingProps }) {
                     <span className="plan-table__price">{c.price}</span>
                     {c.id === b.plan ? (
                       <span className="badge badge--accent">{t('billing.current')}</span>
-                    ) : c.id === 'team' ? (
-                      <span className="badge">{t('billing.soon')}</span>
                     ) : null}
                   </th>
                 ))}
@@ -349,14 +414,27 @@ export default function Billing({ billing }: { billing: BillingProps }) {
                 </td>
                 <td>
                   {b.plan === 'pro' ? null : (
-                    <BuyButton product={pro} label={t('billing.subscribe')} primary />
+                    <BuyButton
+                      product={pro}
+                      label={t('billing.subscribe')}
+                      primary
+                      business={business}
+                    />
                   )}
                 </td>
                 <td>
-                  <button type="button" className="btn btn--sm btn--block" disabled>
-                    <Lock />
-                    {t('billing.soon')}
-                  </button>
+                  {b.plan === 'team' ? null : (
+                    <BuyButton product={team} label={t('billing.subscribe')} business={business} />
+                  )}
+                </td>
+                <td>
+                  {b.plan === 'agency' ? null : (
+                    <BuyButton
+                      product={agency}
+                      label={t('billing.subscribe')}
+                      business={business}
+                    />
+                  )}
                 </td>
               </tr>
             </tbody>

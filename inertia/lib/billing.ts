@@ -3,7 +3,7 @@
  */
 import { create } from 'zustand'
 
-export type PlanId = 'free' | 'payg' | 'pro' | 'team'
+export type PlanId = 'free' | 'payg' | 'pro' | 'team' | 'agency'
 
 export interface PlanLimits {
   boards: number | null
@@ -12,6 +12,11 @@ export interface PlanLimits {
   watermark: boolean
   exports: boolean
   proReasoning: boolean
+  api?: boolean
+  portal?: boolean
+  brandKits?: boolean
+  collaborators?: number | null
+  whiteLabel?: boolean
 }
 
 export interface BillingSummary {

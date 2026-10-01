@@ -208,6 +208,111 @@ function ApiSection({ api }: { api: ApiSettings }) {
   )
 }
 
+function BrandSection({ brand }: { brand: BrandSettings }) {
+  const { t } = useT()
+  return (
+    <Section title={t('brand.title')} description={t('brand.desc')} testId="settings-brand">
+      <div id="brand" className="settings-form">
+        {!brand.allowed ? (
+          <div className="alert alert--notice">
+            <Lock />
+            <span style={{ flex: 1 }}>{t('brand.lockedHint')}</span>
+            <Link route="billing.show" className="btn btn--sm btn--primary">
+              {t('billing.upgrade')}
+            </Link>
+          </div>
+        ) : null}
+        <Form route="settings.brand" method="patch">
+          {({ processing }: FormState) => (
+            <fieldset disabled={!brand.allowed} className="brand-form">
+              <div className="field">
+                <label className="field__label" htmlFor="brandName">
+                  {t('brand.name')}
+                </label>
+                <input
+                  className="input"
+                  id="brandName"
+                  name="brandName"
+                  maxLength={80}
+                  defaultValue={brand.name ?? ''}
+                  placeholder={t('brand.namePlaceholder')}
+                />
+              </div>
+              <div className="field">
+                <label className="field__label" htmlFor="brandAccent">
+                  {t('brand.accent')}
+                </label>
+                <input
+                  className="input brand-form__color"
+                  type="color"
+                  id="brandAccent"
+                  name="brandAccent"
+                  defaultValue={brand.accent ?? '#016a71'}
+                />
+              </div>
+              <div className="field">
+                <label className="field__label" htmlFor="portalDomain">
+                  {t('brand.domain')}
+                </label>
+                <input
+                  className="input"
+                  id="portalDomain"
+                  name="portalDomain"
+                  defaultValue={brand.portalDomain ?? ''}
+                  placeholder="projekty.twojaagencja.pl"
+                />
+                <span className="field__hint">
+                  {t('brand.domainHint', { host: brand.appHost })}
+                </span>
+              </div>
+              <div>
+                <button type="submit" className="btn btn--primary" disabled={processing}>
+                  {t('common.save')}
+                </button>
+              </div>
+            </fieldset>
+          )}
+        </Form>
+        <div className="brand-logo">
+          <span className="field__label">{t('brand.logo')}</span>
+          {brand.logoUrl ? (
+            <img src={brand.logoUrl} alt="" className="brand-logo__preview" />
+          ) : null}
+          <Form route="settings.brand.logo" method="post" encType="multipart/form-data">
+            {({ processing }: FormState) => (
+              <div className="brand-logo__row">
+                <input
+                  type="file"
+                  name="logo"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  disabled={!brand.allowed}
+                  required
+                />
+                <button
+                  type="submit"
+                  className="btn btn--sm"
+                  disabled={!brand.allowed || processing}
+                >
+                  {t('brand.upload')}
+                </button>
+              </div>
+            )}
+          </Form>
+          {brand.logoUrl ? (
+            <Form route="settings.brand.logo.destroy" method="delete">
+              {() => (
+                <button type="submit" className="btn btn--quiet btn--sm">
+                  {t('brand.removeLogo')}
+                </button>
+              )}
+            </Form>
+          ) : null}
+        </div>
+      </div>
+    </Section>
+  )
+}
+
 function NotificationsSection({ enabled }: { enabled: boolean }) {
   const { t } = useT()
   return (
@@ -374,7 +479,24 @@ function PasswordField({
   )
 }
 
-export default function Settings({ account, api }: { account: Account; api: ApiSettings }) {
+interface BrandSettings {
+  allowed: boolean
+  name: string | null
+  accent: string | null
+  logoUrl: string | null
+  portalDomain: string | null
+  appHost: string
+}
+
+export default function Settings({
+  account,
+  api,
+  brand,
+}: {
+  account: Account
+  api: ApiSettings
+  brand?: BrandSettings
+}) {
   const { t } = useT()
   return (
     <div className="page" style={{ maxWidth: 720 }}>
@@ -494,6 +616,8 @@ export default function Settings({ account, api }: { account: Account; api: ApiS
       <FigmaSection />
 
       <NotificationsSection enabled={account.marketingEmails !== false} />
+
+      {brand ? <BrandSection brand={brand} /> : null}
 
       <Section title={t('settings.language.title')} description={t('settings.language.desc')}>
         <LanguageSwitcher />

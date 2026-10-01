@@ -11,7 +11,7 @@ import env from '#start/env'
  * sukcesie (faktycznie przeanalizowane materiały) i w całości zwracane po błędzie.
  */
 
-export type PlanId = 'free' | 'payg' | 'pro' | 'team'
+export type PlanId = 'free' | 'payg' | 'pro' | 'team' | 'agency'
 
 export interface PlanLimits {
   /** Maksymalna liczba tablic; `null` = bez limitu. */
@@ -34,6 +34,8 @@ export interface PlanLimits {
   brandKits: boolean
   /** Ilu współpracowników (edytorów i podglądających) można zaprosić do tablicy. */
   collaborators: number
+  /** White-label: własna marka w portalu klienta, PDF i DESIGN.md, bez wzmianek o canvai. */
+  whiteLabel: boolean
 }
 
 const PAID: PlanLimits = {
@@ -47,6 +49,7 @@ const PAID: PlanLimits = {
   portal: true,
   brandKits: true,
   collaborators: 3,
+  whiteLabel: false,
 }
 
 export const plans: Record<PlanId, PlanLimits> = {
@@ -61,10 +64,12 @@ export const plans: Record<PlanId, PlanLimits> = {
     portal: false,
     brandKits: false,
     collaborators: 0,
+    whiteLabel: false,
   },
   payg: PAID,
   pro: { ...PAID, collaborators: 5 },
   team: { ...PAID, materialsPerBoard: 80, collaborators: 50 },
+  agency: { ...PAID, materialsPerBoard: 120, collaborators: 50, whiteLabel: true },
 }
 
 /** Cennik akcji w kredytach. */
@@ -96,7 +101,7 @@ export const referrals = {
   cookie: 'dc_ref',
 }
 
-export type ProductId = 'pack_s' | 'pack_m' | 'pack_l' | 'pro' | 'team'
+export type ProductId = 'pack_s' | 'pack_m' | 'pack_l' | 'pro' | 'team' | 'agency'
 
 export interface Product {
   id: ProductId
@@ -148,14 +153,24 @@ export const products: Record<ProductId, Product> = {
     plan: 'pro',
     validMonths: 2,
   },
-  // Team: wspólna pula i miejsca dla zespołu — jeszcze niezbudowane, więc bez produktu.
+  // Team: współpracownicy na tablicach właściciela korzystają z jego puli kredytów.
   team: {
     id: 'team',
     kind: 'subscription',
     credits: 1200,
     price: '$59',
-    polarProductId: null,
+    polarProductId: polarProduct('POLAR_PRODUCT_TEAM'),
     plan: 'team',
+    validMonths: 2,
+  },
+  // Agency: white-label (własna marka w portalu klienta, PDF i DESIGN.md) + duża pula.
+  agency: {
+    id: 'agency',
+    kind: 'subscription',
+    credits: 3000,
+    price: '$149',
+    polarProductId: polarProduct('POLAR_PRODUCT_AGENCY'),
+    plan: 'agency',
     validMonths: 2,
   },
 }

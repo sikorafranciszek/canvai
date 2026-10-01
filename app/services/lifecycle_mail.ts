@@ -262,7 +262,7 @@ async function weeklySummary(now: DateTime): Promise<number> {
   const since = sqlNow(now.minus({ days: 7 }))
   const rows = await eligibleUsers()
     .join('subscriptions as s', 's.user_id', 'u.id')
-    .whereIn('s.plan', ['pro', 'team'])
+    .whereIn('s.plan', ['pro', 'team', 'agency'])
     .whereExists((q) =>
       q
         .from('design_docs as d')
@@ -284,7 +284,7 @@ async function weeklySummary(now: DateTime): Promise<number> {
     const user = await User.find(row.id)
     if (!user) continue
     const plan = await planFor(user.id)
-    if (plan !== 'pro' && plan !== 'team') continue
+    if (plan !== 'pro' && plan !== 'team' && plan !== 'agency') continue
     const ok = await sendLifecycle(user, 'weekly_summary', week, async () => {
       const [docs] = await db
         .from('design_docs as d')
