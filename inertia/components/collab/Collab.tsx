@@ -60,13 +60,12 @@ export function PresenceAvatars({ selfId }: { selfId?: number }) {
 export function CursorsLayer() {
   const cursors = useLiveStore((s) => s.cursors)
   const camera = useSceneStore((s) => s.camera)
-  const [, tick] = useState(0)
+  const [now, setNow] = useState(() => Date.now())
   // Kursor, który nie ruszał się 10 s, znika.
   useEffect(() => {
-    const id = setInterval(() => tick((n) => n + 1), 2000)
+    const id = setInterval(() => setNow(Date.now()), 2000)
     return () => clearInterval(id)
   }, [])
-  const now = Date.now()
   return (
     <div className="collab-layer" aria-hidden>
       {Object.values(cursors)
@@ -389,14 +388,15 @@ export function MembersButton({ boardId, isOwner }: { boardId: number; isOwner: 
   const [busy, setBusy] = useState(false)
   const { t } = useT()
 
-  const load = async () =>
-    setData(await membersRequest(`/api/boards/${boardId}/members`).catch(() => null))
   useEffect(() => {
     if (!open) return
+    const load = () =>
+      membersRequest(`/api/boards/${boardId}/members`)
+        .then(setData)
+        .catch(() => setData(null))
     void load()
     onMembersChanged(() => void load())
     return () => onMembersChanged(null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, boardId])
 
   const invite = async (e: React.FormEvent) => {

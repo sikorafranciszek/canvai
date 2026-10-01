@@ -2,7 +2,7 @@
  * Treści canvai.dev (EN/PL). Jedno źródło prawdy dla obu wersji językowych —
  * komponenty dostają obiekt dla bieżącego języka.
  *
- * Plany cenowe: `plans` — Free, Pay as you go (pakiety kredytów) i Pro.
+ * Plany cenowe: `plans` — Free, Pay as you go (pakiety kredytów), Pro, Team i Agency.
  * Liczby muszą zgadzać się z `config/billing.ts` aplikacji (tam jest prawda).
  */
 
@@ -171,7 +171,7 @@ const en = {
     eyebrow: 'Pricing',
     title: 'Pay only for what you generate',
     subtitle:
-      'Credits, not seats: 1 credit per new material, 4 to compose the document. Nothing changed? It costs 0 — and failed generations are refunded. Team plan coming soon.',
+      'Credits, not seats: 1 credit per new material, 4 to compose the document. Nothing changed? It costs 0 — and failed generations are refunded. Invited collaborators use the board owner’s credits.',
     soonBadge: 'Coming soon',
     availableBadge: 'Available now',
     plans: [
@@ -201,9 +201,9 @@ const en = {
         description: 'Buy credits when you need them: 100 for $9, 300 for $24, 1000 for $69. Valid for 12 months.',
         features: [
           'Unlimited boards, 40 materials each',
-          'UI preview, token export (CSS, Tailwind v4, JSON)',
-          'MCP server & API for Claude Code and Cursor',
-          'Client portal, brand kits, Pro reasoning',
+          'Token export: CSS, Tailwind, SCSS, JSON, Figma (Tokens Studio)',
+          'Cursor rules, CLAUDE.md, MCP server & API',
+          'Figma import, client portal & PDF, 3 collaborators per board',
         ],
         cta: 'Get started',
       },
@@ -219,10 +219,42 @@ const en = {
           'Everything in Pay as you go',
           '300 credits / month',
           'Top up with packs any time',
-          'Cancel any time',
+          '5 collaborators per board, live',
         ],
         cta: 'Go Pro',
         highlighted: true,
+      },
+      {
+        id: 'team',
+        name: 'Team',
+        status: 'available',
+        price: '$59',
+        priceNote: 'per month',
+        badge: 'For product teams',
+        description: '1200 credits every month shared across your boards — collaborators generate on your credits.',
+        features: [
+          'Everything in Pro',
+          '1200 credits / month',
+          'Up to 50 collaborators per board',
+          'Live cursors, comments, roles (edit / view)',
+        ],
+        cta: 'Start with Team',
+      },
+      {
+        id: 'agency',
+        name: 'Agency',
+        status: 'available',
+        price: '$149',
+        priceNote: 'per month',
+        badge: 'White-label',
+        description: '3000 credits a month and your brand everywhere clients look.',
+        features: [
+          'Everything in Team, 120 materials per board',
+          'Your logo, name and color in the client portal & PDF',
+          'Custom portal domain (CNAME)',
+          'DESIGN.md “Prepared by” your agency',
+        ],
+        cta: 'Start with Agency',
       },
     ] satisfies Plan[],
   },
@@ -433,7 +465,7 @@ const pl: Content = {
     eyebrow: 'Cennik',
     title: 'Płacisz tylko za to, co generujesz',
     subtitle:
-      'Kredyty zamiast licencji: 1 kredyt za nowy materiał, 4 za złożenie dokumentu. Bez zmian na tablicy — 0, a nieudane generacje zwracamy. Plan Team wkrótce.',
+      'Kredyty zamiast licencji: 1 kredyt za nowy materiał, 4 za złożenie dokumentu. Bez zmian na tablicy — 0, a nieudane generacje zwracamy. Zaproszeni współpracownicy korzystają z kredytów właściciela tablicy.',
     soonBadge: 'Wkrótce',
     availableBadge: 'Dostępne teraz',
     plans: [
@@ -463,9 +495,9 @@ const pl: Content = {
         description: 'Kupujesz kredyty, gdy ich potrzebujesz: 100 za $9, 300 za $24, 1000 za $69. Ważne 12 miesięcy.',
         features: [
           'Tablice bez limitu, do 40 materiałów',
-          'Podgląd UI, eksport tokenów (CSS, Tailwind v4, JSON)',
-          'Serwer MCP i API dla Claude Code i Cursora',
-          'Portal klienta, brand kity, Pro reasoning',
+          'Eksport tokenów: CSS, Tailwind, SCSS, JSON, Figma (Tokens Studio)',
+          'Reguły Cursora, CLAUDE.md, serwer MCP i API',
+          'Import z Figmy, portal klienta i PDF, 3 współpracowników na tablicę',
         ],
         cta: 'Zaczynam',
       },
@@ -481,10 +513,42 @@ const pl: Content = {
           'Wszystko z Pay as you go',
           '300 kredytów / mies.',
           'Dokupowanie pakietów w każdej chwili',
-          'Anulujesz, kiedy chcesz',
+          '5 współpracowników na tablicę, na żywo',
         ],
         cta: 'Przejdź na Pro',
         highlighted: true,
+      },
+      {
+        id: 'team',
+        name: 'Team',
+        status: 'available',
+        price: '$59',
+        priceNote: 'miesięcznie',
+        badge: 'Dla zespołów',
+        description: '1200 kredytów co miesiąc na Twoje tablice — współpracownicy generują z Twojej puli.',
+        features: [
+          'Wszystko z Pro',
+          '1200 kredytów / mies.',
+          'Do 50 współpracowników na tablicę',
+          'Kursory na żywo, komentarze, role (edycja / podgląd)',
+        ],
+        cta: 'Zaczynam z Team',
+      },
+      {
+        id: 'agency',
+        name: 'Agency',
+        status: 'available',
+        price: '$149',
+        priceNote: 'miesięcznie',
+        badge: 'White-label',
+        description: '3000 kredytów miesięcznie i Twoja marka wszędzie, gdzie patrzy klient.',
+        features: [
+          'Wszystko z Team, 120 materiałów na tablicę',
+          'Twoje logo, nazwa i kolor w portalu klienta i PDF',
+          'Własna domena portalu (CNAME)',
+          'DESIGN.md „Prepared by” Twoja agencja',
+        ],
+        cta: 'Zaczynam z Agency',
       },
     ] satisfies Plan[],
   },
