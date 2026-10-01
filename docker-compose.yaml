@@ -19,7 +19,14 @@ services:
       - APP_KEY=${SERVICE_PASSWORD_64_APPKEY}
       - APP_URL=${APP_URL:-https://app.canvai.dev}
       - SESSION_DRIVER=cookie
-      - DB_CONNECTION=sqlite
+      # Baza aplikacji: PostgreSQL (usługa `postgres` niżej).
+      - DB_CONNECTION=pg
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=canvai
+      - DB_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
+      - DB_DATABASE=canvai
+      # Stary plik SQLite — jednorazowy import do Postgresa przy pierwszym starcie.
       - SQLITE_PATH=/app/data/db.sqlite3
       - STORAGE_PATH=/app/data/storage
       - TRUST_PROXY=true
@@ -58,6 +65,8 @@ services:
     volumes:
       - canvai-data:/app/data
     depends_on:
+      postgres:
+        condition: service_healthy
       # Aplikacja działa także bez ClickHouse (analityka buforuje się i czeka).
       clickhouse:
         condition: service_started
@@ -67,6 +76,23 @@ services:
       timeout: 5s
       retries: 3
       start_period: 40s
+
+  # Główna baza aplikacji — tylko sieć wewnętrzna stosu, dane na wolumenie.
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=canvai
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
+      - POSTGRES_DB=canvai
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U canvai -d canvai"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
   # Analityka produktu, żądania HTTP i logi (panel CRM: crm.canvai.dev).
   # Tylko sieć wewnętrzna stosu — bez portów na zewnątrz.
@@ -95,4 +121,5 @@ services:
 
 volumes:
   canvai-data:
+  postgres-data:
   clickhouse-data:

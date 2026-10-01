@@ -6,7 +6,7 @@ deployed to Cloudflare Workers).
 
 An infinite canvas application (like Figma/Excalidraw) where users paste screenshots, images, graphics, and notes, and AI scans the board content to generate **DESIGN.md** documentation.
 
-**Stack:** AdonisJS + Inertia.js + React + TypeScript + SQLite/PostgreSQL
+**Stack:** AdonisJS + Inertia.js + React + TypeScript + PostgreSQL + ClickHouse (analytics)
 
 ## Requirements
 
@@ -35,7 +35,7 @@ cp .env.example .env
 | `APP_KEY`        | Application encryption key (generate with `node ace generate:key`) |
 | `APP_URL`        | Public URL of the application                                      |
 | `SESSION_DRIVER` | `cookie`, `memory`, or `database`                                  |
-| `DB_CONNECTION`  | `sqlite` (default) or `pg` for PostgreSQL                          |
+| `DB_CONNECTION`  | `pg` (PostgreSQL; `sqlite` only as an import source)               |
 | `DB_HOST`        | PostgreSQL host                                                    |
 | `DB_PORT`        | PostgreSQL port                                                    |
 | `DB_USER`        | PostgreSQL user                                                    |
@@ -48,20 +48,13 @@ cp .env.example .env
 
 ## Database
 
-SQLite is used by default in development. To switch to PostgreSQL:
+The app uses **PostgreSQL** (17). Locally create two databases — `canvai` (dev) and
+`canvai_test` (tests; selected by `.env.test`) — and set `DB_HOST`, `DB_PORT`, `DB_USER`,
+`DB_PASSWORD` in `.env`. Tests run migrations automatically before the suite.
 
-```bash
-# Install the pg driver
-npm install pg
-
-# Update .env
-DB_CONNECTION=pg
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=yourpassword
-DB_DATABASE=design_canvas
-```
+Migrating from the old SQLite file: `node ace db:import-sqlite --source path/to/db.sqlite3`
+(`--dry-run` to preview, `--if-empty` to skip when Postgres already has users). In Docker
+the entrypoint runs it automatically on first start, so existing data moves over on deploy.
 
 ## Migrations
 

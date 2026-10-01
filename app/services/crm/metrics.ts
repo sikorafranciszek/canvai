@@ -87,7 +87,7 @@ export async function dashboard(days: number) {
     db
       .from('users')
       .where('created_at', '>=', sqlTime(since.startOf('day')))
-      .select(db.raw("strftime('%Y-%m-%d', created_at) as day"))
+      .select(db.raw("to_char(created_at at time zone 'UTC', 'YYYY-MM-DD') as day"))
       .count('* as value')
       .groupBy('day'),
     db
@@ -119,9 +119,10 @@ export async function dashboard(days: number) {
       .groupBy('status'),
   ])
 
-  const revenueRows = (grants as { note: string | null; created_at: string }[]).map((g) => ({
+  // node-postgres zwraca znaczniki czasu jako Date.
+  const revenueRows = (grants as { note: string | null; created_at: Date | string }[]).map((g) => ({
     cents: priceCents(g.note),
-    day: String(g.created_at).slice(0, 10),
+    day: new Date(g.created_at).toISOString().slice(0, 10),
   }))
   const sinceDay = since.toISODate()!
   const proActive =

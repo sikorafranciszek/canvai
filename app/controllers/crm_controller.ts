@@ -189,7 +189,7 @@ export default class CrmController {
     if (status === 'verified') base.whereNotNull('u.email_verified_at').whereNull('u.disabled_at')
     if (status === 'unverified') base.whereNull('u.email_verified_at')
     if (status === 'disabled') base.whereNotNull('u.disabled_at')
-    if (tag) base.whereRaw('u.crm_tags like ?', [`%"${tag.replace(/"/g, '')}"%`])
+    if (tag) base.whereRaw('u.crm_tags::text like ?', [`%"${tag.replace(/"/g, '')}"%`])
 
     const wrapped = db
       .from(base.as('x'))

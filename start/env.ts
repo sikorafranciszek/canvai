@@ -26,12 +26,15 @@ export default await Env.create(new URL('../', import.meta.url), {
   SESSION_DRIVER: Env.schema.enum(['cookie', 'memory', 'database'] as const),
 
   // Database
-  DB_CONNECTION: Env.schema.enum(['sqlite', 'pg', 'mysql', 'mssql'] as const),
-  DB_HOST: Env.schema.string.optional(),
+  DB_CONNECTION: Env.schema.enum.optional(['pg', 'sqlite'] as const),
+  DB_HOST: Env.schema.string.optional({ format: 'host' }),
   DB_PORT: Env.schema.number.optional(),
   DB_USER: Env.schema.string.optional(),
   DB_PASSWORD: Env.schema.string.optional(),
   DB_DATABASE: Env.schema.string.optional(),
+  DB_SSL: Env.schema.boolean.optional(),
+  DB_POOL_MAX: Env.schema.number.optional(),
+  DB_DEBUG: Env.schema.boolean.optional(),
 
   // AI (M3: analiza assetów → DESIGN.md)
   // Bez klucza pipeline działa na dostawcy `mock` — aplikacja startuje normalnie.

@@ -35,7 +35,8 @@ export const plugins: Config['plugins'] = [
  * The teardown functions are executed after all the tests
  */
 export const runnerHooks: Required<Pick<Config, 'setup' | 'teardown'>> = {
-  setup: [],
+  // Świeża baza testowa PostgreSQL: migracje przed testami, wycofanie po nich.
+  setup: [() => testUtils.db().migrate()],
   teardown: [],
 }
 
