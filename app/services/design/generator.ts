@@ -26,6 +26,7 @@ import { runWithLocale, t } from '#services/i18n'
 import { entitlementsFor } from '#services/billing/plans'
 import { chargedFor } from '#services/billing/credits'
 import { track } from '#services/analytics/collector'
+import { recordAiUsage } from '#services/ops/ai_budget'
 
 /**
  * Orkiestracja generacji DESIGN.md:
@@ -99,7 +100,7 @@ export async function runGeneration(
   const started = Date.now()
   const board = await Board.findOrFail(doc.boardId)
   const input = await prepareGeneration(board)
-  const { provider, assets, context } = input
+  const { provider } = input
 
   const preflight = preflightError(input)
   if (preflight) throw new AiProviderError(preflight, false)
@@ -112,6 +113,22 @@ export async function runGeneration(
   await doc.save()
 
   const usage: UsageTracker = { tokensIn: 0, tokensOut: 0 }
+  try {
+    return await generate(doc, input, usage, started, onProgress)
+  } finally {
+    // Zużycie liczone także przy błędzie — tokeny i tak zostały zużyte.
+    await recordAiUsage(board.userId, usage)
+  }
+}
+
+async function generate(
+  doc: DesignDoc,
+  input: GenerationInput,
+  usage: UsageTracker,
+  started: number,
+  onProgress: (progress: GenerationProgress) => Promise<void> | void
+): Promise<DesignDoc> {
+  const { provider, assets, context, board } = input
 
   // Etap 1
   const { analyses, analyzed, cached } = await analyzeAssets(assets, provider, usage, (p) =>

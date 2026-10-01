@@ -205,6 +205,12 @@ export const pl = {
   'billing.noSubscription': 'Nie masz subskrypcji.',
   'billing.portalFailed': 'Nie udało się otworzyć portalu klienta. Spróbuj ponownie za chwilę.',
   'billing.watermark': 'Wygenerowano w canvai (plan Free) — https://canvai.dev',
+  'ops.budgetGlobal':
+    'Generowanie jest chwilowo wstrzymane (dzienny limit usługi). Spróbuj ponownie po północy UTC.',
+  'ops.budgetUserGenerations':
+    'Osiągnięto dzienny limit {limit} generacji na konto. Spróbuj ponownie jutro albo napisz do nas.',
+  'ops.budgetUserTokens':
+    'Osiągnięto dzienny limit zużycia AI dla konta. Spróbuj ponownie jutro albo napisz do nas.',
 } as const
 
 export type ServerMessageKey = keyof typeof pl
@@ -399,4 +405,10 @@ export const en: Record<ServerMessageKey, string> = {
   'billing.noSubscription': 'You have no subscription.',
   'billing.portalFailed': 'Could not open the customer portal. Please try again in a moment.',
   'billing.watermark': 'Generated with canvai (Free plan) — https://canvai.dev',
+  'ops.budgetGlobal':
+    'Generation is temporarily paused (daily service limit). Please try again after midnight UTC.',
+  'ops.budgetUserGenerations':
+    'You reached the daily limit of {limit} generations per account. Try again tomorrow or contact us.',
+  'ops.budgetUserTokens':
+    'You reached the daily AI usage limit for your account. Try again tomorrow or contact us.',
 }

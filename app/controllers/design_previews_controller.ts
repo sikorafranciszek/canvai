@@ -14,6 +14,7 @@ import {
 import { JOB_GENERATE_PREVIEW, enqueue } from '#services/queue'
 import { currentLocale, t } from '#services/i18n'
 import { trackFor } from '#services/analytics/events'
+import { aiBudgetDenial, countGeneration } from '#services/ops/ai_budget'
 
 const previewValidator = vine.compile(
   vine.object({
@@ -113,6 +114,9 @@ export default class DesignPreviewsController {
       return response.json({ data: this.serialize(latest, board.id, doc.version), reused: true })
     }
 
+    const denial = await aiBudgetDenial(user.id)
+    if (denial) return response.status(429).json({ message: denial, code: 'E_AI_BUDGET' })
+
     if (billing.enforced) {
       await ensureAutomaticGrants(user.id)
       const balance = await balanceOf(user.id)
@@ -138,6 +142,7 @@ export default class DesignPreviewsController {
         throw error
       }
     }
+    await countGeneration(user.id)
     const job = await enqueue(JOB_GENERATE_PREVIEW, {
       previewId: preview.id,
       boardId: board.id,

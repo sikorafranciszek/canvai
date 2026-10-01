@@ -60,6 +60,21 @@ services:
       - CLICKHOUSE_DB=canvai
       - CRM_HOST=${CRM_HOST:-crm.canvai.dev}
       - ADMIN_EMAILS=${ADMIN_EMAILS:-}
+      # Kopie zapasowe (codziennie: pg_dump + pliki) do bucketu S3/R2; puste = wyłączone.
+      - BACKUP_S3_ENDPOINT=${BACKUP_S3_ENDPOINT:-}
+      - BACKUP_S3_REGION=${BACKUP_S3_REGION:-auto}
+      - BACKUP_S3_BUCKET=${BACKUP_S3_BUCKET:-}
+      - BACKUP_S3_ACCESS_KEY_ID=${BACKUP_S3_ACCESS_KEY_ID:-}
+      - BACKUP_S3_SECRET_ACCESS_KEY=${BACKUP_S3_SECRET_ACCESS_KEY:-}
+      - BACKUP_S3_PREFIX=${BACKUP_S3_PREFIX:-canvai/}
+      - BACKUP_HOUR_UTC=${BACKUP_HOUR_UTC:-3}
+      - BACKUP_KEEP_DAYS=${BACKUP_KEEP_DAYS:-14}
+      # Alerty (błędy serwera, nieudane generacje i kopie): mail do ADMIN_EMAILS + webhook Slack/Discord.
+      - ALERT_WEBHOOK_URL=${ALERT_WEBHOOK_URL:-}
+      # Bezpieczniki kosztów AI (dziennie): globalnie i na konto.
+      - AI_DAILY_TOKEN_BUDGET=${AI_DAILY_TOKEN_BUDGET:-30000000}
+      - AI_USER_DAILY_GENERATIONS=${AI_USER_DAILY_GENERATIONS:-40}
+      - AI_USER_DAILY_TOKENS=${AI_USER_DAILY_TOKENS:-3000000}
       # Microsoft Clarity (tylko po zgodzie użytkownika) — projekt app.canvai.dev.
       - CLARITY_PROJECT_ID=${CLARITY_PROJECT_ID:-yqij10mk35}
     volumes:

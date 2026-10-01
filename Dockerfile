@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# canvai — obraz produkcyjny (AdonisJS + Inertia/React, SQLite na wolumenie).
+# canvai — obraz produkcyjny (AdonisJS + Inertia/React, PostgreSQL, pliki na wolumenie).
 
 FROM node:24-bookworm-slim AS base
 WORKDIR /app
@@ -30,6 +30,16 @@ FROM deps AS prod-deps
 RUN npm prune --omit=dev
 
 FROM node:24-bookworm-slim AS runtime
+# Klient PostgreSQL 17 (pg_dump / pg_restore — kopie zapasowe); Debian ma tylko 15.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
+  && install -d /usr/share/postgresql-common/pgdg \
+  && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+  && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends postgresql-client-17 \
+  && apt-get purge -y curl gnupg && apt-get autoremove -y \
+  && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3333 \

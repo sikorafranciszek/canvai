@@ -21,6 +21,11 @@ import { issueToken } from '#services/account_tokens'
 import { sendPasswordResetEmail } from '#services/account_mail'
 import { adminDenial, isAdmin } from '#services/crm/admin'
 import { rateLimited } from '#services/portal'
+import { backupConfigured, ops } from '#config/ops'
+import { usageToday } from '#services/ops/ai_budget'
+import { pendingAlerts, sentAlerts } from '#services/ops/alerts'
+import { registeredTasks, runTask, taskStatus } from '#services/ops/scheduler'
+import '#services/ops/tasks'
 import {
   FUNNEL,
   analyticsAvailable,
@@ -132,7 +137,66 @@ export default class CrmController {
   async dashboard({ inertia, request }: HttpContext) {
     const range = String(request.qs().range ?? '30d')
     const data = await dashboard(rangeDays(range))
-    return inertia.render('crm/dashboard' as any, { range, data, pipeline: pipelineStats() } as any)
+    return inertia.render(
+      'crm/dashboard' as any,
+      { range, data, pipeline: pipelineStats(), system: await this.system() } as any
+    )
+  }
+
+  /** Stan zaplecza: kopie zapasowe, zużycie AI dziś, alerty. */
+  private async system() {
+    const day = new Date().toISOString().slice(0, 10)
+    const top = await db
+      .from('ai_usage_daily as a')
+      .join('users as u', 'u.id', 'a.user_id')
+      .where('a.day', day)
+      .select('u.id', 'u.email', 'a.generations')
+      .select(db.raw('a.tokens_in + a.tokens_out as tokens'))
+      .orderBy('tokens', 'desc')
+      .limit(5)
+    return {
+      backup: {
+        configured: backupConfigured(),
+        hourUtc: ops.backup.hourUtc,
+        keepDays: ops.backup.keepDays,
+      },
+      tasks: await taskStatus(),
+      ai: {
+        tokensToday: (await usageToday()).tokens,
+        dailyBudget: ops.aiBudget.dailyTokens,
+        userDailyGenerations: ops.aiBudget.userDailyGenerations,
+        userDailyTokens: ops.aiBudget.userDailyTokens,
+        top: top.map((r) => ({
+          id: r.id,
+          email: r.email,
+          generations: Number(r.generations),
+          tokens: Number(r.tokens),
+        })),
+      },
+      alerts: {
+        pending: pendingAlerts(),
+        webhook: Boolean(ops.alerts.webhookUrl),
+        recent: sentAlerts.slice(0, 5),
+      },
+    }
+  }
+
+  /** POST /backup — kopia zapasowa teraz (w tle). */
+  async backupNow(ctx: HttpContext) {
+    const task = registeredTasks().find((t) => t.name === 'backup')
+    if (!task || !backupConfigured()) {
+      ctx.session.flash('error', 'Kopie zapasowe nie są skonfigurowane (BACKUP_S3_*).')
+      return ctx.response.redirect().back()
+    }
+    await db.table('scheduler_runs').insert({ task: 'backup' }).onConflict('task').ignore()
+    await db
+      .from('scheduler_runs')
+      .where('task', 'backup')
+      .update({ last_status: 'running', last_run_at: new Date() })
+    void runTask(task)
+    this.audit(ctx, 'backup_now', ctx.auth.user!.id)
+    ctx.session.flash('success', 'Kopia zapasowa uruchomiona — status odśwież za chwilę.')
+    return ctx.response.redirect().back()
   }
 
   // -------------------------------------------------------------------------

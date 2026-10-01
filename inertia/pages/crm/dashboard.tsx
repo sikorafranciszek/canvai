@@ -1,4 +1,4 @@
-import { Head, Link } from '@inertiajs/react'
+import { Head, Link, router } from '@inertiajs/react'
 import { NoAnalytics, RangeTabs } from '~/components/crm/CrmLayout'
 import { BarList, Stat, TimeChart, formatNumber } from '~/components/crm/charts'
 
@@ -64,14 +64,130 @@ interface Pipeline {
   lastFlush: { at: string; ok: boolean; rows: number; error?: string } | null
 }
 
+interface SystemStatus {
+  backup: { configured: boolean; hourUtc: number; keepDays: number }
+  tasks: { task: string; lastRunAt: string | null; status: string | null; message: string | null }[]
+  ai: {
+    tokensToday: number
+    dailyBudget: number
+    userDailyGenerations: number
+    userDailyTokens: number
+    top: { id: number; email: string; generations: number; tokens: number }[]
+  }
+  alerts: { pending: number; webhook: boolean; recent: { at: string; text: string }[] }
+}
+
+const when = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' }) : '—'
+
+function SystemCard({ system }: { system: SystemStatus }) {
+  const backup = system.tasks.find((t) => t.task === 'backup')
+  const budgetPct = system.ai.dailyBudget
+    ? Math.round((system.ai.tokensToday / system.ai.dailyBudget) * 100)
+    : null
+  const backupTone = !system.backup.configured
+    ? 'critical'
+    : backup?.status === 'failed'
+      ? 'critical'
+      : backup?.status === 'ok'
+        ? 'good'
+        : 'warning'
+  return (
+    <section className="card crm-card crm-system" data-testid="crm-system">
+      <h2 className="crm-card__title">System</h2>
+      <dl className="crm-system__list">
+        <div>
+          <dt>Kopie zapasowe</dt>
+          <dd>
+            <span className={`level level--${backupTone}`}>
+              {!system.backup.configured
+                ? 'nieskonfigurowane'
+                : backup?.status === 'failed'
+                  ? 'ostatnia nieudana'
+                  : backup?.status === 'running'
+                    ? 'w toku'
+                    : backup?.status === 'ok'
+                      ? 'OK'
+                      : 'jeszcze nie było'}
+            </span>{' '}
+            <span className="t-small t-muted">
+              {system.backup.configured
+                ? `codziennie ${system.backup.hourUtc}:00 UTC, trzymane ${system.backup.keepDays} dni · ostatnia ${when(backup?.lastRunAt ?? null)}`
+                : 'ustaw BACKUP_S3_* w Coolify'}
+            </span>
+            {backup?.message ? <div className="t-small t-muted">{backup.message}</div> : null}
+            {system.backup.configured ? (
+              <button
+                type="button"
+                className="btn btn--secondary btn--sm"
+                onClick={() => router.post('/backup')}
+              >
+                Zrób kopię teraz
+              </button>
+            ) : null}
+          </dd>
+        </div>
+        <div>
+          <dt>Zużycie AI dziś</dt>
+          <dd>
+            {formatNumber(system.ai.tokensToday)} tokenów
+            {budgetPct != null ? (
+              <span className={`level level--${budgetPct >= 80 ? 'critical' : 'good'}`}>
+                {' '}
+                {budgetPct}% limitu dziennego
+              </span>
+            ) : null}
+            <div className="t-small t-muted">
+              Limity na konto: {system.ai.userDailyGenerations || '∞'} generacji,{' '}
+              {system.ai.userDailyTokens ? formatNumber(system.ai.userDailyTokens) : '∞'} tokenów
+              dziennie
+            </div>
+            {system.ai.top.length ? (
+              <ul className="crm-system__top t-small">
+                {system.ai.top.map((u) => (
+                  <li key={u.id}>
+                    <Link href={`/users/${u.id}`}>{u.email}</Link> — {formatNumber(u.tokens)} tok.,{' '}
+                    {u.generations} gen.
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </dd>
+        </div>
+        <div>
+          <dt>Alerty</dt>
+          <dd>
+            {system.alerts.pending ? `${system.alerts.pending} czeka na wysyłkę · ` : ''}
+            mail do administratorów{system.alerts.webhook ? ' + webhook' : ''}
+            {system.alerts.recent.length ? (
+              <details className="t-small">
+                <summary>Ostatnie ({system.alerts.recent.length})</summary>
+                {system.alerts.recent.map((a) => (
+                  <pre key={a.at} className="crm-system__alert">
+                    {when(a.at)}
+                    {'\n'}
+                    {a.text}
+                  </pre>
+                ))}
+              </details>
+            ) : null}
+          </dd>
+        </div>
+      </dl>
+    </section>
+  )
+}
+
 export default function CrmDashboard({
   range,
   data,
   pipeline,
+  system,
 }: {
   range: string
   data: DashboardData
   pipeline: Pipeline
+  system: SystemStatus
 }) {
   const k = data.kpis
   const failRate = k.generations ? Math.round((k.generationsFailed / k.generations) * 100) : 0
@@ -155,6 +271,7 @@ export default function CrmDashboard({
       </section>
 
       <div className="crm-grid">
+        <SystemCard system={system} />
         <section className="card crm-card">
           <h2 className="crm-card__title">Nowe konta dziennie</h2>
           <TimeChart

@@ -23,6 +23,7 @@ import {
 import { estimateGeneration } from '#services/billing/estimate'
 import { renderExport } from '#services/design/exports'
 import { trackFor } from '#services/analytics/events'
+import { aiBudgetDenial, countGeneration } from '#services/ops/ai_budget'
 
 /**
  * DESIGN.md tablicy: zlecanie generacji, status, wersje, pobieranie.
@@ -119,6 +120,10 @@ export default class DesignDocsController {
         .json({ data: { doc: await this.serialize(latest, true), reused: true } })
     }
 
+    // Bezpieczniki kosztów (dzienne limity) — przed rezerwacją kredytów.
+    const denial = await aiBudgetDenial(user.id)
+    if (denial) return response.status(429).json({ message: denial, code: 'E_AI_BUDGET' })
+
     // Kredyty: szacunek = opłata. Brak środków → 402, zanim cokolwiek powstanie.
     const estimate = billing.enforced ? await estimateGeneration(input, proMode) : null
     if (estimate) {
@@ -165,6 +170,7 @@ export default class DesignDocsController {
     })
     doc.jobId = job.id
     await doc.save()
+    await countGeneration(user.id)
     trackFor(
       ctx,
       'design_doc_requested',

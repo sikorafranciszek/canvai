@@ -212,6 +212,7 @@ router
         router.delete('/users/:id', [controllers.Crm, 'destroy']).as('crm.user.destroy')
         router.get('/analytics', [controllers.Crm, 'analytics']).as('crm.analytics')
         router.get('/logs', [controllers.Crm, 'logs']).as('crm.logs')
+        router.post('/backup', [controllers.Crm, 'backupNow']).as('crm.backup')
       })
       .use(middleware.crmAdmin())
   })

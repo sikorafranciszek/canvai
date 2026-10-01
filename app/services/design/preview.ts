@@ -8,6 +8,7 @@ import { sanitizePreviewHtml } from '#services/design/preview_template'
 import { AiProviderError } from '#services/ai/types'
 import { t } from '#services/i18n'
 import { track } from '#services/analytics/collector'
+import { recordAiUsage } from '#services/ops/ai_budget'
 
 /**
  * Podgląd UI: model buduje przykładową stronę HTML z gotowej wersji DESIGN.md.
@@ -32,6 +33,7 @@ export async function runPreview(preview: DesignPreview): Promise<DesignPreview>
     designMd: doc.contentMd,
     spec: doc.spec,
   })
+  await recordAiUsage(board.userId, result.usage)
 
   preview.status = 'ready'
   preview.html = sanitizePreviewHtml(result.data.html)

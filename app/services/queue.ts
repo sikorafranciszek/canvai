@@ -13,6 +13,7 @@ import { runWithLocale, t } from '#services/i18n'
 import { isLocale } from '#shared/i18n'
 import { track } from '#services/analytics/collector'
 import Board from '#models/board'
+import { raiseAlert } from '#services/ops/alerts'
 
 /**
  * Kolejka zadań na tabeli `jobs` (bez Redisa). Worker in-process
@@ -57,6 +58,7 @@ const handlers: Record<string, JobHandler> = {
       })
       // Nieudana generacja nic nie kosztuje — rezerwacja wraca w całości.
       await releaseAll({ designDocId: docId })
+      raiseAlert('design_doc_failed', `DESIGN.md generation failed (doc ${docId}): ${message}`)
     },
     async onRetry(job, message) {
       await DesignDoc.query()
@@ -78,6 +80,7 @@ const handlers: Record<string, JobHandler> = {
         boardId: board?.id ?? null,
       })
       await releaseAll({ designPreviewId: previewId }, 'preview failed')
+      raiseAlert('preview_failed', `UI preview failed (preview ${previewId}): ${message}`)
     },
     async onRetry(job) {
       await DesignPreview.query()

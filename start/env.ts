@@ -76,6 +76,25 @@ export default await Env.create(new URL('../', import.meta.url), {
   POLAR_PRODUCT_PACK_L: Env.schema.string.optional(),
   POLAR_PRODUCT_PRO: Env.schema.string.optional(),
 
+  /*
+  |----------------------------------------------------------
+  | Zaplecze: kopie zapasowe, alerty, limity wydatków na AI
+  |----------------------------------------------------------
+  */
+  AI_DAILY_TOKEN_BUDGET: Env.schema.number.optional(),
+  AI_USER_DAILY_GENERATIONS: Env.schema.number.optional(),
+  AI_USER_DAILY_TOKENS: Env.schema.number.optional(),
+  BACKUP_S3_ENDPOINT: Env.schema.string.optional(),
+  BACKUP_S3_REGION: Env.schema.string.optional(),
+  BACKUP_S3_BUCKET: Env.schema.string.optional(),
+  BACKUP_S3_ACCESS_KEY_ID: Env.schema.string.optional(),
+  BACKUP_S3_SECRET_ACCESS_KEY: Env.schema.string.optional(),
+  BACKUP_S3_PREFIX: Env.schema.string.optional(),
+  BACKUP_HOUR_UTC: Env.schema.number.optional(),
+  BACKUP_KEEP_DAYS: Env.schema.number.optional(),
+  ALERT_WEBHOOK_URL: Env.schema.string.optional(),
+  ALERT_EMAIL: Env.schema.boolean.optional(),
+
   // Produkcja: trwałe ścieżki na wolumenie i zaufanie do reverse proxy.
   SQLITE_PATH: Env.schema.string.optional(),
   STORAGE_PATH: Env.schema.string.optional(),

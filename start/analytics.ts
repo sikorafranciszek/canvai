@@ -12,6 +12,7 @@ import app from '@adonisjs/core/services/app'
 import { analytics } from '#config/analytics'
 import { captureLog, shutdown } from '#services/analytics/collector'
 import { ensureSchema } from '#services/analytics/clickhouse'
+import { raiseAlert } from '#services/ops/alerts'
 
 ;(globalThis as any).__canvaiLogSink = (
   level: number,
@@ -34,6 +35,12 @@ import { ensureSchema } from '#services/analytics/clickhouse'
           ? first.message
           : ''
   captureLog(level, msg, { ...bindings, ...obj, ...err })
+  // Błędy serwera (error/fatal) → alert dla administratorów (agregowany).
+  if (level >= 50) {
+    const detail = err.err?.message ?? (obj.err as Error | undefined)?.message ?? ''
+    const url = typeof obj.url === 'string' ? ` ${obj.url}` : ''
+    raiseAlert(`log:${msg.slice(0, 80)}`, `${msg}${url}${detail ? ` — ${detail}` : ''}`)
+  }
 }
 
 if (analytics.sink === 'clickhouse') {
