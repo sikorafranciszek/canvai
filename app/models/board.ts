@@ -16,6 +16,10 @@ export default class Board extends BaseModel {
   @column()
   declare slug: string
 
+  /** Przykładowa tablica nowego konta (nie liczy się do limitu planu). */
+  @column({ consume: (v) => Boolean(v) })
+  declare isSample: boolean
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 

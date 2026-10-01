@@ -691,6 +691,11 @@ export const pl = {
   'settings.figma.remove': 'Usuń token',
   'settings.figma.saved': 'Zapisano token Figmy',
   'settings.figma.removed': 'Usunięto token Figmy',
+  'boards.template.label': 'Szablon',
+  'boards.template.blank': 'Pusta tablica',
+  'boards.template.blankDesc': 'Zacznij od zera.',
+  'boards.sample': 'Przykład',
+  'boards.sampleTip': 'Przykładowa tablica z gotowym DESIGN.md — nie liczy się do limitu planu. Możesz ją usunąć.',
 } as const
 
 export type MessageKey = keyof typeof pl
@@ -1369,4 +1374,9 @@ export const en: Record<MessageKey, string> = {
   'settings.figma.remove': 'Remove token',
   'settings.figma.saved': 'Figma token saved',
   'settings.figma.removed': 'Figma token removed',
+  'boards.template.label': 'Template',
+  'boards.template.blank': 'Blank board',
+  'boards.template.blankDesc': 'Start from scratch.',
+  'boards.sample': 'Example',
+  'boards.sampleTip': 'Example board with a ready DESIGN.md — doesn\'t count toward your plan limit. You can delete it.',
 }

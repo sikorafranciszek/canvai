@@ -66,7 +66,7 @@ export default class BillingController {
       summary(user.id),
       activeSubscription(user.id),
       nextExpiry(user.id),
-      Board.query().where('user_id', user.id).count('* as total'),
+      Board.query().where('user_id', user.id).where('is_sample', false).count('* as total'),
       CreditTransaction.query().where('user_id', user.id).orderBy('id', 'desc').limit(30),
     ])
 

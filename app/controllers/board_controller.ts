@@ -6,8 +6,9 @@ import DesignDoc from '#models/design_doc'
 import { createBoardValidator, updateBoardValidator } from '#validators/board'
 import type { HttpContext } from '@adonisjs/core/http'
 import { entitlementsFor } from '#services/billing/plans'
-import { t } from '#services/i18n'
+import { currentLocale, t } from '#services/i18n'
 import { trackFor } from '#services/analytics/events'
+import { BOARD_TEMPLATES, TEMPLATE_CAMERA, buildTemplateScene } from '#shared/board-templates'
 
 export default class BoardController {
   async index({ auth, inertia }: HttpContext) {
@@ -42,6 +43,7 @@ export default class BoardController {
             id: b.id,
             title: b.title,
             slug: b.slug,
+            isSample: b.isSample,
             createdAt: toIso(b.createdAt),
             updatedAt: toIso(b.updatedAt),
             editedAt: toIso(edited),
@@ -62,12 +64,16 @@ export default class BoardController {
 
   async store(ctx: HttpContext) {
     const { auth, request, response, session } = ctx
-    const { title } = await request.validateUsing(createBoardValidator)
+    const { title, template } = await request.validateUsing(createBoardValidator)
     const user = auth.user!
 
     const { limits } = await entitlementsFor(user.id)
     if (limits.boards != null) {
-      const [{ $extras }] = await Board.query().where('user_id', user.id).count('* as total')
+      // Przykładowa tablica nie zajmuje miejsca w limicie planu.
+      const [{ $extras }] = await Board.query()
+        .where('user_id', user.id)
+        .where('is_sample', false)
+        .count('* as total')
       if (Number($extras.total) >= limits.boards) {
         session.flash('error', t('billing.boardLimit', { limit: limits.boards }))
         return response.redirect().toPath('/billing')
@@ -83,7 +89,18 @@ export default class BoardController {
       Math.random().toString(36).substring(2, 8)
 
     const board = await Board.create({ title, slug, userId: user.id })
-    trackFor(ctx, 'board_created', {}, { boardId: board.id })
+    if (template && BOARD_TEMPLATES.some((x) => x.id === template)) {
+      await BoardScene.create({
+        boardId: board.id,
+        document: buildTemplateScene(template, currentLocale()) as unknown as Record<
+          string,
+          unknown
+        >,
+        appState: { camera: TEMPLATE_CAMERA },
+        version: 1,
+      })
+    }
+    trackFor(ctx, 'board_created', { template: template ?? null }, { boardId: board.id })
 
     response.redirect().toPath(`/boards/${board.id}`)
   }

@@ -128,6 +128,10 @@ export default defineConfig({
       pattern: 'public/**',
       reloadServer: false,
     },
+    {
+      pattern: 'resources/sample/**',
+      reloadServer: false,
+    },
   ],
 
   hooks: {

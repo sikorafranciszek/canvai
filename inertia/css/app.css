@@ -4218,3 +4218,50 @@ input.title-edit {
   font-size: 13.5px;
   margin-top: 4px;
 }
+
+/* Wybór szablonu tablicy */
+.template-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.template-picker legend {
+  margin-bottom: 8px;
+}
+
+.template-picker__option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  text-align: left;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--color-soft-paper);
+  cursor: pointer;
+}
+
+.template-picker__option:hover {
+  border-color: var(--color-warm-mist);
+}
+
+.template-picker__option[aria-pressed='true'] {
+  border-color: var(--color-deep-teal);
+  box-shadow: 0 0 0 3px var(--color-teal-ring);
+}
+
+.template-picker__title {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--color-ink);
+}
+
+.template-picker__desc {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-graphite);
+}

@@ -24,6 +24,8 @@ export interface ContextItem {
   width: number
   height: number
   frame: string | null
+  /** Etykieta ramki z szablonu tablicy (nazwa ekranu) — sama nie jest treścią. */
+  label?: boolean
 }
 
 export interface ContextFrame {
@@ -128,6 +130,8 @@ export function buildBoardContext(document: SceneDocument | null | undefined): B
 
   for (const el of elements) {
     if (!el || typeof el !== 'object') continue
+    // Wskazówki szablonu („wrzuć tu logo”) to instrukcja dla człowieka, nie dane.
+    if ((el as { hint?: unknown }).hint === true) continue
     const box = boxOf(el)
 
     if (el.type === 'image' && box) {
@@ -155,6 +159,7 @@ export function buildBoardContext(document: SceneDocument | null | undefined): B
         text: text ? text.slice(0, 1000) : null,
         ...roundBox(box),
         frame: null,
+        ...((el as { label?: unknown }).label === true ? { label: true } : {}),
         box,
       })
     } else if ((el.type === 'rectangle' || el.type === 'ellipse') && box) {

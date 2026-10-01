@@ -2,7 +2,8 @@ import User from '#models/user'
 import { signupValidator } from '#validators/user'
 import type { HttpContext } from '@adonisjs/core/http'
 import { sendVerificationLink } from '#services/account_mail'
-import { t } from '#services/i18n'
+import { currentLocale, t } from '#services/i18n'
+import { createSampleBoardSafely } from '#services/sample_board'
 import { errors as vineErrors } from '@vinejs/vine'
 import { referrals } from '#config/billing'
 import { isDisposableEmail } from '#services/disposable_email'
@@ -27,6 +28,8 @@ export default class NewAccountController {
       ])
     }
     const user = await User.create({ ...payload, emailVerifiedAt: null })
+    // Przykładowa tablica z gotowym DESIGN.md — od razu widać, co robi produkt.
+    await createSampleBoardSafely(user, currentLocale())
     await attachReferrer(user, request.cookie(referrals.cookie))
     trackFor(ctx, 'signup', { referred: Boolean(user.referredById) }, { userId: user.id })
     response.clearCookie(referrals.cookie)

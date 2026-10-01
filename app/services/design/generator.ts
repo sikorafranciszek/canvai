@@ -82,7 +82,7 @@ export async function prepareGeneration(
 
 /** Czy tablica ma cokolwiek, z czego da się napisać dokument. */
 export function hasContent(input: GenerationInput): boolean {
-  return input.assets.length > 0 || input.context.items.some((it) => it.text)
+  return input.assets.length > 0 || input.context.items.some((it) => it.text && !it.label)
 }
 
 /** Błąd przed pierwszym wywołaniem modelu (np. za dużo assetów). */

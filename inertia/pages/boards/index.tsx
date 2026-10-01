@@ -24,6 +24,7 @@ interface Board {
   id: number
   title: string
   slug: string
+  isSample?: boolean
   createdAt: string | null
   updatedAt: string | null
   editedAt: string | null
@@ -199,7 +200,12 @@ function BoardCard({
             <span aria-hidden>·</span>
             <span>{tp('count.materials', board.assetsCount)}</span>
           </div>
-          <div style={{ marginTop: 4 }}>
+          <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {board.isSample ? (
+              <span className="badge badge--outline" data-tip={t('boards.sampleTip')}>
+                {t('boards.sample')}
+              </span>
+            ) : null}
             <DocBadge doc={board.designDoc} />
           </div>
         </div>

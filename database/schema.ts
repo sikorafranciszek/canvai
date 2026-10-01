@@ -156,12 +156,14 @@ export class BoardShareSchema extends BaseModel {
 }
 
 export class BoardSchema extends BaseModel {
-  static $columns = ['createdAt', 'id', 'slug', 'title', 'updatedAt', 'userId'] as const
+  static $columns = ['createdAt', 'id', 'isSample', 'slug', 'title', 'updatedAt', 'userId'] as const
   $columns = BoardSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column({ isPrimary: true })
   declare id: number
+  @column()
+  declare isSample: boolean
   @column()
   declare slug: string
   @column()

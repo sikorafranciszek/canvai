@@ -1,13 +1,16 @@
+import { useState } from 'react'
 import { Form } from '@adonisjs/inertia/react'
 import { Dialog } from '~/components/ui/Dialog'
 import { useUiStore } from '~/lib/ui'
 import { useT } from '~/i18n'
+import { BOARD_TEMPLATES } from '@shared/board-templates'
 
 /** Dialog „Nowa tablica” — POST boards.store, serwer przekierowuje do edytora. */
 export function CreateBoardDialog() {
   const open = useUiStore((s) => s.createBoardOpen)
   const close = useUiStore((s) => s.closeCreateBoard)
-  const { t } = useT()
+  const { t, locale } = useT()
+  const [template, setTemplate] = useState('')
 
   return (
     <Dialog
@@ -36,6 +39,33 @@ export function CreateBoardDialog() {
               />
               {errors.title ? <div className="field__error">{errors.title}</div> : null}
             </div>
+            <fieldset className="template-picker">
+              <legend className="field__label">{t('boards.template.label')}</legend>
+              <input type="hidden" name="template" value={template} />
+              {[
+                {
+                  id: '',
+                  title: { pl: t('boards.template.blank'), en: t('boards.template.blank') },
+                  description: {
+                    pl: t('boards.template.blankDesc'),
+                    en: t('boards.template.blankDesc'),
+                  },
+                },
+                ...BOARD_TEMPLATES,
+              ].map((tpl) => (
+                <button
+                  key={tpl.id || 'blank'}
+                  type="button"
+                  className="template-picker__option"
+                  aria-pressed={template === tpl.id}
+                  data-testid={`template-${tpl.id || 'blank'}`}
+                  onClick={() => setTemplate(tpl.id)}
+                >
+                  <span className="template-picker__title">{tpl.title[locale]}</span>
+                  <span className="template-picker__desc">{tpl.description[locale]}</span>
+                </button>
+              ))}
+            </fieldset>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button type="button" className="btn" onClick={close}>
                 {t('common.cancel')}

@@ -1,0 +1,61 @@
+{
+  "name": "Ziarno",
+  "tagline": "warm crema paper, espresso ink, one terracotta accent",
+  "theme": "light",
+  "overview": "Ziarno reads like a well-printed café menu: a warm crema page (#f6efe4) with espresso-brown text (#2b1d16), Fraunces serif headlines that carry the craft character, and Inter for everything functional [A1][A2]. A single terracotta accent (#c0622d) marks every primary action — ‘Zamów online’, ‘Zobacz menu’, prices on product cards — while sage green (#5f7a5b) is reserved for small eyebrow labels and confirmations [A1][A2][A3]. Cards sit on a slightly lighter paper (#fffaf3) with hairline borders and a barely-there shadow; corners are soft (16px) and buttons are full pills [A1][A2].",
+  "colors": [
+    {"name": "Crema", "hex": "#f6efe4", "token": "--color-background", "role": "Page background on every screen", "sources": [1, 2], "assumed": false},
+    {"name": "Paper", "hex": "#fffaf3", "token": "--color-surface", "role": "Cards, product tiles, featured product panel", "sources": [1, 2], "assumed": false},
+    {"name": "Espresso", "hex": "#2b1d16", "token": "--color-text", "role": "Headlines, body emphasis, active filter chip background", "sources": [1, 2, 3], "assumed": false},
+    {"name": "Roast Grey", "hex": "#6f625a", "token": "--color-text-muted", "role": "Body copy, descriptions, inactive navigation", "sources": [1, 2], "assumed": false},
+    {"name": "Terracotta", "hex": "#c0622d", "token": "--color-primary", "role": "Primary buttons, price pills, outlined ‘Dodaj’ actions, logo mark", "sources": [1, 2, 3], "assumed": false},
+    {"name": "Terracotta Dark", "hex": "#a14f22", "token": "--color-primary-hover", "role": "Hover and pressed state of primary buttons", "sources": [], "assumed": true},
+    {"name": "Sage", "hex": "#5f7a5b", "token": "--color-accent", "role": "Eyebrow labels, success confirmation dot", "sources": [1, 2, 3], "assumed": false},
+    {"name": "Sage Mist", "hex": "#eef3ec", "token": "--color-success-surface", "role": "Background of the ‘added to order’ confirmation", "sources": [2], "assumed": false},
+    {"name": "Hairline", "hex": "#e6dccd", "token": "--color-border", "role": "Card borders, navigation divider, outlined chips", "sources": [1, 2], "assumed": false},
+    {"name": "Brick", "hex": "#b3261e", "token": "--color-error", "role": "Form errors and destructive actions", "sources": [], "assumed": true}
+  ],
+  "typography": {
+    "families": [
+      {"name": "Fraunces", "token": "--font-display", "substitute": "Georgia, serif", "weights": [500, 600], "sizes": ["19px", "22px", "36px", "64px"], "lineHeights": ["1.05", "1.15"], "role": "Headlines, product names, prices and the wordmark", "sources": [1, 2, 3], "assumed": false},
+      {"name": "Inter", "token": "--font-sans", "substitute": "system-ui, sans-serif", "weights": [400, 500, 600], "sizes": ["12px", "14px", "15px", "17px"], "lineHeights": ["1.45", "1.6"], "role": "Body copy, navigation, buttons, labels", "sources": [1, 2], "assumed": false}
+    ],
+    "scale": [
+      {"role": "display", "family": "Fraunces", "weight": "600", "size": "64px", "lineHeight": "1.05", "letterSpacing": "-0.02em", "token": "--text-display"},
+      {"role": "h2", "family": "Fraunces", "weight": "600", "size": "36px", "lineHeight": "1.15", "letterSpacing": "0", "token": "--text-h2"},
+      {"role": "h3", "family": "Fraunces", "weight": "500", "size": "22px", "lineHeight": "1.3", "letterSpacing": "0", "token": "--text-h3"},
+      {"role": "body", "family": "Inter", "weight": "400", "size": "17px", "lineHeight": "1.6", "letterSpacing": "0", "token": "--text-body"},
+      {"role": "ui", "family": "Inter", "weight": "500", "size": "15px", "lineHeight": "1.4", "letterSpacing": "0", "token": "--text-ui"},
+      {"role": "small", "family": "Inter", "weight": "400", "size": "14px", "lineHeight": "1.45", "letterSpacing": "0", "token": "--text-small"},
+      {"role": "eyebrow", "family": "Inter", "weight": "500", "size": "12px", "lineHeight": "1.4", "letterSpacing": "0.06em", "token": "--text-eyebrow"}
+    ]
+  },
+  "spacing": {"baseUnit": "4px", "density": "comfortable", "scale": [{"name": "2", "value": "8px"}, {"name": "3", "value": "12px"}, {"name": "4", "value": "16px"}, {"name": "5", "value": "20px"}, {"name": "6", "value": "24px"}, {"name": "8", "value": "32px"}, {"name": "16", "value": "64px"}], "assumed": false},
+  "radii": [{"element": "cards", "value": "16px"}, {"element": "thumbnails", "value": "12px"}, {"element": "buttons", "value": "9999px"}],
+  "shadows": [{"name": "card", "value": "0 1px 2px rgba(43, 29, 22, 0.06)"}],
+  "layout": {"pageMaxWidth": "1280px", "sectionGap": "64px", "cardPadding": "16px", "elementGap": "12px", "description": "A 64px side gutter and a single top navigation bar (logo left, links centered, primary CTA right) separated by a hairline [A1][A2]. The home hero is a two-column split: copy left, a featured product card right [A1]. The menu is a three-column grid of horizontal product cards with filter chips aligned to the section title [A2]."},
+  "components": [
+    {"name": "Primary Button", "role": "Main action", "description": "Terracotta (#c0622d) pill, white Inter 15px/500 label, 44px tall, 22px horizontal padding, no border, no shadow.", "states": ["hover (proposed): Terracotta Dark #a14f22", "focus (proposed): 2px Espresso outline with 2px offset", "disabled (proposed): 40% opacity"], "sources": [1, 2], "assumed": false},
+    {"name": "Ghost Button", "role": "Secondary action", "description": "Transparent pill with 1px Espresso border and Espresso label, same size as the primary button (‘Kup ziarna’).", "states": ["hover (proposed): Espresso 5% fill"], "sources": [1], "assumed": false},
+    {"name": "Filter Chip", "role": "Category filter", "description": "36px pill, Inter 14px/500. Active: Espresso fill with white text; inactive: Paper with Hairline border and Espresso text.", "states": ["active: Espresso fill", "inactive: Hairline border"], "sources": [2], "assumed": false},
+    {"name": "Product Card", "role": "Menu item", "description": "Paper card, 1px Hairline border, 16px radius, 16px padding; 84px square thumbnail (12px radius) left, Fraunces 19px name and Inter 14px description in the middle, Fraunces price and an outlined Terracotta ‘Dodaj’ pill right.", "states": ["hover (proposed): border Terracotta"], "sources": [2], "assumed": false},
+    {"name": "Featured Product Panel", "role": "Hero showcase", "description": "Large Paper card with an image area (12px radius) and a footer row: Fraunces 22px product name, flavour notes in Roast Grey, Terracotta price pill.", "states": [], "sources": [1], "assumed": false},
+    {"name": "Top Navigation", "role": "Global navigation", "description": "Wordmark (terracotta circle mark + Fraunces 26px ‘Ziarno’), centered Inter 15px links in Roast Grey with the active one in Espresso/500, primary pill CTA on the right; 1px Hairline bottom border.", "states": ["active link: Espresso, weight 500"], "sources": [1, 2], "assumed": false},
+    {"name": "Confirmation Banner", "role": "Success feedback", "description": "Sage Mist background, 1px #cdd9c9 border, 16px radius, Sage dot + Inter 15px message with the item name in bold.", "states": [], "sources": [2], "assumed": false},
+    {"name": "Eyebrow Label", "role": "Section kicker", "description": "Inter 12px/500, uppercase, 0.06em tracking, Sage — above headlines (‘MENU’, ‘PALARNIA RZEMIEŚLNICZA · KRAKÓW’).", "states": [], "sources": [1, 2], "assumed": false}
+  ],
+  "screens": [
+    {"name": "Home", "purpose": "Introduce the roastery and push to the menu or bean shop", "elements": ["top navigation", "hero copy with two buttons", "rating stats", "featured product panel"], "sources": [1]},
+    {"name": "Menu", "purpose": "Browse drinks and add them to a pickup order", "elements": ["section title with filter chips", "3-column product card grid", "confirmation banner"], "sources": [2]}
+  ],
+  "flows": ["Home [A1] → ‘Zobacz menu’ → Menu [A2] → ‘Dodaj’ → confirmation banner"],
+  "voice": {"tone": "Warm, concrete and a little proud of the craft — short sentences, real numbers (roast days, ratings, minutes), Polish informal ‘ty’.", "examples": ["Kawa palona w poniedziałek, pita we wtorek.", "Zamów online", "Dodano do zamówienia: Flat white — odbiór za ok. 5 min.", "Proposed: Ups, tego ziarna właśnie zabrakło — wróci w czwartek."]},
+  "dos": ["Use Terracotta only for actions and prices — one accent per view", "Set every headline and price in Fraunces; everything functional in Inter", "Keep cards on Paper with a hairline border, not heavy shadows", "Use pills for all buttons and chips", "Write real, specific copy: origins, days, minutes"],
+  "donts": ["Don't use pure white or pure black — always Paper/Crema and Espresso", "Don't add a second accent hue next to Terracotta", "Don't set body copy in Fraunces", "Don't use sharp corners on cards or buttons", "Don't stack more than one shadow"],
+  "surfaces": [{"level": 0, "name": "Crema Page", "value": "#f6efe4", "purpose": "Page background"}, {"level": 1, "name": "Paper Card", "value": "#fffaf3", "purpose": "Cards and panels"}],
+  "elevation": "Almost flat: depth comes from the Paper-on-Crema contrast and 1px hairlines; the only shadow is 0 1px 2px at 6% espresso.",
+  "imagery": "Warm, close-up coffee photography or rich brown gradients inside 12px-radius frames; flat colour swatches for drink thumbnails.",
+  "agentGuide": {"quickColors": [], "componentPrompts": ["Create a product card: Paper #fffaf3 background, 1px #e6dccd border, 16px radius, 16px padding; 84px thumbnail with 12px radius; name in Fraunces 19px #2b1d16; description Inter 14px #6f625a; price Fraunces 18px; outlined Terracotta ‘Dodaj’ pill 30px tall.", "Create the top navigation: Crema background, 64px side padding, terracotta circle logo mark + Fraunces 26px wordmark, centered Inter 15px links (#6f625a, active #2b1d16/500), Terracotta pill CTA ‘Zamów online’, 1px #e6dccd bottom border.", "Create a hero: eyebrow Inter 12px uppercase Sage, Fraunces 64px/1.05 headline in Espresso, Inter 17px body in Roast Grey, Terracotta primary pill + Espresso-outlined ghost pill."]},
+  "similarBrands": [{"name": "Blue Bottle Coffee", "reason": "calm, product-first café commerce"}, {"name": "Kinfolk", "reason": "warm serif editorial tone"}],
+  "openQuestions": ["Error colour and form validation style are not shown — Brick #b3261e is a proposal.", "Hover and focus states are proposals — confirm with the brand team."]
+}
