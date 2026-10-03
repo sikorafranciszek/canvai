@@ -443,6 +443,59 @@ test.group('Design doc API', (group) => {
     ).assertStatus(404)
   })
 
+  test('rola i aspekty materiału: zapis przez API, nowa wersja i kolory tylko z dozwolonych materiałów', async ({
+    client,
+    assert,
+  }) => {
+    const { user, cookies } = await login(client)
+    const board = await createBoard(user)
+    const { imageIds } = await seedBoard(client, cookies, board)
+    await client.post(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies }).json({})
+    await runPendingJobs()
+
+    // Drugi zrzut: inspiracja tylko dla typografii.
+    const patch = await client
+      .patch(`/api/assets/${imageIds[1]}`)
+      .headers({ cookie: cookies })
+      .json({ usage: { role: 'inspiration', aspects: ['typography'] } })
+    patch.assertStatus(200)
+    assert.deepEqual(patch.body().data.usage, { role: 'inspiration', aspects: ['typography'] })
+    // Sama zmiana kategorii nie kasuje notatki.
+    const first = await Asset.findOrFail(imageIds[0])
+    await client
+      .patch(`/api/assets/${imageIds[0]}`)
+      .headers({ cookie: cookies })
+      .json({ usage: { role: 'own', aspects: [] } })
+    assert.equal((await Asset.findOrFail(imageIds[0])).userNote, first.userNote)
+    ;(
+      await client
+        .patch(`/api/assets/${imageIds[1]}`)
+        .headers({ cookie: cookies, accept: 'application/json' })
+        .json({ usage: { role: 'boss', aspects: [] } })
+    ).assertStatus(422)
+
+    // Zmiana kategorii = zmiana wejścia → nowa wersja (nie „bez zmian”).
+    const again = await client
+      .post(`/api/boards/${board.id}/design-doc`)
+      .headers({ cookie: cookies })
+      .json({})
+    again.assertStatus(202)
+    await runPendingJobs()
+    const doc = await DesignDoc.query()
+      .where('board_id', board.id)
+      .orderBy('version', 'desc')
+      .firstOrFail()
+    assert.equal(doc.status, 'ready', doc.error ?? '')
+    for (const c of doc.spec!.colors) {
+      assert.notInclude(
+        c.sources,
+        imageIds[1],
+        `kolor ${c.name} nie może pochodzić z referencji typografii`
+      )
+    }
+    assert.include(doc.contentMd!, 'How to Use the References')
+  })
+
   test('obcy użytkownik dostaje 404 na każdym endpoincie', async ({ client }) => {
     const owner = await login(client)
     const board = await createBoard(owner.user)

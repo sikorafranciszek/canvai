@@ -103,8 +103,13 @@ export default class AssetsController {
     const asset = await this.findAccessible(auth.user!.id, params.id, 'edit')
     if (!asset) return response.notFound()
 
-    const { note } = await request.validateUsing(updateAssetValidator)
-    asset.userNote = note ?? null
+    const { note, usage } = await request.validateUsing(updateAssetValidator)
+    if (note !== undefined || !usage) asset.userNote = note ?? null
+    if (usage) {
+      asset.usageRole = usage.role
+      // Anty-wzór nie ma aspektów — trafia tylko do „Don't”.
+      asset.usageAspects = usage.role === 'avoid' ? [] : [...new Set(usage.aspects)]
+    }
     await asset.save()
     publish(asset.boardId, 'assets', {}, request.header('x-client-id'))
 

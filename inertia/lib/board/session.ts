@@ -36,10 +36,12 @@ import {
   acceptInboxAsset,
   importSite as apiImportSite,
   importFigma as apiImportFigma,
+  updateAssetUsage as apiUpdateUsage,
   type FigmaImportResult,
 } from './api'
 import { DEFAULTS } from '~/lib/scene/palette'
 import { hasLocalChanges, mergeScenes } from '@shared/scene-merge'
+import type { AssetUsage } from '@shared/asset-usage'
 import { translate } from '~/i18n'
 
 export type BoardSaveStatus = SaveStatus | 'dirty' | 'loading'
@@ -77,6 +79,8 @@ interface BoardState {
   addLink: (url: string, point: { x: number; y: number }) => Promise<void>
   addTextNote: (text: string, point: { x: number; y: number }) => void
   updateNote: (assetId: string, note: string) => Promise<void>
+  /** Rola i aspekty materiału (optymistycznie, z wycofaniem przy błędzie). */
+  updateUsage: (assetId: string, usage: AssetUsage) => Promise<void>
   deleteAsset: (assetId: string) => Promise<void>
   centerOnAsset: (assetId: string) => void
   /** Wstawia notatkę brand kitu (dla AI) obok zawartości płótna i ją pokazuje. */
@@ -358,6 +362,20 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
 
   addTextNote(text, point) {
     useSceneStore.getState().addElement(createTextSticky(text, point))
+  },
+
+  async updateUsage(assetId, usage) {
+    const before = get().assets
+    set({
+      assets: before.map((a) => (String(a.id) === String(assetId) ? { ...a, usage } : a)),
+    })
+    try {
+      const updated = await apiUpdateUsage(assetId, usage)
+      set({ assets: get().assets.map((a) => (String(a.id) === String(assetId) ? updated : a)) })
+    } catch {
+      set({ assets: before })
+      toast.error(translate('session.noteFailed'))
+    }
   },
 
   async updateNote(assetId, note) {

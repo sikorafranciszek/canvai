@@ -14,11 +14,22 @@ import type { AnalyzeAssetInput, ComposeInput, PreviewInput } from '#services/ai
  * tylko z materiałów (propozycje oznaczone), zakaz dopisywania funkcji „znanego”
  * produktu z wiedzy modelu, wartości tokenów jako czysty CSS.
  *
+ * v4: rola i aspekty materiałów (nasz / inspiracja / anty-wzór; kolory,
+ * typografia, układ, komponenty, grafika, teksty) — model bierze z materiału
+ * tylko to, na co wskazał użytkownik.
+ *
  * Bezpieczeństwo (lens 7): wszystko, co pochodzi z tablicy — nazwy plików,
  * notatki, tekst z obrazów, metadane linków — trafia do bloku `<untrusted>`
  * i jest opisane w prompcie systemowym jako DANE, nigdy instrukcje.
  */
-export const PROMPT_VERSION = 'v3'
+export const PROMPT_VERSION = 'v4'
+
+/**
+ * Wersja promptu ANALIZY materiału (etap 1) — klucz cache analiz. Osobna od
+ * wersji dokumentu: zmiana zasad kompozycji nie unieważnia analiz (i nie
+ * kosztuje użytkownika ponownej analizy materiałów).
+ */
+export const ANALYSIS_PROMPT_VERSION = 'v3'
 
 /** Neutralizuje próbę zamknięcia ogrodzenia z wnętrza treści. */
 export function fenceUntrusted(label: string, content: string): string {
@@ -138,6 +149,16 @@ export const COMPOSE_SYSTEM_PROMPT = [
   '- Token values (sizes, radii, spacing, shadows, layout) must be valid CSS only — e.g. "50%", "8px", "9999px",',
   '  "rgba(0, 0, 0, 0.08) 0px 1px 2px 0px". Put explanations in names/descriptions, never inside the value.',
   '- Use arrows (flows) and frames from the board structure for "screens" and "flows".',
+  'MATERIAL USAGE (the "use" field of each asset, set by the client — it overrides your own judgement):',
+  '- role "own": the product\'s own brand/UI — the source of truth for whatever it shows.',
+  '- role "inspiration": a reference the client likes ONLY for the listed aspects. Take nothing else from it',
+  '  (e.g. aspects ["layout"] → take structure, spacing and composition, but NOT its colors, fonts or copy).',
+  '- role "avoid": an anti-pattern. Never derive tokens or components from it; turn it into specific "donts".',
+  '- aspects: colors → colors/surfaces; typography → font families and type scale; layout → spacing, grid,',
+  '  page structure, screens; components → component styling and states; imagery → imagery/icons paragraph;',
+  '  copy → voice and microcopy. Empty aspects = everything. Cite an asset in "sources" only for aspects it allows.',
+  '- When references disagree, "own" wins; otherwise combine: e.g. fonts from the typography reference, layout',
+  '  from the layout reference, colors from the color reference. Say in the overview which reference drives what.',
   'Target sizes: 5-12 colors, 1-3 font families with a 4-8 row type scale, 6-14 components, 5-8 dos and donts,',
   '3-5 agent component prompts. No field may be empty except where there is genuinely nothing to say.',
   `Reply ONLY with a JSON object of exactly this shape:\n${SPEC_SHAPE}`,
@@ -157,6 +178,13 @@ export function buildComposeUserText(input: ComposeInput): string {
     layoutPatterns: a.analysis.layoutPatterns,
     styleHints: a.analysis.styleHints,
     tags: a.analysis.tags,
+    use:
+      a.usage && (a.usage.role || a.usage.aspects.length)
+        ? {
+            role: a.usage.role ?? 'auto',
+            aspects: a.usage.aspects.length ? a.usage.aspects : 'all',
+          }
+        : { role: 'auto', aspects: 'all' },
   }))
 
   // Tekst pochodzący od użytkownika (nazwy, notatki, OCR) idzie osobnym,

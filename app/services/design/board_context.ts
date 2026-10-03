@@ -258,6 +258,8 @@ export interface FingerprintAsset {
   sha256: string | null
   filename: string
   userNote: string | null
+  /** Rola i aspekty — zmiana kategorii wymaga nowej wersji dokumentu. */
+  usage?: { role: string | null; aspects: string[] } | null
 }
 
 /**
@@ -273,7 +275,15 @@ export function computeInputFingerprint(input: {
 }): string {
   const assets = [...input.assets]
     .sort((a, b) => a.id - b.id)
-    .map((a) => [a.id, a.sha256 ?? a.filename, a.userNote ?? ''])
+    .map((a) => [
+      a.id,
+      a.sha256 ?? a.filename,
+      a.userNote ?? '',
+      // Domyślne użycie nie zmienia odcisku — stare dokumenty pozostają aktualne.
+      ...(a.usage && (a.usage.role || a.usage.aspects.length)
+        ? [`${a.usage.role ?? ''}:${a.usage.aspects.join(',')}`]
+        : []),
+    ])
   const payload = JSON.stringify({
     t: input.boardTitle,
     a: assets,

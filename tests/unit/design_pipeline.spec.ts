@@ -329,9 +329,9 @@ test.group('Design pipeline / spec & renderer', () => {
     )
     assert.include(
       markdown,
-      '| A1 | home.png | image | Strona \\| główna | Colors, Screens, Overview, Flows |'
+      '| A1 | home.png | image | all aspects | Strona \\| główna | Colors, Screens, Overview, Flows |'
     )
-    assert.include(markdown, '| A3 | unused.pdf | pdf | — | not used |')
+    assert.include(markdown, '| A3 | unused.pdf | pdf | all aspects | — | not used |')
     assert.deepEqual(findAssetRefs('[A1][A2] i znów [A1]'), [1, 2])
   })
 })

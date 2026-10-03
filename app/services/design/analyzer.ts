@@ -5,7 +5,7 @@ import type Asset from '#models/asset'
 import AssetAnalysis from '#models/asset_analysis'
 import { validateAssetAnalysis } from '#services/ai/schemas'
 import { AiProviderError, type AiProvider, type AssetAnalysisData } from '#services/ai/types'
-import { PROMPT_VERSION } from '#services/design/prompts'
+import { ANALYSIS_PROMPT_VERSION as PROMPT_VERSION } from '#services/design/prompts'
 import { t } from '#services/i18n'
 
 /**

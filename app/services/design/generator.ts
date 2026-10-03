@@ -20,7 +20,8 @@ import {
 } from '#services/design/board_context'
 import { PROMPT_VERSION } from '#services/design/prompts'
 import { renderDesignMd } from '#services/design/renderer'
-import { groundSpec, verifyColorEvidence } from '#services/design/spec'
+import { enforceUsage, groundSpec, verifyColorEvidence } from '#services/design/spec'
+import { allowsAspect } from '#shared/asset-usage'
 import type { SceneDocument } from '#shared/scene'
 import { runWithLocale, t } from '#services/i18n'
 import { entitlementsFor } from '#services/billing/plans'
@@ -73,6 +74,7 @@ export async function prepareGeneration(
       sha256: a.sha256,
       filename: a.filename,
       userNote: a.userNote,
+      usage: a.usage,
     })),
     context,
     promptVersion: PROMPT_VERSION,
@@ -164,6 +166,7 @@ async function generate(
     userNote: a.userNote,
     onCanvas: context.items.some((it) => it.assetId === a.id),
     analysis: analyses.get(a.id)!,
+    usage: a.usage,
   }))
   const allowedIds = assets.map((a) => a.id)
 
@@ -189,10 +192,17 @@ async function generate(
   if (!spec) {
     throw new InvalidModelOutputError(t('gen.notGrounded', { errors: previousErrors.join('; ') }))
   }
-  // Kolory, których nie widać w żadnym materiale, to propozycje modelu → założenia †.
+  // Kategorie materiałów: z inspiracji „tylko typografia” nie wolno brać kolorów itd.
+  const usages = new Map(assets.map((a) => [a.id, a.usage]))
+  enforceUsage(spec, usages)
+  // Kolory, których nie widać w materiałach dozwolonych dla kolorów, to propozycje → †.
   verifyColorEvidence(
     spec,
-    new Map(assets.map((a) => [a.id, (analyses.get(a.id)?.palette ?? []).map((p) => p.hex)]))
+    new Map(
+      assets
+        .filter((a) => allowsAspect(a.usage, 'colors'))
+        .map((a) => [a.id, (analyses.get(a.id)?.palette ?? []).map((p) => p.hex)])
+    )
   )
 
   // Render
@@ -200,7 +210,13 @@ async function generate(
   const generatedAt = DateTime.utc()
   const { markdown, sources } = renderDesignMd(
     spec,
-    assets.map((a) => ({ id: a.id, filename: a.filename, kind: a.kind, userNote: a.userNote })),
+    assets.map((a) => ({
+      id: a.id,
+      filename: a.filename,
+      kind: a.kind,
+      userNote: a.userNote,
+      usage: a.usage,
+    })),
     {
       boardTitle: board.title,
       version: doc.version,

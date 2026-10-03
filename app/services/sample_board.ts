@@ -164,7 +164,13 @@ export async function createSampleBoard(user: User, locale: Locale): Promise<Boa
   const generatedAt = DateTime.utc()
   const { markdown, sources } = renderDesignMd(
     spec,
-    assets.map((a) => ({ id: a.id, filename: a.filename, kind: a.kind, userNote: a.userNote })),
+    assets.map((a) => ({
+      id: a.id,
+      filename: a.filename,
+      kind: a.kind,
+      userNote: a.userNote,
+      usage: a.usage,
+    })),
     {
       boardTitle: board.title,
       version: 1,

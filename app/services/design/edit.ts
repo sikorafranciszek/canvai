@@ -99,8 +99,8 @@ export async function createEditedVersion(base: DesignDoc, edits: SpecEdits): Pr
     .orderBy('version', 'desc')
     .firstOrFail()
   const ids = (base.sources ?? []).map((s) => s.assetId)
-  const notes = new Map(
-    (ids.length ? await Asset.query().whereIn('id', ids) : []).map((a) => [a.id, a.userNote])
+  const rows = new Map(
+    (ids.length ? await Asset.query().whereIn('id', ids) : []).map((a) => [a.id, a])
   )
   const generatedAt = DateTime.utc()
   const version = latest.version + 1
@@ -110,7 +110,8 @@ export async function createEditedVersion(base: DesignDoc, edits: SpecEdits): Pr
       id: s.assetId,
       filename: s.filename,
       kind: s.kind,
-      userNote: notes.get(s.assetId) ?? null,
+      userNote: rows.get(s.assetId)?.userNote ?? null,
+      usage: rows.get(s.assetId)?.usage,
     })),
     {
       boardTitle: board.title,

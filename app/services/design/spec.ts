@@ -2,6 +2,7 @@ import { InvalidModelOutputError } from '#services/ai/types'
 import { normalizeHex } from '#services/ai/schemas'
 import { t } from '#services/i18n'
 import { colorDistance } from '#shared/color'
+import { allowsAspect, type AssetUsage } from '#shared/asset-usage'
 
 /**
  * `DesignSpec` — ustrukturyzowany wynik etapu 2 (kompozycji).
@@ -538,6 +539,48 @@ export function specReferences(spec: DesignSpec): Map<number, Set<string>> {
   refsInText([spec.voice.tone, ...spec.voice.examples].join(' ')).forEach((id) => add(id, 'Voice'))
   spec.flows.flatMap(refsInText).forEach((id) => add(id, 'Flows'))
   return map
+}
+
+// ---------------------------------------------------------------------------
+// Rola i aspekty materiałów
+// ---------------------------------------------------------------------------
+
+/**
+ * Wymusza kategorie materiałów niezależnie od modelu: źródłem koloru może być
+ * tylko materiał dozwolony dla „colors”, fontu — dla „typography”, komponentu
+ * — dla „components” albo „layout”. Pozycja bez dozwolonego źródła staje się
+ * założeniem †. Zwraca opisy zdjętych odwołań (diagnostyka).
+ */
+export function enforceUsage(spec: DesignSpec, usages: Map<number, AssetUsage>): string[] {
+  const stripped: string[] = []
+  const filter = (where: string, sources: number[], ok: (u: AssetUsage | undefined) => boolean) => {
+    const kept = sources.filter((id) => ok(usages.get(id)))
+    for (const id of sources) if (!kept.includes(id)) stripped.push(`${where}: A${id}`)
+    return kept
+  }
+  for (const c of spec.colors) {
+    const before = c.sources.length
+    c.sources = filter(`color ${c.name}`, c.sources, (u) => allowsAspect(u, 'colors'))
+    if (before && !c.sources.length) c.assumed = true
+  }
+  for (const f of spec.typography.families) {
+    const before = f.sources.length
+    f.sources = filter(`font ${f.name}`, f.sources, (u) => allowsAspect(u, 'typography'))
+    if (before && !f.sources.length) f.assumed = true
+  }
+  for (const c of spec.components) {
+    const before = c.sources.length
+    c.sources = filter(
+      `component ${c.name}`,
+      c.sources,
+      (u) => allowsAspect(u, 'components') || allowsAspect(u, 'layout')
+    )
+    if (before && !c.sources.length) c.assumed = true
+  }
+  for (const s of spec.screens) {
+    s.sources = filter(`screen ${s.name}`, s.sources, (u) => u?.role !== 'avoid')
+  }
+  return stripped
 }
 
 // ---------------------------------------------------------------------------

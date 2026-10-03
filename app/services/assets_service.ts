@@ -371,6 +371,7 @@ export function serializeAsset(asset: Asset) {
     height: asset.height,
     source: asset.source,
     userNote: asset.userNote,
+    usage: asset.usage,
     inbox: Boolean(asset.inbox),
     submittedBy: asset.submittedBy ?? null,
     linkMeta:

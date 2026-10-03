@@ -6,6 +6,7 @@ import type { SceneDocument } from '@shared/scene'
 import { AutosaveConflictError } from '@shared/autosave'
 import type { UploadSource } from '@shared/upload-state'
 import { translate } from '~/i18n'
+import type { AssetUsage } from '@shared/asset-usage'
 
 export interface SceneResponse {
   version: number
@@ -25,6 +26,8 @@ export interface AssetDto {
   height: number | null
   source: string | null
   userNote: string | null
+  /** Jak użyć materiału w DESIGN.md (rola i aspekty). */
+  usage?: AssetUsage
   /** Materiał od klienta (portal) czekający na umieszczenie na płótnie. */
   inbox?: boolean
   submittedBy?: string | null
@@ -52,9 +55,7 @@ export const CLIENT_ID: string =
 
 export function csrfHeaders(): Record<string, string> {
   const token = readCookie('XSRF-TOKEN')
-  return token
-    ? { 'X-XSRF-TOKEN': token, 'X-Client-Id': CLIENT_ID }
-    : { 'X-Client-Id': CLIENT_ID }
+  return token ? { 'X-XSRF-TOKEN': token, 'X-Client-Id': CLIENT_ID } : { 'X-Client-Id': CLIENT_ID }
 }
 
 async function parseJson<T>(res: Response): Promise<T> {
@@ -205,6 +206,18 @@ export async function updateAssetNote(assetId: string, note: string): Promise<As
   if (!res.ok) throw new Error(translate('api.noteFailed', { status: res.status }))
   const body = await parseJson<{ data: AssetDto }>(res)
   return body.data
+}
+
+/** Rola i aspekty materiału (co AI ma z niego wziąć do DESIGN.md). */
+export async function updateAssetUsage(assetId: string, usage: AssetUsage): Promise<AssetDto> {
+  const res = await fetch(`/api/assets/${assetId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+    body: JSON.stringify({ usage }),
+    credentials: 'same-origin',
+  })
+  if (!res.ok) throw new Error(translate('api.noteFailed', { status: res.status }))
+  return (await parseJson<{ data: AssetDto }>(res)).data
 }
 
 export interface SiteImportResult {

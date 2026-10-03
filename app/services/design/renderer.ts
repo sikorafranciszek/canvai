@@ -1,5 +1,6 @@
 import { specReferences, type DesignSpec } from '#services/design/spec'
 import { contrastChecks } from '#services/design/quality'
+import { describeUsage, isDefaultUsage, usageGuideLine, type AssetUsage } from '#shared/asset-usage'
 
 /**
  * Składanie DESIGN.md („Style Reference”) z ustrukturyzowanego `DesignSpec`.
@@ -14,6 +15,8 @@ export interface SourceAsset {
   filename: string
   kind: string
   userNote: string | null
+  /** Rola i aspekty ustawione przez użytkownika (brak = AI decyduje). */
+  usage?: AssetUsage
 }
 
 export interface RenderMeta {
@@ -253,6 +256,20 @@ export function renderDesignMd(
       .join('\n\n')
   )
 
+  // Jak czytać referencje: z czego wzięto kolory, fonty, układ — i czego unikać.
+  const guided = assets.filter((a) => !isDefaultUsage(a.usage))
+  if (guided.length) {
+    section(
+      'How to Use the References',
+      'The client marked what each material is for. Follow it when building UI: take from a reference only the aspects listed for it.',
+      bullets(
+        guided.map(
+          (a) => `[A${a.id}] ${headerLine(a.filename).slice(0, 80)} — ${usageGuideLine(a.usage!)}`
+        )
+      )
+    )
+  }
+
   // Kolory
   section(
     'Tokens — Colors',
@@ -464,13 +481,14 @@ export function renderDesignMd(
     'Sources',
     sources.length
       ? table(
-          ['Asset', 'Name', 'Type', 'Client note', 'Used in'],
+          ['Asset', 'Name', 'Type', 'Role', 'Client note', 'Used in'],
           sources.map((s) => {
             const asset = assets.find((a) => a.id === s.assetId)
             return [
               `A${s.assetId}`,
               s.filename.slice(0, 120),
               s.kind,
+              describeUsage(asset?.usage),
               asset?.userNote ? asset.userNote.slice(0, 160) : '—',
               s.sections.length ? s.sections.join(', ') : 'not used',
             ]

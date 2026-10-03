@@ -1,5 +1,6 @@
 import vine from '@vinejs/vine'
 import { assetSources } from '#config/assets'
+import { ASSET_ASPECTS, ASSET_ROLES } from '#shared/asset-usage'
 
 /**
  * Walidator pól formularza uploadu (multipart). Pliki są obsługiwane
@@ -17,9 +18,15 @@ export const uploadAssetsValidator = vine.compile(
   })
 )
 
-/** Walidator PATCH /api/assets/:id (notatka użytkownika). */
+/** Walidator PATCH /api/assets/:id (notatka użytkownika i sposób użycia w DESIGN.md). */
 export const updateAssetValidator = vine.compile(
   vine.object({
     note: vine.string().trim().maxLength(2000).optional(),
+    usage: vine
+      .object({
+        role: vine.enum(ASSET_ROLES).nullable(),
+        aspects: vine.array(vine.enum(ASSET_ASPECTS)).maxLength(ASSET_ASPECTS.length),
+      })
+      .optional(),
   })
 )

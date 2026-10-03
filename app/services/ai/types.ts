@@ -72,6 +72,8 @@ export interface ComposeAssetInput {
   userNote: string | null
   onCanvas: boolean
   analysis: AssetAnalysisData
+  /** Jak użyć materiału (rola i aspekty) — ustawione przez użytkownika. */
+  usage?: import('#shared/asset-usage').AssetUsage
 }
 
 export type { DesignSpec } from '#services/design/spec'

@@ -17,7 +17,8 @@ import {
 } from 'lucide-react'
 import { useBoardStore, useCanvasAssets } from '~/lib/board/session'
 import { formatBytes } from '@shared/asset-utils'
-import { useT } from '~/i18n'
+import { useT, type MessageKey } from '~/i18n'
+import { ASSET_ASPECTS, type AssetRole, type AssetUsage } from '@shared/asset-usage'
 import type { AssetDto } from '~/lib/board/api'
 import { Dialog } from '~/components/ui/Dialog'
 
@@ -267,6 +268,7 @@ const AssetRow = memo(function AssetRow({
           placeholder={t('assets.notePlaceholder')}
           rows={note.length > 60 ? 3 : 1}
         />
+        <UsagePicker asset={asset} />
         {saveState !== 'idle' ? (
           <span
             className="t-caption t-faint"
@@ -285,6 +287,82 @@ const AssetRow = memo(function AssetRow({
     </div>
   )
 })
+
+const ROLE_KEYS: Record<string, MessageKey> = {
+  auto: 'usage.role.auto',
+  own: 'usage.role.own',
+  inspiration: 'usage.role.inspiration',
+  avoid: 'usage.role.avoid',
+}
+
+/**
+ * Co AI ma wziąć z materiału: rola (nasz / inspiracja / anty-wzór) i aspekty.
+ * Np. zrzut „podoba mi się układ” → inspiracja + Układ: kolory z niego nie trafią do tokenów.
+ */
+function UsagePicker({ asset }: { asset: AssetDto }) {
+  const { t } = useT()
+  const updateUsage = useBoardStore((s) => s.updateUsage)
+  const readOnly = useBoardStore((s) => s.readOnly)
+  const usage = asset.usage ?? { role: null, aspects: [] }
+  const role = usage.role ?? 'auto'
+  const set = (next: Partial<AssetUsage>) => void updateUsage(asset.id, { ...usage, ...next })
+
+  return (
+    <div className="usage-picker" data-testid={`asset-usage-${asset.id}`}>
+      <label className="usage-picker__role">
+        <span className="sr-only">{t('usage.roleLabel')}</span>
+        <select
+          className={`select select--sm usage-picker__select usage-picker__select--${role}`}
+          value={role}
+          disabled={readOnly}
+          data-testid={`asset-role-${asset.id}`}
+          onChange={(e) =>
+            set({
+              role: e.target.value === 'auto' ? null : (e.target.value as AssetRole),
+              aspects: e.target.value === 'avoid' ? [] : usage.aspects,
+            })
+          }
+        >
+          {(['auto', 'own', 'inspiration', 'avoid'] as const).map((r) => (
+            <option key={r} value={r}>
+              {t(ROLE_KEYS[r])}
+            </option>
+          ))}
+        </select>
+      </label>
+      {role === 'avoid' ? (
+        <span className="t-caption t-faint">{t('usage.avoidHint')}</span>
+      ) : (
+        <div className="usage-picker__aspects" role="group" aria-label={t('usage.aspectsLabel')}>
+          <span className="t-caption t-faint">{t('usage.take')}</span>
+          {ASSET_ASPECTS.map((a) => {
+            const on = usage.aspects.includes(a)
+            return (
+              <button
+                key={a}
+                type="button"
+                className="usage-chip"
+                aria-pressed={on}
+                disabled={readOnly}
+                data-testid={`asset-aspect-${asset.id}-${a}`}
+                onClick={() =>
+                  set({
+                    aspects: on ? usage.aspects.filter((x) => x !== a) : [...usage.aspects, a],
+                  })
+                }
+              >
+                {t(`usage.aspect.${a}` as MessageKey)}
+              </button>
+            )
+          })}
+          {usage.aspects.length === 0 ? (
+            <span className="t-caption t-faint">{t('usage.all')}</span>
+          ) : null}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function DeleteAssetDialog({ asset, onClose }: { asset: AssetDto | null; onClose: () => void }) {
   const { t } = useT()

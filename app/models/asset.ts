@@ -3,6 +3,7 @@ import { BaseModel, belongsTo, column } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Board from '#models/board'
 import { jsonConsume, jsonPrepare } from '#models/json_columns'
+import { normalizeUsage, type AssetUsage } from '#shared/asset-usage'
 
 export default class Asset extends BaseModel {
   @column({ isPrimary: true })
@@ -46,6 +47,18 @@ export default class Asset extends BaseModel {
 
   @column()
   declare userNote: string | null
+
+  /** Rola materiału w DESIGN.md: own | inspiration | avoid (null = AI decyduje). */
+  @column()
+  declare usageRole: string | null
+
+  /** Aspekty do wzięcia z materiału (pusta lista = wszystko). */
+  @column({ prepare: jsonPrepare, consume: jsonConsume })
+  declare usageAspects: string[] | null
+
+  get usage(): AssetUsage {
+    return normalizeUsage(this.usageRole, this.usageAspects)
+  }
 
   /** Materiał od klienta (portal), czeka na umieszczenie na płótnie przez właściciela. */
   @column({ consume: (v) => Boolean(v) })
