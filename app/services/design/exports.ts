@@ -1,5 +1,6 @@
 import type { DesignSpec } from '#services/design/spec'
 import { renderCssVariables, renderTailwindTheme } from '#services/design/renderer'
+import { renderStorybook } from '#services/design/storybook'
 
 /**
  * Eksport tokenów w formacie W3C Design Tokens (DTCG): kolory, rodziny fontów,
@@ -326,6 +327,7 @@ export const EXPORT_FORMATS = [
   'claude',
   'agents',
   'prompt',
+  'storybook',
 ] as const
 
 export type ExportFormat = (typeof EXPORT_FORMATS)[number]
@@ -369,5 +371,11 @@ export function renderExport(spec: DesignSpec, format: ExportFormat) {
       return { name: 'AGENTS.md', type: 'text/markdown', body: renderAgentsMd(spec) }
     case 'prompt':
       return { name: 'prompt.txt', type: 'text/plain', body: renderBuilderPrompt(spec) }
+    case 'storybook':
+      return {
+        name: 'design-system.stories.tsx',
+        type: 'text/plain',
+        body: renderStorybook(spec),
+      }
   }
 }

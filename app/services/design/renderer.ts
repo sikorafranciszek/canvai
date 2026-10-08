@@ -86,7 +86,7 @@ function headerLine(value: string): string {
   )
 }
 
-function slug(value: string): string {
+export function slug(value: string): string {
   return value
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')

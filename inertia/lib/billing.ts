@@ -80,6 +80,7 @@ export type ExportFormat =
   | 'claude'
   | 'agents'
   | 'prompt'
+  | 'storybook'
 
 export function exportUrl(boardId: number, format: ExportFormat, version?: number) {
   const qs = new URLSearchParams({ format })

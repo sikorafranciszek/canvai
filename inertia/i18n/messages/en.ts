@@ -84,6 +84,7 @@ export const en: Record<MessageKey, string> = {
   'brand.domainRecordName': 'Name (host)',
   'brand.domainRecordValue': 'Value',
   'brand.domainVerify': 'Check TXT record',
+  'doc.export.storybook': 'Storybook — component skeletons (TSX)',
   'revise.open': 'Revise with a command',
   'revise.label': 'Revision command',
   'revise.placeholder': 'E.g. “darker primary”, “no serifs”, “denser spacing”…',

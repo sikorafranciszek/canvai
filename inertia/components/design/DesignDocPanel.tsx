@@ -317,16 +317,24 @@ export function DesignDocPanel() {
                           onSelect: () => router.visit('/billing'),
                         },
                       ]
-                    : (['css', 'tailwind', 'tailwind3', 'scss', 'tokens', 'figma'] as const).map(
-                        (format) => ({
-                          label: t(`doc.export.${format}`),
-                          icon: <FileCode2 size={14} />,
-                          testId: `design-doc-export-${format}`,
-                          onSelect: () => {
-                            window.location.href = exportUrl(boardId, format, current!.version)
-                          },
-                        })
-                      )),
+                    : (
+                        [
+                          'css',
+                          'tailwind',
+                          'tailwind3',
+                          'scss',
+                          'tokens',
+                          'figma',
+                          'storybook',
+                        ] as const
+                      ).map((format) => ({
+                        label: t(`doc.export.${format}`),
+                        icon: <FileCode2 size={14} />,
+                        testId: `design-doc-export-${format}`,
+                        onSelect: () => {
+                          window.location.href = exportUrl(boardId, format, current!.version)
+                        },
+                      }))),
                   {
                     label: t('doc.export.pdf'),
                     icon: <Printer size={14} />,

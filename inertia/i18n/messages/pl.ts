@@ -88,6 +88,7 @@ export const pl = {
   'brand.domainRecordName': 'Nazwa (host)',
   'brand.domainRecordValue': 'Wartość',
   'brand.domainVerify': 'Sprawdź rekord TXT',
+  'doc.export.storybook': 'Storybook — szkielety komponentów (TSX)',
   'revise.open': 'Popraw poleceniem',
   'revise.label': 'Polecenie poprawki',
   'revise.placeholder': 'Np. „primary ciemniejszy”, „bez serifów”, „gęstszy spacing”…',
