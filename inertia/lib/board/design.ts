@@ -330,11 +330,13 @@ export const useDesignStore = create<DesignState>()((set, get) => {
         }
         set({ active: result.doc })
         await refreshVersions(boardId)
-        schedulePoll(boardId, result.doc.version, seq)
+        // Pierwsze sprawdzenie szybko: zdarzenie „gotowe” mogło przyjść, zanim
+        // klient dostał odpowiedź na start (wyścig) — dalej już rzadko (SSE).
+        schedulePoll(boardId, result.doc.version, seq, POLL_MS)
       } catch (error) {
         if (error instanceof DesignDocRequestError && error.status === 409 && error.doc) {
           set({ active: error.doc })
-          schedulePoll(boardId, error.doc.version, seq)
+          schedulePoll(boardId, error.doc.version, seq, POLL_MS)
           return
         }
         // Kredyty/plan → przejście do rozliczeń; limity i awarie → co zrobić dalej.
