@@ -8,6 +8,7 @@ import testUtils from '@adonisjs/core/services/test_utils'
 import { browserClient } from '@japa/browser-client'
 import { authBrowserClient } from '@adonisjs/auth/plugins/browser_client'
 import { sessionBrowserClient } from '@adonisjs/session/plugins/browser_client'
+import { closeAll as closeLiveStreams } from '#services/board_events'
 
 /**
  * This file is imported by the "bin/test.ts" entrypoint file
@@ -46,6 +47,13 @@ export const runnerHooks: Required<Pick<Config, 'setup' | 'teardown'>> = {
  */
 export const configureSuite: Config['configureSuite'] = (suite) => {
   if (['browser', 'functional', 'e2e'].includes(suite.name)) {
-    return suite.setup(() => testUtils.httpServer().start())
+    return suite.setup(async () => {
+      const close = await testUtils.httpServer().start()
+      // Otwarte strumienie SSE (strony z testów) blokowałyby zamknięcie serwera.
+      return async () => {
+        closeLiveStreams()
+        await close()
+      }
+    })
   }
 }

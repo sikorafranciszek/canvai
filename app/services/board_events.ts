@@ -203,6 +203,22 @@ export function moveCursor(
   return true
 }
 
+/**
+ * Zamyka wszystkie strumienie (zamykanie procesu). Otwarte SSE trzymają
+ * połączenia HTTP, przez co `server.close()` czekałby w nieskończoność;
+ * klienci połączą się ponownie z nową instancją (retry).
+ */
+export function closeAll(): number {
+  let n = 0
+  for (const conns of [...boards.values()]) {
+    for (const c of [...conns.values()]) {
+      c.close()
+      n++
+    }
+  }
+  return n
+}
+
 /** Liczba otwartych połączeń (diagnostyka, testy). */
 export function connectionCount(boardId?: number): number {
   if (boardId != null) return boards.get(boardId)?.size ?? 0

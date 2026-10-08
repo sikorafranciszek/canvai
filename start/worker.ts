@@ -18,6 +18,7 @@ import { runDueTasks } from '#services/ops/scheduler'
 import { flushAlerts } from '#services/ops/alerts'
 import '#services/ops/tasks'
 import { workerPulse } from '#services/ops/health'
+import { closeAll as closeLiveStreams } from '#services/board_events'
 
 const POLL_MS = 1000
 const RECOVER_EVERY_MS = 60_000
@@ -88,3 +89,9 @@ if (env.get('QUEUE_INLINE_WORKER', true)) {
     await flushAlerts(true).catch(() => {})
   })
 }
+
+// Strumienie na żywo nie mogą blokować zamknięcia serwera HTTP przy deployu.
+app.terminating(() => {
+  const closed = closeLiveStreams()
+  if (closed) logger.info({ closed }, 'live streams closed on shutdown')
+})

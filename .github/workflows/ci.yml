@@ -1,0 +1,66 @@
+# CI (REL-4): typy, testy jednostkowe, funkcjonalne i e2e (Playwright) na PostgreSQL.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: canvai
+          POSTGRES_PASSWORD: canvai
+          POSTGRES_DB: canvai_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U canvai"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TZ: UTC
+      NODE_ENV: test
+      HOST: localhost
+      LOG_LEVEL: warn
+      APP_KEY: ci-only-app-key-not-a-secret-0123456789
+      APP_URL: http://localhost:3901
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_USER: canvai
+      DB_PASSWORD: canvai
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Playwright (Chromium)
+        run: npx playwright install --with-deps chromium
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint (informacyjnie — znane zaległości stylu)
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Testy (unit, functional, browser)
+        run: node ace test
