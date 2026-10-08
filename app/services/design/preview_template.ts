@@ -1,3 +1,4 @@
+import sanitizeHtml from 'sanitize-html'
 import type { DesignSpec, SpecColor } from '#services/design/spec'
 
 /**
@@ -180,24 +181,229 @@ footer{border-top:1px solid var(--border);padding:32px 0;color:var(--muted);font
 </html>`
 }
 
+/** CSP osadzony w pliku — chroni także pobrany podgląd otwarty z dysku (bez nagłówków). */
+export const PREVIEW_META_CSP = [
+  "default-src 'none'",
+  "style-src 'unsafe-inline' https://fonts.googleapis.com",
+  'font-src https://fonts.gstatic.com data:',
+  'img-src data: blob:',
+  "base-uri 'none'",
+  "form-action 'none'",
+].join('; ')
+
+const SVG_TAGS = [
+  'svg',
+  'g',
+  'path',
+  'circle',
+  'ellipse',
+  'rect',
+  'line',
+  'polyline',
+  'polygon',
+  'defs',
+  'lineargradient',
+  'radialgradient',
+  'stop',
+  'clippath',
+  'mask',
+  'pattern',
+  'symbol',
+  'text',
+  'tspan',
+]
+const SVG_ATTRS = [
+  'viewbox',
+  'xmlns',
+  'fill',
+  'fill-rule',
+  'fill-opacity',
+  'clip-rule',
+  'clip-path',
+  'mask',
+  'stroke',
+  'stroke-width',
+  'stroke-linecap',
+  'stroke-linejoin',
+  'stroke-dasharray',
+  'stroke-opacity',
+  'opacity',
+  'd',
+  'cx',
+  'cy',
+  'r',
+  'rx',
+  'ry',
+  'x',
+  'y',
+  'x1',
+  'x2',
+  'y1',
+  'y2',
+  'points',
+  'width',
+  'height',
+  'transform',
+  'offset',
+  'stop-color',
+  'stop-opacity',
+  'gradientunits',
+  'gradienttransform',
+  'preserveaspectratio',
+  'text-anchor',
+  'dominant-baseline',
+  'font-size',
+  'font-weight',
+  'font-family',
+  'patternunits',
+  'focusable',
+  'aria-hidden',
+]
+
+const GOOGLE_FONTS = 'fonts.googleapis.com'
+
+/** Tylko arkusz Google Fonts po HTTPS — dokładny host, nie „fonts.googleapis.com.evil.test”. */
+function isGoogleFontsUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw)
+    return url.protocol === 'https:' && url.hostname === GOOGLE_FONTS
+  } catch {
+    return false
+  }
+}
+
 /**
- * Oczyszczenie HTML z modelu: bez skryptów, ramek, obsługi zdarzeń i
- * zewnętrznych zasobów poza Google Fonts. Druga linia obrony to CSP i sandbox
- * przy serwowaniu (patrz kontroler podglądu).
+ * CSS bez zewnętrznych zasobów: `@import` tylko Google Fonts, `url(…)` tylko
+ * `data:` (obrazy i fonty osadzone), bez `expression()` i `-moz-binding`.
+ */
+export function sanitizeCss(css: string): string {
+  return (
+    css
+      // Znaczniki w CSS nie mają sensu — usuwamy, by nic nie udawało HTML-a.
+      .replace(/<[^>]*>?/g, '')
+      .replace(
+        /@import\s+(?:url\()?\s*["']?([^"')\s;]+)["']?\s*\)?[^;]*;?/gi,
+        (rule, href: string) => (isGoogleFontsUrl(href) ? rule : '')
+      )
+      .replace(/url\(\s*(["']?)([^"')]*)\1\s*\)/gi, (match, _q, href: string) =>
+        /^data:(?:image|font)\//i.test(href.trim()) ? match : 'none'
+      )
+      .replace(/expression\s*\(|-moz-binding|behavior\s*:/gi, '')
+  )
+}
+
+/**
+ * Oczyszczenie HTML z modelu parserem (SEC-11): lista dozwolonych elementów
+ * i atrybutów, bez skryptów, obsługi zdarzeń, ramek i zewnętrznych zasobów
+ * (poza arkuszem Google Fonts). Plik dostaje własny meta CSP — pobrany podgląd
+ * otwarty z dysku też niczego nie wykona. Druga linia obrony przy serwowaniu
+ * to nagłówki CSP i sandbox (kontroler podglądu).
  */
 export function sanitizePreviewHtml(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script\s*>/gi, '')
-    .replace(/<script\b[^>]*>/gi, '')
+  const body = sanitizeHtml(html, {
+    allowedTags: [
+      ...sanitizeHtml.defaults.allowedTags,
+      'html',
+      'head',
+      'body',
+      'title',
+      'meta',
+      'link',
+      'style',
+      'img',
+      'picture',
+      'figure',
+      'figcaption',
+      'header',
+      'footer',
+      'main',
+      'nav',
+      'section',
+      'article',
+      'aside',
+      'form',
+      'label',
+      'input',
+      'textarea',
+      'select',
+      'option',
+      'button',
+      'fieldset',
+      'legend',
+      'details',
+      'summary',
+      'progress',
+      'meter',
+      'time',
+      'mark',
+      'small',
+      'sup',
+      'sub',
+      ...SVG_TAGS,
+    ],
+    allowVulnerableTags: true,
+    allowedAttributes: {
+      '*': [
+        'class',
+        'id',
+        'style',
+        'role',
+        'title',
+        'lang',
+        'dir',
+        'hidden',
+        'tabindex',
+        'aria-*',
+        'data-*',
+        ...SVG_ATTRS,
+      ],
+      'a': ['href', 'target', 'rel'],
+      'img': ['src', 'alt', 'width', 'height', 'loading'],
+      'meta': ['charset', 'name', 'content'],
+      'link': ['rel', 'href', 'crossorigin'],
+      'input': [
+        'type',
+        'placeholder',
+        'value',
+        'name',
+        'checked',
+        'disabled',
+        'readonly',
+        'min',
+        'max',
+        'step',
+      ],
+      'textarea': ['placeholder', 'rows', 'name', 'disabled', 'readonly'],
+      'button': ['type', 'disabled'],
+      'option': ['value', 'selected'],
+      'select': ['name', 'disabled'],
+      'label': ['for'],
+      'progress': ['value', 'max'],
+      'meter': ['value', 'min', 'max'],
+      'time': ['datetime'],
+    },
+    allowedSchemes: ['https', 'mailto', 'tel'],
+    allowedSchemesByTag: { img: ['data'], link: ['https'] },
+    allowProtocolRelative: false,
+    exclusiveFilter: (frame) => {
+      if (frame.tag === 'link') {
+        return frame.attribs.rel !== 'stylesheet' || !isGoogleFontsUrl(frame.attribs.href ?? '')
+      }
+      // Tylko <meta charset> i <meta name=…> (viewport, opis) — bez http-equiv/refresh.
+      if (frame.tag === 'meta') return !frame.attribs.charset && !frame.attribs.name
+      return false
+    },
+  })
+  // Blok <style> i atrybut style: bez zewnętrznych zasobów (parser zostawia CSS bez zmian).
+  const styled = body
     .replace(
-      /<(iframe|object|embed|frame|frameset|applet|base|portal)\b[\s\S]*?(<\/\1\s*>|\/?>)/gi,
-      ''
+      /(<style[^>]*>)([\s\S]*?)(<\/style>)/gi,
+      (_m, open: string, css: string, close: string) => `${open}${sanitizeCss(css)}${close}`
     )
-    .replace(/<meta[^>]+http-equiv[^>]*>/gi, '')
-    .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-    .replace(
-      /(href|src|action|formaction)\s*=\s*("|')\s*(javascript|vbscript|data:text\/html)[^"']*\2/gi,
-      '$1="#"'
-    )
-    .replace(/<link\b(?![^>]*fonts\.googleapis\.com)[^>]*>/gi, '')
+    .replace(/\sstyle="([^"]*)"/gi, (_m, css: string) => ` style="${sanitizeCss(css)}"`)
+  const meta = `<meta http-equiv="Content-Security-Policy" content="${PREVIEW_META_CSP}">`
+  const withCsp = /<head[^>]*>/i.test(styled)
+    ? styled.replace(/<head[^>]*>/i, (head) => `${head}${meta}`)
+    : `<head>${meta}</head>${styled}`
+  return `<!doctype html>\n${withCsp.replace(/^\s*<!doctype[^>]*>\s*/i, '')}`
 }

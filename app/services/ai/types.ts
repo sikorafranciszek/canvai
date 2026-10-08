@@ -92,7 +92,6 @@ export interface ComposeInput {
 /** Podgląd UI: przykładowa strona HTML w stylu dokumentu. */
 export interface PreviewInput {
   boardTitle: string
-  designMd: string
   spec: import('#services/design/spec').DesignSpec
 }
 

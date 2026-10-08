@@ -30,7 +30,6 @@ export async function runPreview(preview: DesignPreview): Promise<DesignPreview>
 
   const result = await provider.composePreview({
     boardTitle: board.title,
-    designMd: doc.contentMd,
     spec: doc.spec,
   })
   await recordAiUsage(board.userId, result.usage)

