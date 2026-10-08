@@ -178,6 +178,7 @@ router
     router.delete('/figma', [controllers.FigmaImport, 'deleteToken'])
     router.patch('/assets/:id', [controllers.Assets, 'update'])
     router.delete('/assets/:id', [controllers.Assets, 'destroy'])
+    router.post('/assets/:id/crop', [controllers.Assets, 'crop'])
     router.get('/assets/:id/raw', [controllers.Assets, 'raw']).as('api.assets.raw')
     router.get('/assets/:id/thumb', [controllers.Assets, 'thumb']).as('api.assets.thumb')
     router.get('/assets/:id/content', [controllers.Assets, 'content']).as('api.assets.content')

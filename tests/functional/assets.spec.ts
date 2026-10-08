@@ -51,6 +51,82 @@ test.group('Assets API', (group) => {
       .toBuffer()
   }
 
+  test('wycięcie fragmentu (FEAT-3): nowy materiał z kadrem, rolą rodzica i odwołaniem', async ({
+    client,
+    assert,
+  }) => {
+    const { user, cookies } = await login(client)
+    const board = await createBoard(user)
+    // Lewa połowa czerwona, prawa niebieska — kadr prawej połowy ma być niebieski.
+    const page = await sharp({
+      create: { width: 400, height: 200, channels: 3, background: '#ff0000' },
+    })
+      .composite([
+        {
+          input: await sharp({
+            create: { width: 200, height: 200, channels: 3, background: '#0000ff' },
+          })
+            .png()
+            .toBuffer(),
+          left: 200,
+          top: 0,
+        },
+      ])
+      .png()
+      .toBuffer()
+    const up = await client
+      .post(`/api/boards/${board.id}/assets`)
+      .headers({ cookie: cookies })
+      .file('files', page, { filename: 'strona.png', contentType: 'image/png' })
+    up.assertStatus(201)
+    const parentId = up.body().data[0].id
+    ;(
+      await client
+        .patch(`/api/assets/${parentId}`)
+        .headers({ cookie: cookies })
+        .json({ usage: { role: 'inspiration', aspects: ['layout'] } })
+    ).assertStatus(200)
+
+    const res = await client
+      .post(`/api/assets/${parentId}/crop`)
+      .headers({ cookie: cookies })
+      .json({ x: 0.5, y: 0.25, width: 0.5, height: 0.5 })
+    res.assertStatus(201)
+    const piece = res.body().data
+    assert.notEqual(piece.id, parentId)
+    assert.equal(piece.cropOf, parentId)
+    assert.equal(piece.source, 'crop')
+    assert.equal(piece.width, 200)
+    assert.equal(piece.height, 100)
+    assert.include(piece.filename, 'strona')
+    assert.deepEqual(piece.usage, { role: 'inspiration', aspects: ['layout'] })
+    const stored = await Asset.findOrFail(piece.id)
+    const { dominant } = await sharp(await drive.use().getBytes(stored.storageKey!)).stats()
+    assert.isAbove(dominant.b, 200)
+    assert.isBelow(dominant.r, 50)
+
+    // Za mały kadr i nie-obraz → 422; obcy → 404.
+    ;(
+      await client
+        .post(`/api/assets/${parentId}/crop`)
+        .headers({ cookie: cookies, accept: 'application/json' })
+        .json({ x: 0, y: 0, width: 0.01, height: 0.01 })
+    ).assertStatus(422)
+    ;(
+      await client
+        .post(`/api/assets/${parentId}/crop`)
+        .headers({ cookie: cookies, accept: 'application/json' })
+        .json({ x: 0, y: 0, width: 2, height: 0.5 })
+    ).assertStatus(422)
+    const other = await login(client)
+    ;(
+      await client
+        .post(`/api/assets/${parentId}/crop`)
+        .headers({ cookie: other.cookies })
+        .json({ x: 0, y: 0, width: 0.5, height: 0.5 })
+    ).assertStatus(404)
+  })
+
   test('upload 10 plików naraz + miniatury', async ({ client, assert }) => {
     const { user, cookies } = await login(client)
     const board = await createBoard(user)

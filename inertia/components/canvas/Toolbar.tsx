@@ -27,6 +27,7 @@ import {
   Type,
   Undo2,
   Frame,
+  Crop,
 } from 'lucide-react'
 import type { SceneElement } from '@shared/scene'
 import { TOOLS, toolTestId, type Tool } from '@shared/tools'
@@ -47,6 +48,7 @@ const TOOL_ICONS: Record<Tool, React.ComponentType> = {
   freehand: Pencil,
   text: Type,
   sticky: StickyNote,
+  crop: Crop,
 }
 
 const MIN_SCALE = 0.1
@@ -328,6 +330,25 @@ function SelectionBar() {
       : null
 
   const groups: React.ReactNode[] = []
+  const image =
+    selected.length === 1 && selected[0].type === 'image' && !selected[0].rotation
+      ? selected[0]
+      : null
+  if (image) {
+    groups.push(
+      <button
+        key="crop"
+        type="button"
+        className="tool-btn tool-btn--label"
+        onClick={() => store.startCrop(image.id)}
+        data-tip={t('crop.tip')}
+        data-testid="props-crop"
+      >
+        <Crop />
+        {t('crop.button')}
+      </button>
+    )
+  }
   if (frame) {
     groups.push(
       <label key="frame-name" className="props-frame-name">

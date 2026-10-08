@@ -185,6 +185,7 @@ export function Canvas({ boardId, readOnly = false }: { boardId: number; readOnl
       }
       if (e.key === 'Escape') {
         e.preventDefault()
+        if (store.tool === 'crop') store.setTool('select')
         store.clearSelection()
         setDraft(null)
         setMarquee(null)
@@ -447,6 +448,20 @@ export function Canvas({ boardId, readOnly = false }: { boardId: number; readOnl
     const width = p1.x - p0.x
     const height = p1.y - p0.y
     if (Math.abs(width) < 3 && Math.abs(height) < 3) return
+
+    if (d.kind === 'crop') {
+      const target = store.cropTarget
+      store.setTool('select')
+      if (target) {
+        void useBoardStore.getState().cropElement(target, {
+          x: Math.min(p0.x, p1.x),
+          y: Math.min(p0.y, p1.y),
+          width: Math.abs(width),
+          height: Math.abs(height),
+        })
+      }
+      return
+    }
 
     if (d.kind === 'rectangle' || d.kind === 'ellipse' || d.kind === 'frame') {
       const el = createElementForTool(d.kind, Math.min(p0.x, p1.x), Math.min(p0.y, p1.y))
@@ -861,6 +876,12 @@ export function Canvas({ boardId, readOnly = false }: { boardId: number; readOnl
         </div>
       )}
 
+      {tool === 'crop' ? (
+        <div className="canvas-hint" role="status" data-testid="crop-hint">
+          {t('crop.hint')}
+        </div>
+      ) : null}
+
       {/* Empty state — jak zacząć. */}
       {/* Przy narzędziu rysowania karta znika — inaczej przechwytuje koniec przeciągania. */}
       {document.elements.length === 0 && pendingUploads.length === 0 && tool === 'select' && (
@@ -957,6 +978,7 @@ function DraftShape({ draft }: { draft: { kind: Tool; start: ScenePoint; points:
   const height = Math.abs(p1.y - p0.y)
 
   switch (draft.kind) {
+    case 'crop':
     case 'frame':
     case 'rectangle':
       return (

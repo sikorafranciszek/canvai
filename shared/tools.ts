@@ -16,6 +16,8 @@ export type Tool =
   | 'freehand'
   | 'text'
   | 'sticky'
+  /** Wycinanie fragmentu obrazu (FEAT-3) — bez przycisku, z paska zaznaczenia. */
+  | 'crop'
 
 export interface ToolDef {
   id: Tool

@@ -26,6 +26,8 @@ export interface AssetDto {
   width: number | null
   height: number | null
   source: string | null
+  /** Materiał, z którego wycięto fragment (FEAT-3). */
+  cropOf?: number | null
   userNote: string | null
   /** Jak użyć materiału w DESIGN.md (rola i aspekty). */
   usage?: AssetUsage
@@ -222,6 +224,21 @@ export async function updateAssetUsage(assetId: string, usage: AssetUsage): Prom
     credentials: 'same-origin',
   })
   if (!res.ok) throw await httpError(res, translate('api.noteFailed'))
+  return (await parseJson<{ data: AssetDto }>(res)).data
+}
+
+/** Fragment obrazu jako nowy materiał (FEAT-3); kadr w ułamkach obrazu. */
+export async function cropAsset(
+  assetId: string,
+  region: { x: number; y: number; width: number; height: number }
+): Promise<AssetDto> {
+  const res = await fetch(`/api/assets/${assetId}/crop`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...csrfHeaders() },
+    body: JSON.stringify(region),
+    credentials: 'same-origin',
+  })
+  if (!res.ok) throw await httpError(res, translate('crop.failed'))
   return (await parseJson<{ data: AssetDto }>(res)).data
 }
 

@@ -49,6 +49,9 @@ interface SceneStore {
   canRedo: boolean
 
   setTool: (tool: Tool) => void
+  /** Element obrazu, z którego wycinamy fragment (narzędzie `crop`). */
+  cropTarget: string | null
+  startCrop: (elementId: string) => void
   setCamera: (camera: Camera) => void
 
   selectOnly: (ids: string[]) => void
@@ -104,7 +107,11 @@ export const useSceneStore = create<SceneStore>()((set, get) => ({
   canUndo: false,
   canRedo: false,
 
-  setTool: (tool) => set({ tool }),
+  setTool: (tool) => set({ tool, ...(tool === 'crop' ? {} : { cropTarget: null }) }),
+
+  cropTarget: null,
+  // Bez zaznaczenia — zaznaczony obraz dałby się przeciągać zamiast rysować kadr.
+  startCrop: (elementId) => set({ tool: 'crop', cropTarget: elementId, selection: [] }),
 
   setCamera: (camera) => set({ camera }),
 

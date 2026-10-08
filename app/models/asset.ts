@@ -43,7 +43,11 @@ export default class Asset extends BaseModel {
   declare height: number | null
 
   @column()
-  declare source: 'paste' | 'drop' | 'upload' | 'url' | null
+  declare source: 'paste' | 'drop' | 'upload' | 'url' | 'crop' | null
+
+  /** Materiał, z którego wycięto ten fragment (FEAT-3). */
+  @column()
+  declare cropOf: number | null
 
   @column()
   declare userNote: string | null

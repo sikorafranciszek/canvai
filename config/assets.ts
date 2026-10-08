@@ -74,7 +74,7 @@ export const analysis = {
 } as const
 
 /** Źródła assetów akceptowane przez API. */
-export const assetSources = ['paste', 'drop', 'upload', 'url'] as const
+export const assetSources = ['paste', 'drop', 'upload', 'url', 'crop'] as const
 
 export type AssetSource = (typeof assetSources)[number]
 

@@ -2,8 +2,9 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { Exception } from '@adonisjs/core/exceptions'
 import drive from '@adonisjs/drive/services/main'
 import Asset from '#models/asset'
-import { updateAssetValidator, uploadAssetsValidator } from '#validators/asset'
+import { cropAssetValidator, updateAssetValidator, uploadAssetsValidator } from '#validators/asset'
 import {
+  cropAsset,
   pruneOrphanAssets,
   deleteAssetFiles,
   serializeAsset,
@@ -120,6 +121,34 @@ export default class AssetsController {
     publish(asset.boardId, 'assets', {}, request.header('x-client-id'), auth.user!.id)
 
     return response.json({ data: serializeAsset(asset) })
+  }
+
+  /**
+   * POST /api/assets/:id/crop — fragment obrazu jako nowy materiał (FEAT-3).
+   * Liczy się do limitu materiałów planu jak zwykły upload.
+   */
+  async crop(ctx: HttpContext) {
+    const { auth, params, request, response } = ctx
+    const parent = await this.findAccessible(auth.user!.id, params.id, 'edit')
+    if (!parent) return response.notFound()
+    const region = await request.validateUsing(cropAssetValidator)
+    const access = await boardAccess(auth.user!.id, parent.boardId, 'edit')
+    const { limits } = await entitlementsFor(access!.board.userId)
+    if (Number.isFinite(limits.materialsPerBoard)) {
+      const [{ $extras }] = await Asset.query()
+        .where('board_id', parent.boardId)
+        .count('* as total')
+      if (Number($extras.total) + 1 > limits.materialsPerBoard) {
+        throw new Exception(t('billing.materialsLimit', { limit: limits.materialsPerBoard }), {
+          status: 402,
+          code: 'E_PLAN_LIMIT',
+        })
+      }
+    }
+    const asset = await cropAsset(parent, region)
+    trackFor(ctx, 'asset_cropped', { from: parent.id }, { boardId: parent.boardId })
+    publish(parent.boardId, 'assets', {}, request.header('x-client-id'), auth.user!.id)
+    return response.status(201).json({ data: serializeAsset(asset) })
   }
 
   /** DELETE /api/assets/:id — usuwa wiersz oraz pliki na dysku. */

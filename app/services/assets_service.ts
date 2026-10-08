@@ -327,6 +327,53 @@ export async function storeBuffer(
   })
 }
 
+/**
+ * Fragment obrazu jako nowy materiał (FEAT-3) — np. sama nawigacja z całej
+ * strony, z własną rolą i aspektami. Kadr w ułamkach (0–1) obrazu po obrocie
+ * EXIF, tak jak widać go na płótnie. Rola i aspekty dziedziczone z oryginału.
+ */
+export async function cropAsset(
+  parent: Asset,
+  region: { x: number; y: number; width: number; height: number }
+): Promise<Asset> {
+  if (parent.kind !== 'image' || !parent.storageKey) {
+    throw new Exception(t('asset.cropNotImage'), { status: 422, code: 'E_ASSET_CROP' })
+  }
+  const source = sharp(await drive.use().getBytes(parent.storageKey))
+  const rotated = await source.rotate().toBuffer({ resolveWithObject: true })
+  const { width: W, height: H } = rotated.info
+  const left = Math.max(0, Math.min(W - 1, Math.round(region.x * W)))
+  const top = Math.max(0, Math.min(H - 1, Math.round(region.y * H)))
+  const width = Math.min(W - left, Math.round(region.width * W))
+  const height = Math.min(H - top, Math.round(region.height * H))
+  if (width < 16 || height < 16) {
+    throw new Exception(t('asset.cropTooSmall'), { status: 422, code: 'E_ASSET_CROP' })
+  }
+  const buffer = await sharp(rotated.data)
+    .extract({ left, top, width, height })
+    .png({ compressionLevel: 8 })
+    .toBuffer()
+  const base = parent.filename.replace(/\.[a-z0-9]+$/i, '').slice(0, 80)
+  const asset = await storeBuffer(
+    parent.boardId,
+    {
+      buffer,
+      mime: 'image/png',
+      clientName: `${base} — ${t('asset.cropSuffix')}.png`,
+      extname: 'png',
+      size: buffer.length,
+    },
+    'crop'
+  )
+  if (asset.cropOf == null && asset.id !== parent.id) {
+    asset.cropOf = parent.id
+    asset.usageRole = parent.usageRole
+    asset.usageAspects = parent.usageAspects
+    await asset.save()
+  }
+  return asset
+}
+
 /** Tworzy asset typu link (karta URL z metadanymi og:*, jeśli dostępne). */
 export async function storeLink(boardId: number, url: string): Promise<Asset> {
   const meta = await fetchLinkMeta(url)
@@ -436,6 +483,7 @@ export function serializeAsset(asset: Asset) {
     width: asset.width,
     height: asset.height,
     source: asset.source,
+    cropOf: asset.cropOf ?? null,
     userNote: asset.userNote,
     usage: asset.usage,
     inbox: Boolean(asset.inbox),

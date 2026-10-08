@@ -77,7 +77,7 @@ export class AssetAnalysisSchema extends BaseModel {
 }
 
 export class AssetSchema extends BaseModel {
-  static $columns = ['analysisKey', 'boardId', 'createdAt', 'filename', 'height', 'id', 'inbox', 'kind', 'mime', 'position', 'sha256', 'size', 'source', 'storageKey', 'submittedBy', 'thumbKey', 'usageAspects', 'usageRole', 'userNote', 'width'] as const
+  static $columns = ['analysisKey', 'boardId', 'createdAt', 'cropOf', 'filename', 'height', 'id', 'inbox', 'kind', 'mime', 'position', 'sha256', 'size', 'source', 'storageKey', 'submittedBy', 'thumbKey', 'usageAspects', 'usageRole', 'userNote', 'width'] as const
   $columns = AssetSchema.$columns
   @column()
   declare analysisKey: string | null
@@ -85,6 +85,8 @@ export class AssetSchema extends BaseModel {
   declare boardId: number
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
+  @column()
+  declare cropOf: number | null
   @column()
   declare filename: string
   @column()

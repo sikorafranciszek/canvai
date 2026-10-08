@@ -1386,6 +1386,15 @@ input.title-edit {
     color 100ms var(--ease);
 }
 
+/* Przycisk z etykietą w pasku zaznaczenia (np. „Wytnij fragment”). */
+.tool-btn--label {
+  width: auto;
+  gap: 6px;
+  padding: 0 10px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
 .tool-btn svg {
   width: 17px;
   height: 17px;
@@ -5017,4 +5026,20 @@ li[data-done='true'] .sample-checklist__mark {
   border: 1px solid var(--color-hairline);
   border-radius: 10px;
   background: #fff;
+}
+
+/* Podpowiedź trybu na płótnie (np. wycinanie fragmentu, FEAT-3) */
+.canvas-hint {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  background: var(--color-ink);
+  color: var(--color-on-accent);
+  font-size: 12.5px;
+  pointer-events: none;
+  white-space: nowrap;
 }

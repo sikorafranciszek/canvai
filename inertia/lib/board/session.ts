@@ -26,6 +26,7 @@ import { useSceneStore, DEFAULT_CAMERA, type Camera } from '~/lib/scene/store'
 import { getElementBounds } from '~/lib/scene/geometry'
 import {
   createLinkAsset,
+  cropAsset,
   deleteAsset as apiDeleteAsset,
   getScene,
   listAssets,
@@ -91,6 +92,11 @@ interface BoardState {
   addBrandKitNote: (text: string) => void
   /** Umieszcza materiały od klienta (skrzynka portalu) obok zawartości płótna. */
   placeInboxAssets: (assetIds: string[]) => Promise<void>
+  /** Wycina fragment obrazu (prostokąt w świecie) jako nowy materiał obok oryginału (FEAT-3). */
+  cropElement: (
+    elementId: string,
+    rect: { x: number; y: number; width: number; height: number }
+  ) => Promise<void>
   /** Import strony z URL: link + obraz + notatka ze stylem na płótnie. */
   importSite: (url: string) => Promise<boolean>
   /** Import z Figmy: ramki + notatka z dokładnymi stylami. Rzuca błąd (dialog go pokazuje). */
@@ -568,6 +574,49 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       ),
     })
     get().centerOnAsset(String(assets[0].id))
+  },
+
+  async cropElement(elementId, rect) {
+    const scene = useSceneStore.getState()
+    const el = scene.document.elements.find((e) => e.id === elementId)
+    if (!el || el.type !== 'image') return
+    // Część wspólna zaznaczenia i obrazu, w ułamkach obrazu.
+    const x0 = Math.max(rect.x, el.x)
+    const y0 = Math.max(rect.y, el.y)
+    const x1 = Math.min(rect.x + rect.width, el.x + el.width)
+    const y1 = Math.min(rect.y + rect.height, el.y + el.height)
+    if (x1 - x0 < 4 || y1 - y0 < 4) {
+      toast.info(translate('crop.outside'))
+      return
+    }
+    const region = {
+      x: (x0 - el.x) / el.width,
+      y: (y0 - el.y) / el.height,
+      width: (x1 - x0) / el.width,
+      height: (y1 - y0) / el.height,
+    }
+    try {
+      const asset = await cropAsset(String(el.assetId), region)
+      if (!get().assets.some((a) => a.id === asset.id)) set({ assets: [...get().assets, asset] })
+      // Obok oryginału, w tej samej skali co na płótnie.
+      const piece: SceneElement = {
+        id: createElementId(),
+        type: 'image',
+        assetId: String(asset.id),
+        x: el.x + el.width + IMAGE_GAP,
+        y: y0,
+        rotation: 0,
+        opacity: 1,
+        width: Math.round(x1 - x0),
+        height: Math.round(y1 - y0),
+      }
+      scene.addElement(piece)
+      // Nowy fragment bywa poza widokiem — kamera na niego (i zaznaczenie).
+      get().centerOnAsset(String(asset.id))
+      toast.success(translate('crop.done'))
+    } catch (error) {
+      notifyError(error, 'crop.failed')
+    }
   },
 
   centerOnAsset(assetId) {

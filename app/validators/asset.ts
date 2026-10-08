@@ -30,3 +30,14 @@ export const updateAssetValidator = vine.compile(
       .optional(),
   })
 )
+
+/** POST /api/assets/:id/crop — kadr w ułamkach obrazu (FEAT-3). */
+const fraction = () => vine.number().min(0).max(1)
+export const cropAssetValidator = vine.compile(
+  vine.object({
+    x: fraction(),
+    y: fraction(),
+    width: fraction(),
+    height: fraction(),
+  })
+)
