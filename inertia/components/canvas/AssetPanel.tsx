@@ -14,6 +14,8 @@ import {
   Link2,
   Search,
   Trash2,
+  ChevronDown,
+  X,
 } from 'lucide-react'
 import { useBoardStore, useCanEdit, useCanvasAssets } from '~/lib/board/session'
 import { formatBytes } from '@shared/asset-utils'
@@ -44,6 +46,22 @@ export function AssetPanel() {
   }, [assets, query])
 
   const withoutNote = assets.filter((a) => !a.userNote?.trim()).length
+  // Podpowiedź o notatkach można zamknąć (pamiętane w przeglądarce).
+  const [notesHintDismissed, setNotesHintDismissed] = useState(() => {
+    try {
+      return localStorage.getItem('canvai.notesHint.dismissed') === '1'
+    } catch {
+      return false
+    }
+  })
+  const dismissNotesHint = () => {
+    setNotesHintDismissed(true)
+    try {
+      localStorage.setItem('canvai.notesHint.dismissed', '1')
+    } catch {
+      // brak dostępu do localStorage — podpowiedź zniknie tylko do odświeżenia
+    }
+  }
   const allAssets = useBoardStore((s) => s.assets)
   const inbox = useMemo(() => allAssets.filter((a) => a.inbox), [allAssets])
   const placeInboxAssets = useBoardStore((s) => s.placeInboxAssets)
@@ -70,10 +88,18 @@ export function AssetPanel() {
         </div>
       ) : null}
 
-      {assets.length > 0 && withoutNote > 0 ? (
+      {assets.length > 0 && withoutNote > 0 && !notesHintDismissed ? (
         <div className="alert alert--notice" style={{ margin: '12px 16px 4px' }}>
           <FileText />
-          <span>{t('assets.missingNotes', { n: withoutNote })}</span>
+          <span style={{ flex: 1 }}>{t('assets.missingNotes', { n: withoutNote })}</span>
+          <button
+            type="button"
+            className="btn btn--quiet btn--icon btn--sm"
+            aria-label={t('common.close')}
+            onClick={dismissNotesHint}
+          >
+            <X />
+          </button>
         </div>
       ) : null}
 
@@ -236,7 +262,13 @@ const AssetRow = memo(function AssetRow({
           >
             {title}
           </button>
-          <span className="badge badge--outline" style={{ height: 18 }}>
+          <span
+            className="badge badge--outline"
+            style={{ height: 18 }}
+            data-tip={t('assets.refHint', { id: asset.id })}
+            tabIndex={0}
+            aria-label={t('assets.refHint', { id: asset.id })}
+          >
             A{asset.id}
           </span>
           <div className="asset-row__actions" hidden={!canEdit}>
@@ -307,12 +339,46 @@ function UsagePicker({ asset }: { asset: AssetDto }) {
   const { t } = useT()
   const updateUsage = useBoardStore((s) => s.updateUsage)
   const readOnly = useBoardStore((s) => s.readOnly)
+  const [open, setOpen] = useState(false)
   const usage = asset.usage ?? { role: null, aspects: [] }
   const role = usage.role ?? 'auto'
   const set = (next: Partial<AssetUsage>) => void updateUsage(asset.id, { ...usage, ...next })
 
+  // Zwarta etykieta (UX-10): „Inspiracja · Układ, Kolory”; edycja po rozwinięciu.
+  const summary = [
+    t(ROLE_KEYS[role]),
+    role === 'avoid'
+      ? null
+      : usage.aspects.length
+        ? usage.aspects.map((a) => t(`usage.aspect.${a}` as MessageKey)).join(', ')
+        : role === 'auto'
+          ? null
+          : t('usage.all'),
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+  if (!open) {
+    return (
+      <div className="usage-picker" data-testid={`asset-usage-${asset.id}`}>
+        <button
+          type="button"
+          className={`usage-summary usage-summary--${role}`}
+          aria-expanded={false}
+          aria-label={`${t('usage.roleLabel')}: ${summary}`}
+          disabled={readOnly}
+          data-testid={`asset-usage-edit-${asset.id}`}
+          onClick={() => setOpen(true)}
+        >
+          {summary}
+          {readOnly ? null : <ChevronDown size={12} />}
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div className="usage-picker" data-testid={`asset-usage-${asset.id}`}>
+    <div className="usage-picker usage-picker--open" data-testid={`asset-usage-${asset.id}`}>
       <label className="usage-picker__role">
         <span className="sr-only">{t('usage.roleLabel')}</span>
         <select
@@ -364,6 +430,11 @@ function UsagePicker({ asset }: { asset: AssetDto }) {
           ) : null}
         </div>
       )}
+      <div>
+        <button type="button" className="btn btn--quiet btn--sm" onClick={() => setOpen(false)}>
+          {t('usage.done')}
+        </button>
+      </div>
     </div>
   )
 }
