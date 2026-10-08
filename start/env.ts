@@ -39,6 +39,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   // AI (M3: analiza assetów → DESIGN.md)
   // Bez klucza pipeline działa na dostawcy `mock` — aplikacja startuje normalnie.
   AI_PROVIDER: Env.schema.enum.optional(['mock', 'deepseek'] as const),
+  ALLOW_MOCK_AI: Env.schema.boolean.optional(),
   DEEPSEEK_API_KEY: Env.schema.string.optional(),
   DEEPSEEK_BASE_URL: Env.schema.string.optional({ format: 'url', tld: false }),
   DEEPSEEK_VISION_MODEL: Env.schema.string.optional(),

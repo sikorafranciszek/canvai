@@ -30,8 +30,10 @@ services:
       - SQLITE_PATH=/app/data/db.sqlite3
       - STORAGE_PATH=/app/data/storage
       - TRUST_PROXY=true
-      # AI: mock (bez klucza) albo deepseek + DEEPSEEK_API_KEY.
-      - AI_PROVIDER=${AI_PROVIDER:-mock}
+      # AI: deepseek + DEEPSEEK_API_KEY. Bez klucza aplikacja nie wystartuje (REL-3);
+      # atrapa `mock` tylko świadomie: AI_PROVIDER=mock + ALLOW_MOCK_AI=true.
+      - AI_PROVIDER=${AI_PROVIDER:-deepseek}
+      - ALLOW_MOCK_AI=${ALLOW_MOCK_AI:-false}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - DEEPSEEK_THINKING=${DEEPSEEK_THINKING:-off}
       # Poczta (weryfikacja kont, reset hasła): resend + RESEND_API_KEY albo smtp + SMTP_*.
@@ -85,6 +87,9 @@ services:
       - canvai-data:/app/data
     # Czas na dokończenie / oddanie bieżącej generacji przy wdrożeniu.
     stop_grace_period: 30s
+    # Limity zasobów (REL-3): jeden proces nie zajmie całego serwera.
+    mem_limit: ${APP_MEM_LIMIT:-2g}
+    cpus: ${APP_CPUS:-2}
     depends_on:
       postgres:
         condition: service_healthy
@@ -108,6 +113,9 @@ services:
       - POSTGRES_DB=canvai
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    stop_grace_period: 30s
+    mem_limit: ${POSTGRES_MEM_LIMIT:-1g}
+    cpus: ${POSTGRES_CPUS:-1}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U canvai -d canvai"]
       interval: 10s
@@ -129,6 +137,9 @@ services:
       - clickhouse-data:/var/lib/clickhouse
       - ./docker/clickhouse/low-memory.xml:/etc/clickhouse-server/config.d/canvai.xml:ro
       - ./docker/clickhouse/users.xml:/etc/clickhouse-server/users.d/canvai.xml:ro
+    stop_grace_period: 30s
+    mem_limit: ${CLICKHOUSE_MEM_LIMIT:-2g}
+    cpus: ${CLICKHOUSE_CPUS:-1}
     ulimits:
       nofile:
         soft: 262144
