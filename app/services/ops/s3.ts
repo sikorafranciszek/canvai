@@ -30,6 +30,12 @@ const enc = (s: string) =>
 const sha256 = (data: string) => createHash('sha256').update(data).digest('hex')
 const hmac = (key: Buffer | string, data: string) => createHmac('sha256', key).update(data).digest()
 
+/**
+ * Powyżej tego rozmiaru plik idzie uploadem wieloczęściowym (REL-2) — pojedynczy
+ * PUT w S3/R2 ma limit 5 GB. Części po 64 MB (S3: min. 5 MB, max. 10 000 części).
+ */
+export const multipart = { threshold: 128 * 1024 * 1024, partSize: 64 * 1024 * 1024 }
+
 export class S3Client {
   constructor(private config: S3Config) {}
 
@@ -103,6 +109,10 @@ export class S3Client {
 
   async putFile(key: string, file: string, contentType = 'application/octet-stream') {
     const { size } = await stat(file)
+    if (size > multipart.threshold) {
+      await this.putMultipart(key, file, size, contentType)
+      return size
+    }
     const body = Readable.toWeb(createReadStream(file)) as unknown as RequestInit['body']
     await this.request('PUT', this.url(key), {
       body,
@@ -111,6 +121,45 @@ export class S3Client {
       ...({ duplex: 'half' } as object),
     })
     return size
+  }
+
+  /** Upload wieloczęściowy: Create → UploadPart ×N → Complete (Abort przy błędzie). */
+  private async putMultipart(key: string, file: string, size: number, contentType: string) {
+    const created = await this.request('POST', this.url(key, { uploads: '' }), {
+      headers: { 'content-type': contentType },
+    })
+    const uploadId = (await created.text()).match(/<UploadId>([^<]+)<\/UploadId>/)?.[1]
+    if (!uploadId) throw new Error(`S3: brak UploadId dla ${key}`)
+    const parts: { n: number; etag: string }[] = []
+    try {
+      for (let n = 1, start = 0; start < size; n++, start += multipart.partSize) {
+        const end = Math.min(size, start + multipart.partSize) - 1
+        const body = Readable.toWeb(
+          createReadStream(file, { start, end })
+        ) as unknown as RequestInit['body']
+        const res = await this.request('PUT', this.url(key, { partNumber: String(n), uploadId }), {
+          body,
+          headers: { 'content-length': String(end - start + 1) },
+          ...({ duplex: 'half' } as object),
+        })
+        const etag = res.headers.get('etag')
+        if (!etag) throw new Error(`S3: brak ETag części ${n} (${key})`)
+        parts.push({ n, etag })
+      }
+      const xml = `<CompleteMultipartUpload>${parts
+        .map((p) => `<Part><PartNumber>${p.n}</PartNumber><ETag>${p.etag}</ETag></Part>`)
+        .join('')}</CompleteMultipartUpload>`
+      await this.request('POST', this.url(key, { uploadId }), {
+        body: xml,
+        headers: {
+          'content-type': 'application/xml',
+          'content-length': String(Buffer.byteLength(xml)),
+        },
+      })
+    } catch (error) {
+      await this.request('DELETE', this.url(key, { uploadId })).catch(() => {})
+      throw error
+    }
   }
 
   async putText(key: string, text: string, contentType = 'application/json') {

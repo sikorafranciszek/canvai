@@ -1,13 +1,21 @@
 import { createServer, type Server } from 'node:http'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DateTime } from 'luxon'
 import { test } from '@japa/runner'
 import testUtils from '@adonisjs/core/services/test_utils'
 import db from '@adonisjs/lucid/services/db'
 import { ops } from '#config/ops'
-import { S3Client } from '#services/ops/s3'
-import { backupDeps, listBackups, pruneBackups, runBackup, storagePath } from '#services/ops/backup'
+import { multipart, S3Client } from '#services/ops/s3'
+import {
+  backupDeps,
+  listBackups,
+  pruneBackups,
+  restoreBackup,
+  runBackup,
+} from '#services/ops/backup'
 import { dailyAt, every, registerTask, runDueTasks } from '#services/ops/scheduler'
 import {
   flushAlerts,
@@ -25,50 +33,75 @@ import {
 } from '#services/ops/ai_budget'
 import User from '#models/user'
 
-/** Atrapa S3 w pamięci: PUT/GET/DELETE obiektów i ListObjectsV2. */
+/** Atrapa S3 w pamięci: PUT/GET/DELETE, ListObjectsV2 i upload wieloczęściowy. */
 function fakeS3() {
   const objects = new Map<string, Buffer>()
+  const uploads = new Map<string, Map<number, Buffer>>()
   const auth: string[] = []
+  const puts: string[] = []
   const server: Server = createServer((req, res) => {
     auth.push(String(req.headers.authorization ?? ''))
     const url = new URL(req.url!, 'http://x')
     const [, bucket, ...rest] = url.pathname.split('/')
     const key = rest.map(decodeURIComponent).join('/')
     if (bucket !== 'bkt') return res.writeHead(404).end()
-    if (req.method === 'PUT') {
-      const chunks: Buffer[] = []
-      req.on('data', (c) => chunks.push(c))
-      req.on('end', () => {
-        objects.set(key, Buffer.concat(chunks))
-        res.writeHead(200).end()
-      })
-      return
-    }
-    if (req.method === 'DELETE') {
-      objects.delete(key)
-      return res.writeHead(204).end()
-    }
-    if (req.method === 'GET' && !key) {
-      const prefix = url.searchParams.get('prefix') ?? ''
-      const items = [...objects.entries()]
-        .filter(([k]) => k.startsWith(prefix))
-        .map(
-          ([k, v]) =>
-            `<Contents><Key>${k}</Key><Size>${v.length}</Size><LastModified>2026-01-01T00:00:00Z</LastModified></Contents>`
-        )
-      return res
-        .writeHead(200, { 'content-type': 'application/xml' })
-        .end(
-          `<ListBucketResult><IsTruncated>false</IsTruncated>${items.join('')}</ListBucketResult>`
-        )
-    }
-    if (req.method === 'GET') {
-      const body = objects.get(key)
-      return body ? res.writeHead(200).end(body) : res.writeHead(404).end()
-    }
-    res.writeHead(405).end()
+    const chunks: Buffer[] = []
+    req.on('data', (c) => chunks.push(c))
+    req.on('end', () => {
+      const body = Buffer.concat(chunks)
+      const uploadId = url.searchParams.get('uploadId')
+      if (req.method === 'POST' && url.searchParams.has('uploads')) {
+        const id = `up-${uploads.size + 1}`
+        uploads.set(id, new Map())
+        return res
+          .writeHead(200)
+          .end(
+            `<InitiateMultipartUploadResult><UploadId>${id}</UploadId></InitiateMultipartUploadResult>`
+          )
+      }
+      if (req.method === 'PUT' && uploadId) {
+        uploads.get(uploadId)!.set(Number(url.searchParams.get('partNumber')), body)
+        return res.writeHead(200, { etag: `"etag-${url.searchParams.get('partNumber')}"` }).end()
+      }
+      if (req.method === 'POST' && uploadId) {
+        const parts = [...uploads.get(uploadId)!.entries()].sort(([a], [b]) => a - b)
+        objects.set(key, Buffer.concat(parts.map(([, b]) => b)))
+        uploads.delete(uploadId)
+        puts.push(key)
+        return res.writeHead(200).end('<CompleteMultipartUploadResult/>')
+      }
+      if (req.method === 'PUT') {
+        objects.set(key, body)
+        puts.push(key)
+        return res.writeHead(200).end()
+      }
+      if (req.method === 'DELETE') {
+        if (uploadId) uploads.delete(uploadId)
+        else objects.delete(key)
+        return res.writeHead(204).end()
+      }
+      if (req.method === 'GET' && !key) {
+        const prefix = url.searchParams.get('prefix') ?? ''
+        const items = [...objects.entries()]
+          .filter(([k]) => k.startsWith(prefix))
+          .map(
+            ([k, v]) =>
+              `<Contents><Key>${k}</Key><Size>${v.length}</Size><LastModified>2026-01-01T00:00:00Z</LastModified></Contents>`
+          )
+        return res
+          .writeHead(200, { 'content-type': 'application/xml' })
+          .end(
+            `<ListBucketResult><IsTruncated>false</IsTruncated>${items.join('')}</ListBucketResult>`
+          )
+      }
+      if (req.method === 'GET') {
+        const found = objects.get(key)
+        return found ? res.writeHead(200).end(found) : res.writeHead(404).end()
+      }
+      res.writeHead(405).end()
+    })
   })
-  return { server, objects, auth }
+  return { server, objects, auth, puts, uploads }
 }
 
 test.group('Ops — S3 i kopie zapasowe', (group) => {
@@ -114,28 +147,101 @@ test.group('Ops — S3 i kopie zapasowe', (group) => {
     )
   })
 
-  test('kopia: zrzut bazy + archiwum plików + manifest; lista i retencja', async ({ assert }) => {
+  test('kopia (REL-2): zrzut bazy, przyrostowe pliki, manifest; retencja i sprzątanie puli', async ({
+    assert,
+    cleanup,
+  }) => {
+    const root = await mkdtemp(join(tmpdir(), 'canvai-storage-'))
+    backupDeps.storageRoot = root
+    cleanup(async () => {
+      backupDeps.storageRoot = null
+      await rm(root, { recursive: true, force: true })
+    })
     backupDeps.dumpDatabase = async (file) => writeFile(file, 'PGDMP fake dump')
-    await mkdir(storagePath(), { recursive: true })
-    await writeFile(join(storagePath(), 'backup-probe.txt'), 'hello')
+    await mkdir(join(root, 'boards/1'), { recursive: true })
+    await writeFile(join(root, 'a.png'), 'AAA')
+    await writeFile(join(root, 'boards/1/b.webp'), 'BBBB')
 
-    const result = await runBackup()
-    assert.deepEqual(
-      result.files.map((f) => f.key.split('/').pop()),
-      ['db.dump', 'storage.tar.gz']
-    )
-    assert.equal(s3.objects.get(`canvai/${result.id}/db.dump`)?.toString(), 'PGDMP fake dump')
-    assert.isTrue(s3.objects.has(`canvai/${result.id}/manifest.json`))
+    const first = await runBackup()
+    assert.equal(s3.objects.get(`canvai/${first.id}/db.dump`)?.toString(), 'PGDMP fake dump')
+    assert.equal(s3.objects.get('canvai/files/a.png')?.toString(), 'AAA')
+    assert.equal(s3.objects.get('canvai/files/boards/1/b.webp')?.toString(), 'BBBB')
+    const manifest = JSON.parse(s3.objects.get(`canvai/${first.id}/manifest.json`)!.toString())
+    assert.deepEqual(manifest.files.map((f: { path: string }) => f.path).sort(), [
+      'a.png',
+      'boards/1/b.webp',
+    ])
     assert.isTrue(s3.auth.every((a) => a.startsWith('AWS4-HMAC-SHA256 Credential=AK/')))
 
-    // Stara kopia (sprzed 30 dni) jest usuwana, najnowsza zostaje.
-    s3.objects.set('canvai/2020-01-01T00-00-00Z/db.dump', Buffer.from('old'))
-    assert.lengthOf(await listBackups(), 2)
-    assert.equal(await pruneBackups(), 1)
-    assert.deepEqual(
+    // Druga kopia: pliki bez zmian nie są wysyłane ponownie.
+    await new Promise((r) => setTimeout(r, 1100))
+    s3.puts.length = 0
+    const second = await runBackup()
+    assert.notInclude(s3.puts.join(' '), 'canvai/files/')
+    assert.notEqual(second.id, first.id)
+    assert.notInclude(
       (await listBackups()).map((b) => b.id),
-      [result.id]
+      'files',
+      'pula plików to nie kopia'
     )
+
+    // Stara kopia usuwana; plik, do którego nikt się nie odwołuje — też.
+    s3.objects.set('canvai/2020-01-01T00-00-00Z/db.dump', Buffer.from('old'))
+    s3.objects.set('canvai/files/orphan.png', Buffer.from('x'))
+    assert.equal(await pruneBackups(), 1)
+    assert.isFalse(s3.objects.has('canvai/files/orphan.png'))
+    assert.isTrue(s3.objects.has('canvai/files/a.png'))
+  })
+
+  test('odtworzenie (REL-2): baza z dumpa, pliki dokładnie jak w kopii', async ({
+    assert,
+    cleanup,
+  }) => {
+    const root = await mkdtemp(join(tmpdir(), 'canvai-storage-'))
+    backupDeps.storageRoot = root
+    const restored: string[] = []
+    const savedRestore = backupDeps.restoreDatabase
+    backupDeps.restoreDatabase = async (file) => {
+      restored.push(await readFile(file, 'utf8'))
+    }
+    cleanup(async () => {
+      backupDeps.storageRoot = null
+      backupDeps.restoreDatabase = savedRestore
+      await rm(root, { recursive: true, force: true })
+    })
+    backupDeps.dumpDatabase = async (file) => writeFile(file, 'PGDMP round trip')
+    await mkdir(join(root, 'boards/2'), { recursive: true })
+    await writeFile(join(root, 'boards/2/keep.png'), 'KEEP')
+    await writeFile(join(root, 'boards/2/lost.png'), 'LOST')
+    const backup = await runBackup()
+
+    // Po awarii: jeden plik zniknął, pojawił się obcy.
+    await rm(join(root, 'boards/2/lost.png'))
+    await writeFile(join(root, 'boards/2/extra.png'), 'EXTRA')
+
+    const result = await restoreBackup(backup.id)
+    assert.deepEqual(restored, ['PGDMP round trip'])
+    assert.equal(await readFile(join(root, 'boards/2/lost.png'), 'utf8'), 'LOST')
+    assert.equal(await readFile(join(root, 'boards/2/keep.png'), 'utf8'), 'KEEP')
+    assert.isFalse(existsSync(join(root, 'boards/2/extra.png')), 'plik spoza kopii usunięty')
+    assert.equal(result.restored, 1)
+    assert.equal(result.removed, 1)
+  })
+
+  test('S3: upload wieloczęściowy dużych plików', async ({ assert, cleanup }) => {
+    const saved = { ...multipart }
+    Object.assign(multipart, { threshold: 10, partSize: 6 })
+    const dir = await mkdtemp(join(tmpdir(), 'canvai-mp-'))
+    cleanup(async () => {
+      Object.assign(multipart, saved)
+      await rm(dir, { recursive: true, force: true })
+    })
+    const file = join(dir, 'big.bin')
+    await writeFile(file, 'abcdefghijklmnopqrstuvw')
+    const client = new S3Client({ ...ops.backup, region: 'auto' })
+    assert.equal(await client.putFile('canvai/big.bin', file), 23)
+    assert.equal(s3.objects.get('canvai/big.bin')?.toString(), 'abcdefghijklmnopqrstuvw')
+    assert.equal(s3.uploads.size, 0)
   })
 })
 

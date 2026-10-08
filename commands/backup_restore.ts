@@ -26,9 +26,14 @@ export default class BackupRestore extends BaseCommand {
       return
     }
     const { restoreBackup } = await import('#services/ops/backup')
+    // Procedura (zatrzymanie aplikacji, test kwartalny): docs/backups.md.
     const result = await restoreBackup(this.id, { files: !this.dbOnly })
     this.logger.success(
-      `Odtworzono kopię ${this.id}${result.files ? ' (baza + pliki)' : ' (baza)'}.`
+      `Odtworzono kopię ${this.id}${
+        result.files
+          ? ` (baza + pliki${result.restored >= 0 ? `: pobrane ${result.restored}, usunięte ${result.removed}` : ''})`
+          : ' (baza)'
+      }.`
     )
   }
 }
