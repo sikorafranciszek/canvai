@@ -1,7 +1,7 @@
 import sharp from 'sharp'
 import type { AiProviderConfig } from '#config/ai'
 import { limits as defaultLimits, vision as defaultVision } from '#config/ai'
-import { parseJsonObject, validateAssetAnalysis } from '#services/ai/schemas'
+import { parseJsonObject, validateAssetAnalysis, validateVerdicts } from '#services/ai/schemas'
 import { validateDesignSpec } from '#services/design/spec'
 import {
   AiProviderError,
@@ -14,14 +14,18 @@ import {
   type PreviewInput,
   type PreviewOutput,
   type ProviderResult,
+  type ClaimVerdict,
+  type VerifyClaimsInput,
 } from '#services/ai/types'
 import {
   ANALYZE_SYSTEM_PROMPT,
   COMPOSE_SYSTEM_PROMPT,
   PREVIEW_SYSTEM_PROMPT,
+  VERIFY_SYSTEM_PROMPT,
   buildAnalyzeUserText,
   buildComposeUserText,
   buildPreviewUserText,
+  buildVerifyUserText,
 } from '#services/design/prompts'
 import { runWithLocale, t } from '#services/i18n'
 
@@ -180,6 +184,18 @@ export class DeepseekProvider implements AiProvider {
         // Ta sama prośba dałaby ten sam błąd — ponawia generator, z listą problemów.
         retryInvalid: false,
       }
+    )
+  }
+
+  async verifyClaims(input: VerifyClaimsInput): Promise<ProviderResult<ClaimVerdict[]>> {
+    return this.#chatJson(
+      this.compositionModel,
+      [
+        { role: 'system', content: VERIFY_SYSTEM_PROMPT },
+        { role: 'user', content: buildVerifyUserText(input) },
+      ],
+      validateVerdicts,
+      { maxTokens: this.#limits.maxOutputTokens, timeoutMs: this.#limits.requestTimeoutMs }
     )
   }
 

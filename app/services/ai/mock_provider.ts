@@ -12,6 +12,8 @@ import type {
   PreviewInput,
   PreviewOutput,
   ProviderResult,
+  ClaimVerdict,
+  VerifyClaimsInput,
 } from '#services/ai/types'
 import { buildAnalyzeUserText, buildComposeUserText } from '#services/design/prompts'
 import { renderPreviewTemplate } from '#services/design/preview_template'
@@ -238,6 +240,19 @@ export class MockProvider implements AiProvider {
     })
 
     return { data, model: this.analysisModel, usage: { tokensIn: 0, tokensOut: 0 } }
+  }
+
+  /** Mock: twierdzenie potwierdzone, gdy jego nazwa występuje w materiale dowodowym. */
+  async verifyClaims(input: VerifyClaimsInput): Promise<ProviderResult<ClaimVerdict[]>> {
+    const haystack = input.evidence.map((e) => e.text.toLowerCase()).join('\n')
+    return {
+      data: input.claims.map((c) => {
+        const words = c.text.toLowerCase().match(/[a-ząćęłńóśźż]{4,}/g) ?? []
+        return { id: c.id, evidence: words.some((w) => haystack.includes(w)) ? 'mock' : null }
+      }),
+      model: this.compositionModel,
+      usage: { tokensIn: 0, tokensOut: 0 },
+    }
   }
 
   async composePreview(input: PreviewInput): Promise<ProviderResult<PreviewOutput>> {

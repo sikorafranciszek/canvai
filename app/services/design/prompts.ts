@@ -1,4 +1,9 @@
-import type { AnalyzeAssetInput, ComposeInput, PreviewInput } from '#services/ai/types'
+import type {
+  AnalyzeAssetInput,
+  ComposeInput,
+  PreviewInput,
+  VerifyClaimsInput,
+} from '#services/ai/types'
 import type { DesignSpec } from '#services/design/spec'
 import { renderCssVariables } from '#services/design/renderer'
 
@@ -29,11 +34,14 @@ import { renderCssVariables } from '#services/design/renderer'
  * kolory tekstów w zaufanym JSON-ie (AI-4); breakpointy, warstwy, ruch, obramowania
  * i focus; semantyczne nazwy odstępów (AI-9).
  *
+ * v7: krok weryfikacji po kompozycji (AI-8) — komponenty, ekrany i przepływy
+ * bez dowodu w materiałach stają się założeniami.
+ *
  * Bezpieczeństwo (lens 7): wszystko, co pochodzi z tablicy — nazwy plików,
  * notatki, tekst z obrazów, metadane linków — trafia do bloku `<untrusted>`
  * i jest opisane w prompcie systemowym jako DANE, nigdy instrukcje.
  */
-export const PROMPT_VERSION = 'v6'
+export const PROMPT_VERSION = 'v7'
 
 /**
  * Wersja promptu ANALIZY materiału (etap 1) — klucz cache analiz. Osobna od
@@ -352,6 +360,28 @@ export function composeInputPlan(input: ComposeInput): {
 
 export function buildComposeUserText(input: ComposeInput): string {
   return composeInputPlan(input).text
+}
+
+// ---------------------------------------------------------------------------
+// Weryfikacja twierdzeń (AI-8)
+// ---------------------------------------------------------------------------
+
+export const VERIFY_SYSTEM_PROMPT = [
+  'You are a strict fact-checker for a design document. For each CLAIM (a component, screen or flow the',
+  'document describes) find support in the EVIDENCE — asset analyses, text read from images and client notes.',
+  UNTRUSTED_RULE,
+  'A claim is supported only if the evidence shows that element / screen / flow (same thing, any wording).',
+  'Generic UI knowledge is NOT evidence. Hover/focus/error states that are explicitly marked as proposed are',
+  'fine to leave unsupported. Quote at most 12 words of the supporting evidence with its ref (e.g. "A12: filled',
+  'primary button"), or null when nothing supports the claim.',
+  'Reply ONLY with JSON: {"verdicts": [{"id": "c1", "evidence": "A12: …" | null}]}',
+].join('\n')
+
+export function buildVerifyUserText(input: VerifyClaimsInput): string {
+  return [
+    `CLAIMS (JSON):\n${JSON.stringify(input.claims)}`,
+    `EVIDENCE:\n${fenceUntrusted('evidence', JSON.stringify(input.evidence))}`,
+  ].join('\n\n')
 }
 
 // ---------------------------------------------------------------------------

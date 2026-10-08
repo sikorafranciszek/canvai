@@ -136,6 +136,27 @@ export interface AiProvider {
   analyzeAsset(input: AnalyzeAssetInput): Promise<ProviderResult<AssetAnalysisData>>
   composeDocument(input: ComposeInput): Promise<ProviderResult<DesignSpec>>
   composePreview(input: PreviewInput): Promise<ProviderResult<PreviewOutput>>
+  /** Krok weryfikacji (AI-8): dowód z materiałów dla twierdzeń albo `null`. Opcjonalny. */
+  verifyClaims?(input: VerifyClaimsInput): Promise<ProviderResult<ClaimVerdict[]>>
+}
+
+export interface VerifyClaim {
+  /** `c1`, `s2`, `f3` — komponent, ekran, przepływ. */
+  id: string
+  kind: 'component' | 'screen' | 'flow'
+  text: string
+}
+
+export interface VerifyClaimsInput {
+  claims: VerifyClaim[]
+  /** Materiał dowodowy: analizy (opis, komponenty, układ), tekst z obrazów, notatki. */
+  evidence: { ref: string; text: string }[]
+}
+
+export interface ClaimVerdict {
+  id: string
+  /** Krótki cytat / odwołanie do dowodu, albo `null` = brak dowodu. */
+  evidence: string | null
 }
 
 /**

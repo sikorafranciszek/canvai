@@ -209,3 +209,66 @@ test.group('Hexy w opisach (AI-4)', () => {
     assert.match(s.openQuestions.at(-1)!, /#fafafa \(Btn\)/)
   })
 })
+
+test.group('Krok weryfikacji (AI-8)', () => {
+  test('brak dowodu: komponent i ekran → †, przepływ → pytanie; błąd kroku nie przerywa', async ({
+    assert,
+  }) => {
+    const { verifyClaimsStep } = await import('#services/design/compose')
+    const s = spec({
+      components: [
+        { name: 'Composer', description: 'Message input', sources: [1] },
+        { name: 'Date picker', description: 'Calendar popover', sources: [1] },
+      ],
+      screens: [
+        { name: 'Chat', purpose: 'Live chat', sources: [1] },
+        { name: 'Settings', purpose: 'Account settings', sources: [1] },
+      ],
+      flows: ['Chat → Settings via avatar'],
+    })
+    const seen: string[] = []
+    const provider = {
+      name: 'fake',
+      analysisModel: 'x',
+      compositionModel: 'x',
+      vision: false,
+      async analyzeAsset() {
+        throw new Error('n/a')
+      },
+      async composeDocument() {
+        throw new Error('n/a')
+      },
+      async composePreview() {
+        throw new Error('n/a')
+      },
+      async verifyClaims(input: { claims: { id: string }[] }) {
+        seen.push(...input.claims.map((c) => c.id))
+        return {
+          data: input.claims.map((c) => ({
+            id: c.id,
+            evidence: c.id === 'c0' || c.id === 's0' ? 'A1: chat input' : null,
+          })),
+          model: 'x',
+          usage: { tokensIn: 10, tokensOut: 5 },
+        }
+      },
+    }
+    const usage = { tokensIn: 0, tokensOut: 0 }
+    const evidence = { assets: [{ id: 1, analysis: analysis({ summary: 'chat' }) }], notes: [] }
+    const unsupported = await verifyClaimsStep(provider as never, s, evidence, usage)
+    assert.equal(unsupported, 3)
+    assert.sameMembers(seen, ['c0', 'c1', 's0', 's1', 'f0'])
+    assert.isFalse(s.components[0].assumed)
+    assert.isTrue(s.components[1].assumed)
+    assert.deepEqual(s.components[1].sources, [])
+    assert.isTrue(s.screens[1].assumed)
+    assert.lengthOf(s.flows, 0)
+    assert.match(s.openQuestions.at(-1)!, /Proposed flows not shown/)
+    assert.deepEqual(usage, { tokensIn: 10, tokensOut: 5 })
+
+    const failing = { ...provider, verifyClaims: async () => Promise.reject(new Error('boom')) }
+    assert.isNull(await verifyClaimsStep(failing as never, spec(), evidence, usage))
+    const { markdown } = renderDesignMd(s, [], { boardTitle: 'B', version: 1, generatedAt: 'now' })
+    assert.include(markdown, '### Settings †')
+  })
+})

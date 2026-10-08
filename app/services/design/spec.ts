@@ -69,6 +69,8 @@ export interface SpecScreen {
   purpose: string
   elements: string[]
   sources: number[]
+  /** Ekran bez dowodu w materiałach (krok weryfikacji, AI-8). */
+  assumed?: boolean
 }
 
 export interface SpecSurface {

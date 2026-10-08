@@ -440,7 +440,7 @@ export function renderDesignMd(
     'Screens & Flows',
     ...spec.screens.map((s) =>
       [
-        `### ${s.name}`,
+        `### ${s.name}${s.assumed ? ` ${ASSUMED}` : ''}`,
         s.purpose,
         s.elements.length ? `- **Key elements:** ${s.elements.join(', ')}` : '',
         s.sources.length ? `*Source:* ${refs(s.sources)}` : '',
@@ -535,6 +535,7 @@ export function renderDesignMd(
     ...spec.colors.filter((c) => c.assumed).map((c) => `color „${c.name}” (${c.hex})`),
     ...spec.typography.families.filter((f) => f.assumed).map((f) => `font „${f.name}”`),
     ...spec.components.filter((c) => c.assumed).map((c) => `component „${c.name}”`),
+    ...spec.screens.filter((s) => s.assumed).map((s) => `screen „${s.name}”`),
     ...(spec.spacing.assumed ? [`spacing scale (base ${spec.spacing.baseUnit})`] : []),
     ...(spec.systemAssumed ?? []).map(
       (g) => `${g} (typical defaults — not visible in the materials)`

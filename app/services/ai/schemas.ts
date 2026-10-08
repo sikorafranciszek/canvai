@@ -2,6 +2,7 @@ import {
   ASSET_ROLES,
   InvalidModelOutputError,
   type AssetAnalysisData,
+  type ClaimVerdict,
   type AssetRole,
   type PaletteColor,
   type TextColor,
@@ -122,6 +123,21 @@ export function parseJsonObject(text: string): Record<string, unknown> {
     throw new InvalidModelOutputError(t('ai.jsonNotObject'))
   }
   return parsed
+}
+
+/** Werdykty kroku weryfikacji (AI-8): `{verdicts: [{id, evidence}]}`. */
+export function validateVerdicts(value: unknown): ClaimVerdict[] {
+  const list = isObject(value) && Array.isArray(value.verdicts) ? value.verdicts : null
+  if (!list) throw new InvalidModelOutputError(t('ai.jsonNotObject'))
+  const out: ClaimVerdict[] = []
+  for (const item of list) {
+    if (!isObject(item)) continue
+    const id = str(item.id, 20)
+    if (!id) continue
+    const evidence = typeof item.evidence === 'string' ? str(item.evidence, 200) : ''
+    out.push({ id, evidence: evidence && !/^(none|null|n\/a)$/i.test(evidence) ? evidence : null })
+  }
+  return out
 }
 
 /** Waliduje wynik etapu 1. */
