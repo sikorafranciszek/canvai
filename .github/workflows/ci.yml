@@ -1,4 +1,5 @@
 # CI (REL-4): typy, testy jednostkowe, funkcjonalne i e2e (Playwright) na PostgreSQL.
+# REL-6: po zielonym CI na main — wdrożenie przez API Coolify (sekrety w repo).
 name: CI
 
 on:
@@ -8,7 +9,8 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Nie przerywamy trwającego wdrożenia nowszym pushem (tylko testy PR).
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
@@ -68,3 +70,44 @@ jobs:
 
       - name: Testy (unit, functional, browser)
         run: node ace test
+
+      # Kroki budowania obrazu z Dockerfile (atrapy env). Zawieszony codegen/build
+      # blokował wdrożenie w Coolify bez żadnego logu — tu kończy się błędem.
+      - name: Build jak w Dockerfile
+        timeout-minutes: 5
+        env:
+          NODE_ENV: production
+          HOST: 0.0.0.0
+          PORT: 3333
+          LOG_LEVEL: info
+          APP_KEY: build-only-placeholder-key-000000
+          APP_URL: http://localhost:3333
+          SESSION_DRIVER: cookie
+          DB_CONNECTION: sqlite
+          AI_PROVIDER: mock
+          MAIL_MAILER: outbox
+        run: node ace codegen && node ace build < /dev/null
+
+  # Wdrożenie po zielonych testach na main. Wymaga sekretów repozytorium:
+  # COOLIFY_URL (np. https://coolify.example.com), COOLIFY_TOKEN (API, uprawnienie deploy)
+  # i COOLIFY_APP_UUID. Bez nich krok jest pomijany (wdrożenie ręczne jak dotąd).
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - name: Wdrożenie w Coolify
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_APP_UUID: ${{ secrets.COOLIFY_APP_UUID }}
+        run: |
+          if [ -z "$COOLIFY_URL" ] || [ -z "$COOLIFY_TOKEN" ] || [ -z "$COOLIFY_APP_UUID" ]; then
+            echo "::notice::Brak sekretow COOLIFY_* — wdrozenie pominiete"
+            exit 0
+          fi
+          curl --fail-with-body -sS -X GET \
+            -H "Authorization: Bearer $COOLIFY_TOKEN" \
+            "${COOLIFY_URL%/}/api/v1/deploy?uuid=${COOLIFY_APP_UUID}&force=false"
