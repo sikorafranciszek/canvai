@@ -4,6 +4,7 @@ import type { NextFn } from '@adonisjs/core/types/http'
 import { crm } from '#config/analytics'
 import {
   parseUserAgent,
+  redactPath,
   refererHost,
   track,
   trackRequest,
@@ -21,8 +22,10 @@ const SKIP = new Set(['/health'])
 export default class AnalyticsMiddleware {
   async handle(ctx: HttpContext, next: NextFn) {
     const { request, response } = ctx
-    const path = request.url()
-    if (SKIP.has(path)) return next()
+    const rawPath = request.url()
+    if (SKIP.has(rawPath)) return next()
+    // Tokeny z URL (reset hasła, zaproszenia, portal) nigdy nie trafiają do analityki.
+    const path = redactPath(rawPath)
 
     const started = process.hrtime.bigint()
     let failed = false

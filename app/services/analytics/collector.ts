@@ -304,3 +304,17 @@ export function captureLog(level: number, msg: string, obj: Record<string, any> 
 export function resetMemory() {
   for (const t of Object.keys(memory) as Table[]) memory[t].length = 0
 }
+
+/**
+ * Ścieżka bez sekretów (SEC-5): segmenty wyglądające na token (reset hasła,
+ * weryfikacja, zaproszenie, portal, wypis — ≥ 20 znaków base64url) zastępujemy
+ * znacznikiem, zanim trafią do analityki i CRM.
+ */
+export const REDACTED = '[redacted]'
+export function redactPath(path: string): string {
+  const [pathname] = path.split('?')
+  return pathname
+    .split('/')
+    .map((seg) => (/^[A-Za-z0-9_.~%-]{20,}$/.test(seg) ? REDACTED : seg))
+    .join('/')
+}

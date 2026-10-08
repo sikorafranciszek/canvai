@@ -1,4 +1,5 @@
 import { backupConfigured, ops } from '#config/ops'
+import { analytics } from '#config/analytics'
 import { dailyAt, every, registerTask } from '#services/ops/scheduler'
 
 /**
@@ -13,6 +14,26 @@ registerTask({
     return Object.entries(sent)
       .map(([k, v]) => `${k}: ${v}`)
       .join(', ')
+  },
+})
+
+/**
+ * Jednorazowo (SEC-5): usunięcie tokenów z zapisanych już ścieżek w ClickHouse.
+ * Nowe zapisy są czyszczone w middleware; to zadanie poprawia historię.
+ */
+registerTask({
+  name: 'analytics_scrub_tokens_v1',
+  due: (last) => last === null && analytics.sink === 'clickhouse',
+  async run() {
+    const { clickhouse, db } = await import('#services/analytics/clickhouse')
+    const d = db()
+    const re = "'/[A-Za-z0-9_.~%-]{20,}'"
+    for (const table of ['requests', 'events']) {
+      await clickhouse().command({
+        query: `ALTER TABLE ${d}.${table} UPDATE path = replaceRegexpAll(path, ${re}, '/[redacted]') WHERE match(path, ${re})`,
+      })
+    }
+    return 'scrubbed requests.path and events.path'
   },
 })
 

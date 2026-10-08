@@ -7,7 +7,13 @@ import Board from '#models/board'
 import CrmNote from '#models/crm_note'
 import User from '#models/user'
 import { balanceOf } from '#services/billing/credits'
-import { memory, parseUserAgent, resetMemory, visitorId } from '#services/analytics/collector'
+import {
+  memory,
+  parseUserAgent,
+  redactPath,
+  resetMemory,
+  visitorId,
+} from '#services/analytics/collector'
 
 /**
  * CRM (crm.<host>): dostęp tylko dla administratorów, routing po domenie,
@@ -233,6 +239,18 @@ test.group('Analityka — zbieranie', (group) => {
       .concat(res.headers()['set-cookie'] ?? [])
       .map((c) => c.split('=')[0])
     assert.notIncludeMembers(cookies, ['cv_aid', 'visitor_id'])
+  })
+
+  test('SEC-5: tokeny z URL nie trafiają do analityki', async ({ client, assert }) => {
+    const token = 'gySsdpln3uUC_UldQ90qxUZNc4KoT5rYuVYlEJ0CNug'
+    await client.get(`/reset-password/${token}`).header('accept', 'text/html')
+    await client.get(`/invites/${token}`).redirects(0)
+    await client.get(`/unsubscribe/12.AbCdEfGhIjKlMnOpQrStUv`)
+    const all = JSON.stringify([memory.requests, memory.events])
+    assert.notInclude(all, token)
+    assert.notInclude(all, 'AbCdEfGhIjKlMnOpQrStUv')
+    assert.include(all, '/reset-password/[redacted]')
+    assert.equal(redactPath('/boards/12/scene?x=1'), '/boards/12/scene')
   })
 
   test('zdarzenia produktowe z kontekstem użytkownika', async ({ client, assert }) => {
