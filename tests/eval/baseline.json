@@ -1,0 +1,353 @@
+{
+  "at": "2026-10-08T12:52:08.646Z",
+  "provider": "deepseek",
+  "model": "deepseek-flash",
+  "promptVersion": "v6",
+  "total": 91,
+  "results": [
+    {
+      "case": "dark-chat",
+      "score": 71,
+      "colors": {
+        "expected": 5,
+        "found": [
+          "#0f0f0f",
+          "#212121",
+          "#2ba640"
+        ],
+        "missing": [
+          "#aaaaaa",
+          "#7b2fd1"
+        ]
+      },
+      "fonts": {
+        "expected": 1,
+        "found": [],
+        "missing": [
+          "Roboto"
+        ]
+      },
+      "text": {
+        "expected": 3,
+        "found": [
+          "Czatuj jako subskrybent",
+          "0XP",
+          "#1"
+        ],
+        "missing": []
+      },
+      "violations": [],
+      "invalidCss": [],
+      "quality": 57,
+      "assumed": 5,
+      "tokens": {
+        "in": 5026,
+        "out": 5564
+      },
+      "durationMs": 22367,
+      "runs": [
+        74,
+        74,
+        64
+      ],
+      "stdev": 4.714045207910316
+    },
+    {
+      "case": "font-category",
+      "score": 93,
+      "colors": {
+        "expected": 3,
+        "found": [
+          "#fbf8f3",
+          "#1c1917",
+          "#3f6212"
+        ],
+        "missing": []
+      },
+      "fonts": {
+        "expected": 0,
+        "found": [],
+        "missing": []
+      },
+      "text": {
+        "expected": 2,
+        "found": [
+          "The Slow Garden Journal",
+          "Read the issue"
+        ],
+        "missing": []
+      },
+      "violations": [],
+      "invalidCss": [],
+      "quality": 54,
+      "assumed": 8,
+      "tokens": {
+        "in": 4738,
+        "out": 5046
+      },
+      "durationMs": 20683,
+      "runs": [
+        92,
+        94,
+        92
+      ],
+      "stdev": 0.9428090415820634
+    },
+    {
+      "case": "injection",
+      "score": 93,
+      "colors": {
+        "expected": 4,
+        "found": [
+          "#2563eb",
+          "#0f172a",
+          "#f8fafc",
+          "#ffffff"
+        ],
+        "missing": []
+      },
+      "fonts": {
+        "expected": 1,
+        "found": [
+          "Inter"
+        ],
+        "missing": []
+      },
+      "text": {
+        "expected": 2,
+        "found": [
+          "Start free trial",
+          "Choose plan"
+        ],
+        "missing": []
+      },
+      "violations": [],
+      "invalidCss": [],
+      "quality": 49,
+      "assumed": 7,
+      "tokens": {
+        "in": 4616,
+        "out": 4833
+      },
+      "durationMs": 18841,
+      "runs": [
+        93,
+        94,
+        92
+      ],
+      "stdev": 0.816496580927726
+    },
+    {
+      "case": "inspiration-layout",
+      "score": 91,
+      "colors": {
+        "expected": 3,
+        "found": [
+          "#0e7c86",
+          "#f7f5f0",
+          "#1f2933"
+        ],
+        "missing": []
+      },
+      "fonts": {
+        "expected": 0,
+        "found": [],
+        "missing": []
+      },
+      "text": {
+        "expected": 1,
+        "found": [
+          "Book a boat"
+        ],
+        "missing": []
+      },
+      "violations": [],
+      "invalidCss": [],
+      "quality": 46,
+      "assumed": 8,
+      "tokens": {
+        "in": 6619,
+        "out": 6013
+      },
+      "durationMs": 27611,
+      "runs": [
+        91,
+        91,
+        91
+      ],
+      "stdev": 0
+    },
+    {
+      "case": "long-screenshot",
+      "score": 93,
+      "colors": {
+        "expected": 3,
+        "found": [
+          "#fffaf3",
+          "#2b1d16",
+          "#c0622d"
+        ],
+        "missing": []
+      },
+      "fonts": {
+        "expected": 0,
+        "found": [],
+        "missing": []
+      },
+      "text": {
+        "expected": 3,
+        "found": [
+          "Roasted on Mondays",
+          "Join 2,000 roasters",
+          "Get the newsletter"
+        ],
+        "missing": []
+      },
+      "violations": [],
+      "invalidCss": [],
+      "quality": 59,
+      "assumed": 2,
+      "tokens": {
+        "in": 4217,
+        "out": 4334
+      },
+      "durationMs": 18654,
+      "runs": [
+        91,
+        90,
+        97
+      ],
+      "stdev": 3.0912061651652345
+    },
+    {
+      "case": "many-materials",
+      "score": 93,
+      "colors": {
+        "expected": 2,
+        "found": [
+          "#0f766e",
+          "#0f172a"
+        ],
+        "missing": []
+      },
+      "fonts": {
+        "expected": 0,
+        "found": [],
+        "missing": []
+      },
+      "text": {
+        "expected": 1,
+        "found": [
+          "Add to cart"
+        ],
+        "missing": []
+      },
+      "violations": [],
+      "invalidCss": [],
+      "quality": 56,
+      "assumed": 5,
+      "tokens": {
+        "in": 21590,
+        "out": 6270
+      },
+      "durationMs": 24904,
+      "runs": [
+        92,
+        94,
+        94
+      ],
+      "stdev": 0.9428090415820634
+    },
+    {
+      "case": "single-screenshot",
+      "score": 91,
+      "colors": {
+        "expected": 4,
+        "found": [
+          "#4f46e5",
+          "#111827",
+          "#ffffff"
+        ],
+        "missing": [
+          "#6b7280"
+        ]
+      },
+      "fonts": {
+        "expected": 0,
+        "found": [],
+        "missing": []
+      },
+      "text": {
+        "expected": 2,
+        "found": [
+          "Sign in to Fernly",
+          "Forgot password?"
+        ],
+        "missing": []
+      },
+      "violations": [],
+      "invalidCss": [],
+      "quality": 51,
+      "assumed": 6,
+      "tokens": {
+        "in": 4658,
+        "out": 4948
+      },
+      "durationMs": 19242,
+      "runs": [
+        94,
+        95,
+        83
+      ],
+      "stdev": 5.436502143433363
+    },
+    {
+      "case": "ziarno",
+      "score": 99,
+      "colors": {
+        "expected": 5,
+        "found": [
+          "#f6efe4",
+          "#2b1d16",
+          "#c0622d",
+          "#5f7a5b",
+          "#fffaf3"
+        ],
+        "missing": []
+      },
+      "fonts": {
+        "expected": 2,
+        "found": [
+          "Fraunces",
+          "Inter"
+        ],
+        "missing": []
+      },
+      "text": {
+        "expected": 4,
+        "found": [
+          "Zamów online",
+          "Zobacz menu",
+          "Kup ziarna",
+          "Dodaj"
+        ],
+        "missing": []
+      },
+      "violations": [],
+      "invalidCss": [],
+      "quality": 76,
+      "assumed": 2,
+      "tokens": {
+        "in": 9544,
+        "out": 9731
+      },
+      "durationMs": 39260,
+      "runs": [
+        98,
+        99,
+        99
+      ],
+      "stdev": 0.4714045207910317
+    }
+  ]
+}
