@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import ts from 'typescript'
 import app from '@adonisjs/core/services/app'
@@ -49,6 +49,8 @@ test.group('Eksport Storybook (FEAT-6)', () => {
     assert.include(code, 'var(--radius-sredni)')
     assert.include(code, '--color-teal')
 
+    // Na czystej kopii (CI) katalogu tmp/ jeszcze nie ma.
+    mkdirSync(app.tmpPath(), { recursive: true })
     const dir = mkdtempSync(join(app.tmpPath(), 'sb-'))
     try {
       const file = join(dir, 'design-system.stories.tsx')
