@@ -4,6 +4,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { t } from '#services/i18n'
 import { trackFor } from '#services/analytics/events'
 import { clear, hitAll, rateKey } from '#services/rate_limit'
+import { loginWithVersion } from '#services/sessions'
 
 export default class SessionController {
   async create({ inertia }: HttpContext) {
@@ -11,7 +12,7 @@ export default class SessionController {
   }
 
   async store(ctx: HttpContext) {
-    const { request, auth, response, session } = ctx
+    const { request, response, session } = ctx
     const { email, password } = await request.validateUsing(loginValidator)
     // SEC-4: limit prób na konto (zgadywanie hasła) i na IP (credential stuffing).
     const emailKey = rateKey('login:email', email)
@@ -33,7 +34,7 @@ export default class SessionController {
       return response.redirect().toPath('/login')
     }
 
-    await auth.use('web').login(user)
+    await loginWithVersion(ctx, user)
     trackFor(ctx, 'login', {}, { userId: user.id })
     response.redirect().toPath('/')
   }

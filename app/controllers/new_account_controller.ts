@@ -10,6 +10,7 @@ import { isDisposableEmail } from '#services/disposable_email'
 import { attachReferrer, isReferralCode } from '#services/billing/referrals'
 import { trackFor } from '#services/analytics/events'
 import { hit, rateKey } from '#services/rate_limit'
+import { loginWithVersion } from '#services/sessions'
 
 export default class NewAccountController {
   async create({ inertia, request, response }: HttpContext) {
@@ -21,7 +22,7 @@ export default class NewAccountController {
   }
 
   async store(ctx: HttpContext) {
-    const { request, response, auth, session } = ctx
+    const { request, response, session } = ctx
     const { passwordConfirmation, ...payload } = await request.validateUsing(signupValidator)
     // SEC-4: masowe zakładanie kont (darmowe kredyty, nagrody za polecenia).
     const limit = await hit(rateKey('signup:ip', request.ip()), 5, 60 * 60_000)
@@ -43,7 +44,7 @@ export default class NewAccountController {
     await attachReferrer(user, request.cookie(referrals.cookie))
     trackFor(ctx, 'signup', { referred: Boolean(user.referredById) }, { userId: user.id })
     response.clearCookie(referrals.cookie)
-    await auth.use('web').login(user)
+    await loginWithVersion(ctx, user)
 
     // Konto działa dopiero po potwierdzeniu adresu (middleware `verified`).
     // Ekran weryfikacji sam mówi, dokąd wysłaliśmy link — flash tylko przy błędzie wysyłki.

@@ -9,6 +9,7 @@ import { absoluteUrl } from '#services/app_url'
 import { currentLocale, runWithLocale, t } from '#services/i18n'
 import { isLocale } from '#shared/i18n'
 import { forgotPasswordValidator, resetPasswordValidator } from '#validators/user'
+import { revokeSessions } from '#services/sessions'
 
 /**
  * Reset hasła: prośba (mail z linkiem) → formularz nowego hasła → zapis.
@@ -70,6 +71,8 @@ export default class PasswordResetController {
     // Kliknięcie linku z maila potwierdza też własność adresu.
     if (!user.emailVerifiedAt) user.emailVerifiedAt = DateTime.utc()
     await user.save()
+    // SEC-14: reset hasła wylogowuje wszystkie sesje (także skradzione ciasteczka).
+    await revokeSessions(user)
 
     try {
       await runWithLocale(isLocale(user.locale) ? user.locale : currentLocale(), () =>

@@ -46,6 +46,7 @@ import {
 } from '#services/crm/metrics'
 import env from '#start/env'
 import { disconnectUser } from '#services/board_events'
+import { loginWithVersion } from '#services/sessions'
 
 const PAGE_SIZE = 25
 
@@ -100,7 +101,7 @@ export default class CrmController {
   }
 
   async login(ctx: HttpContext) {
-    const { request, auth, response, session } = ctx
+    const { request, response, session } = ctx
     const { email, password } = await request.validateUsing(loginValidator)
     // Ochrona przed zgadywaniem haseł: 10 prób na 15 minut z jednego IP.
     if (await rateLimited(`crm-login:${request.ip()}`, 10, 15 * 60_000)) {
@@ -121,7 +122,7 @@ export default class CrmController {
       session.flash('error', `crm.login.${denial}`)
       return response.redirect().toPath('/login')
     }
-    await auth.use('web').login(user)
+    await loginWithVersion(ctx, user)
     track('crm_login', {}, { userId: user.id })
     return response.redirect().toPath('/')
   }

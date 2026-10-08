@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import type { NextFn } from '@adonisjs/core/types/http'
+import { sessionCurrent } from '#services/sessions'
 
 /**
  * Silent auth middleware can be used as a global middleware to silent check
@@ -10,6 +11,11 @@ import type { NextFn } from '@adonisjs/core/types/http'
 export default class SilentAuthMiddleware {
   async handle(ctx: HttpContext, next: NextFn) {
     await ctx.auth.check()
+    // SEC-14: sesja ze starszą wersją konta (po resecie hasła, „wyloguj wszędzie”).
+    const user = ctx.auth.use('web').user
+    if (user && !sessionCurrent(ctx, user)) {
+      await ctx.auth.use('web').logout()
+    }
 
     return next()
   }

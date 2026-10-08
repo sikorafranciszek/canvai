@@ -611,6 +611,27 @@ export default function Settings({
         </Form>
       </Section>
 
+      <Section
+        title={t('settings.sessions.title')}
+        description={t('settings.sessions.desc')}
+        testId="settings-sessions"
+      >
+        <Form route="settings.sessions.revoke" method="post" options={{ preserveScroll: true }}>
+          {({ processing }: FormState) => (
+            <div className="settings-actions">
+              <button
+                type="submit"
+                className="btn"
+                disabled={processing}
+                data-testid="sessions-revoke"
+              >
+                {t('settings.sessions.submit')}
+              </button>
+            </div>
+          )}
+        </Form>
+      </Section>
+
       <ApiSection api={api} />
 
       <FigmaSection />

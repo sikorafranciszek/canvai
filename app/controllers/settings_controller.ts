@@ -8,6 +8,8 @@ import { t } from '#services/i18n'
 import { changePasswordValidator, updateProfileValidator } from '#validators/user'
 import ApiToken from '#models/api_token'
 import { entitlementsFor } from '#services/billing/plans'
+import { trackFor } from '#services/analytics/events'
+import { revokeSessions } from '#services/sessions'
 
 function fieldError(field: string, message: string) {
   return new vineErrors.E_VALIDATION_ERROR([{ field, message, rule: field }])
@@ -81,8 +83,10 @@ export default class SettingsController {
 
     user.password = password
     await user.save()
-    // Nowa sesja po zmianie hasła (ochrona przed przejęciem starego ID sesji).
+    // Nowa sesja po zmianie hasła (ochrona przed przejęciem starego ID sesji)
+    // i wylogowanie pozostałych urządzeń (SEC-14) — to zostaje zalogowane.
     session.regenerate()
+    await revokeSessions(user, ctx)
 
     try {
       await sendPasswordChangedEmail(user, absoluteUrl(ctx, '/login'))
@@ -91,6 +95,15 @@ export default class SettingsController {
     }
 
     session.flash('success', t('account.passwordChanged'))
+    return response.redirect().back()
+  }
+
+  /** POST /settings/sessions/revoke — wylogowanie ze wszystkich innych urządzeń (SEC-14). */
+  async revokeSessions(ctx: HttpContext) {
+    const { auth, session, response } = ctx
+    await revokeSessions(auth.user!, ctx)
+    trackFor(ctx, 'sessions_revoked', {})
+    session.flash('success', t('account.sessionsRevoked'))
     return response.redirect().back()
   }
 }

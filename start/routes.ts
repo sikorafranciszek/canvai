@@ -143,6 +143,9 @@ router
       .put('/settings/password', [controllers.Settings, 'updatePassword'])
       .as('settings.password')
     router
+      .post('/settings/sessions/revoke', [controllers.Settings, 'revokeSessions'])
+      .as('settings.sessions.revoke')
+    router
       .patch('/settings/notifications', [controllers.Notifications, 'update'])
       .as('settings.notifications')
     router.patch('/settings/brand', [controllers.Brand, 'update']).as('settings.brand')

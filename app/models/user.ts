@@ -10,6 +10,10 @@ export default class User extends compose(UserSchema, withAuthFinder(hash)) {
   @column({ serializeAs: null })
   declare figmaToken: string | null
 
+  /** Wersja sesji (SEC-14) — podbijana przy resecie/zmianie hasła i „wyloguj wszędzie”. */
+  @column({ serializeAs: null })
+  declare sessionVersion: number
+
   /** Zgoda na maile cykliczne (przypomnienia, podsumowania); wypis jednym kliknięciem. */
   @column({ consume: (v) => Boolean(v) })
   declare marketingEmails: boolean
