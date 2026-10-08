@@ -170,6 +170,7 @@ export const COMPOSE_SYSTEM_PROMPT = [
   '- Fonts: cite an asset for a font family only if its analysis names that family ("evidence": "named") or the',
   '  family is written in its text or the notes. A typeface known only by category is a proposal: pick a fitting',
   '  family, set "assumed": true, empty sources, a matching "substitute", and ask about it in "openQuestions".',
+  '  "name" is always a real font family (e.g. "Inter"), never a description or category.',
   '- Never import knowledge of a recognisable product (e.g. a screenshot of YouTube, Slack, Stripe): describe only',
   '  icons, badges, states and flows visible in the materials. Invisible states (hover, focus, error, empty) may be',
   '  proposed, but write them as "hover (proposed): …" and mark the component "assumed" if most of it is proposed.',

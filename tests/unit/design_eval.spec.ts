@@ -73,6 +73,7 @@ test.group('Zestaw ewaluacyjny DESIGN.md', () => {
       expect: {
         forbiddenComponents: ['Modal'],
         fontsAssumed: true,
+        forbiddenFonts: [],
         colors: ['#0f0f0f', '#aaaaaa'],
         fonts: ['Roboto'],
         text: ['Czatuj jako subskrybent'],

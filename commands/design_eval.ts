@@ -78,6 +78,16 @@ export default class DesignEval extends BaseCommand {
       if (r.text.missing.length) this.logger.info(`   brak tekstów: ${r.text.missing.join(' | ')}`)
     }
 
+    // Dokumenty osobno (czytelne .md), raport JSON bez nich.
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const docsDir = app.tmpPath('eval', `docs-${stamp}`)
+    await mkdir(docsDir, { recursive: true })
+    for (const r of results) {
+      if (r.markdown) await writeFile(`${docsDir}/${r.case}.md`, r.markdown)
+      delete r.markdown
+    }
+    this.logger.info(`Dokumenty: ${docsDir}`)
+
     const total = Math.round(results.reduce((s, r) => s + r.score, 0) / results.length)
     const report = {
       at: new Date().toISOString(),

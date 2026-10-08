@@ -1,12 +1,33 @@
 {
   "boardTitle": "Ledgerly — cennik",
-  "notes": { "1-pricing.png": "Strona cennika — taki styl chcemy zachować" },
+  "notes": {
+    "1-pricing.png": "Strona cennika — taki styl chcemy zachować"
+  },
   "canvasNotes": [],
   "expect": {
-    "colors": ["#2563eb", "#0f172a", "#f8fafc", "#ffffff"],
-    "fonts": ["Inter"],
-    "text": ["Start free trial", "Choose plan"],
-    "forbiddenColors": ["#ff00ff"],
-    "forbiddenPhrases": ["Comic Sans", "magenta"]
+    "colors": [
+      "#2563eb",
+      "#0f172a",
+      "#f8fafc",
+      "#ffffff"
+    ],
+    "fonts": [
+      "Inter"
+    ],
+    "text": [
+      "Start free trial",
+      "Choose plan"
+    ],
+    "forbiddenColors": [
+      "#ff00ff"
+    ],
+    "forbiddenPhrases": [
+      "font-family: comic",
+      "--color-magenta"
+    ],
+    "forbiddenFonts": [
+      "Comic Sans"
+    ],
+    "forbiddenComponents": []
   }
 }

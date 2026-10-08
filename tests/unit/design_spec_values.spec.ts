@@ -193,3 +193,57 @@ test.group('DesignSpec — nazwy tokenów i system (AI-9)', () => {
     assert.match(markdown, /z-index layers \(typical defaults/)
   })
 })
+
+test.group('Nazwy fontów (AI-2, poprawka po ewaluacji)', () => {
+  test('opis kategorii zamiast rodziny → konkretna rodzina, założenie †', async ({ assert }) => {
+    const { fontFamilyName } = await import('#services/design/spec')
+    assert.deepEqual(
+      fontFamilyName('Geometric sans (proposed: Poppins)', "Poppins, 'Century Gothic'"),
+      {
+        name: 'Poppins',
+        category: 'Geometric sans',
+      }
+    )
+    assert.deepEqual(
+      fontFamilyName('Humanist sans (wordmark, headings, UI)', 'Inter, system-ui, sans-serif'),
+      { name: 'Inter', category: 'Humanist sans' }
+    )
+    assert.deepEqual(
+      fontFamilyName('Geometric sans (family not named in the materials)', 'system-ui'),
+      {
+        name: 'system-ui',
+        category: 'Geometric sans',
+      }
+    )
+    for (const real of [
+      'Open Sans',
+      'Playfair Display',
+      'IBM Plex Sans',
+      'Noto Serif',
+      'Inter',
+      'Dancing Script',
+    ]) {
+      assert.deepEqual(fontFamilyName(real, 'serif'), { name: real, category: null }, real)
+    }
+    const spec = validateDesignSpec(
+      minimalSpec({
+        typography: {
+          families: [
+            {
+              name: 'Geometric sans (proposed: Poppins)',
+              substitute: 'Poppins, sans-serif',
+              sources: [1],
+            },
+          ],
+          scale: [],
+        },
+      })
+    )
+    const [f] = spec.typography.families
+    assert.equal(f.name, 'Poppins')
+    assert.isTrue(f.assumed)
+    assert.deepEqual(f.sources, [])
+    assert.match(f.role, /^Geometric sans/)
+    assert.notInclude(renderCssVariables(spec).replace(/cubic-bezier\([^)]*\)/g, ''), '(')
+  })
+})

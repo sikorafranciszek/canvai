@@ -385,6 +385,108 @@ export function fillSystemDefaults(spec: DesignSpec): void {
   spec.systemAssumed = assumed
 }
 
+const GENERIC_FONTS = new Set([
+  'system-ui',
+  'sans-serif',
+  'serif',
+  'monospace',
+  'cursive',
+  '-apple-system',
+  'ui-sans-serif',
+  'ui-serif',
+  'ui-monospace',
+  'blinkmacsystemfont',
+])
+/** Słowa opisu kategorii kroju — nazwa złożona WYŁĄCZNIE z nich to nie font. */
+const CATEGORY_VOCAB = new Set([
+  'sans',
+  'serif',
+  'sans-serif',
+  'grotesk',
+  'grotesque',
+  'neo-grotesque',
+  'neogrotesque',
+  'geometric',
+  'humanist',
+  'transitional',
+  'didone',
+  'slab',
+  'slab-serif',
+  'old-style',
+  'oldstyle',
+  'old',
+  'style',
+  'rounded',
+  'mono',
+  'monospace',
+  'monospaced',
+  'display',
+  'script',
+  'handwritten',
+  'typeface',
+  'font',
+  'family',
+  'modern',
+  'classic',
+  'clean',
+  'neutral',
+  'condensed',
+  'narrow',
+  'wide',
+  'bold',
+  'light',
+  'heavy',
+  'system',
+  'ui',
+  'default',
+  'unknown',
+  'generic',
+  'a',
+  'an',
+  'the',
+  'with',
+  'and',
+  'or',
+  'like',
+  'similar',
+  'style',
+  'of',
+  'friendly',
+  'elegant',
+  'contemporary',
+  'traditional',
+])
+const isCategory = (text: string) => {
+  const words = text
+    .toLowerCase()
+    .split(/[\s,]+/)
+    .filter(Boolean)
+  return words.length > 0 && words.every((w) => CATEGORY_VOCAB.has(w))
+}
+
+/**
+ * Nazwa rodziny do CSS. Opis kategorii („Humanist sans (headings, UI)”) zamienia
+ * na pierwszą konkretną rodzinę z nawiasu albo zamiennika; `category` ≠ null
+ * oznacza, że materiały nie nazwały kroju.
+ */
+export function fontFamilyName(
+  raw: string,
+  substitute: string
+): { name: string; category: string | null } {
+  const inner = raw.match(/\(([^()]*)\)/)?.[1] ?? ''
+  const base = stripNotes(raw)
+    .replace(/^['"]|['"]$/g, '')
+    .trim()
+  if (base && !isCategory(base)) return { name: base, category: null }
+  // Z nawiasu tylko jawna propozycja („proposed: Poppins”, „e.g. Inter”), nie opis użycia.
+  const proposal =
+    inner.match(/(?:proposed|e\.g\.|such as|like|substitute)\s*:?\s*(.+)$/i)?.[1] ?? ''
+  const candidates = [...proposal.split(/[,/]| or /), ...substitute.split(',')]
+    .map((c) => c.trim().replace(/^['"]|['"]$/g, ''))
+    .filter((c) => c && !GENERIC_FONTS.has(c.toLowerCase()) && !isCategory(c))
+  return { name: candidates[0] ?? 'system-ui', category: base || raw }
+}
+
 export function validateDesignSpec(input: unknown): DesignSpec {
   const root = isObject(input) && isObject(input.spec) ? input.spec : input
   if (!isObject(root)) throw new InvalidModelOutputError(t('spec.notObject'))
@@ -433,21 +535,27 @@ export function validateDesignSpec(input: unknown): DesignSpec {
   const typo = isObject(v.typography) ? v.typography : {}
   const families = list(typo.families, (f) => {
     if (!isObject(f)) return null
-    const name = str(f.name, 60)
-    if (!name) return null
+    const raw = str(f.name, 120)
+    if (!raw) return null
+    const substitute = str(f.substitute, 200)
+    // Model bywa, że zamiast rodziny wpisuje kategorię („Geometric sans (proposed:
+    // Poppins)”) — to nie jest nazwa fontu do CSS. Bierzemy pierwszą realną rodzinę
+    // z nawiasu albo zamiennika, a całość staje się założeniem †.
+    const { name, category } = fontFamilyName(raw, substitute)
+    const role = str(f.role, 600)
     return {
       name,
       token: token(f.token, 'font', name),
-      substitute: str(f.substitute, 200),
+      substitute,
       weights: list(f.weights, (w) => {
         const n = Number(w)
         return Number.isFinite(n) && n >= 100 && n <= 1000 ? n : null
       }),
       sizes: strList(f.sizes, 20, 20),
       lineHeights: strList(f.lineHeights, 20, 20),
-      role: str(f.role, 600),
-      sources: ids(f.sources),
-      assumed: f.assumed === true,
+      role: category ? `${category}${role ? ` — ${role}` : ''}` : role,
+      sources: category ? [] : ids(f.sources),
+      assumed: category ? true : f.assumed === true,
     }
   })
   if (families.length === 0) problems.push(t('spec.problem.families'))

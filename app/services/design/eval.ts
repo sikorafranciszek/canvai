@@ -40,6 +40,8 @@ export interface EvalCase {
     forbiddenComponents: string[]
     /** Żaden font nie jest w materiałach nazwany — każdy musi być założeniem †. */
     fontsAssumed: boolean
+    /** Fonty, które nie mogą trafić do tokenów (np. z próby wstrzyknięcia). */
+    forbiddenFonts: string[]
   }
 }
 
@@ -56,6 +58,8 @@ export interface EvalResult {
   tokens: { in: number; out: number }
   durationMs: number
   error?: string
+  /** Wygenerowany dokument — do przejrzenia (komenda zapisuje go obok raportu). */
+  markdown?: string
 }
 
 const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp'])
@@ -90,6 +94,7 @@ export async function loadCases(root: string, only?: string): Promise<EvalCase[]
         forbiddenPhrases: raw.expect?.forbiddenPhrases ?? [],
         forbiddenComponents: raw.expect?.forbiddenComponents ?? [],
         fontsAssumed: raw.expect?.fontsAssumed === true,
+        forbiddenFonts: raw.expect?.forbiddenFonts ?? [],
       },
     })
   }
@@ -148,6 +153,11 @@ export function scoreSpec(c: EvalCase, spec: DesignSpec, markdown: string) {
         spec.components.some((x) => !x.assumed && x.name.toLowerCase().includes(name.toLowerCase()))
       )
       .map((name) => `invented component „${name}”`),
+    ...c.expect.forbiddenFonts
+      .filter((name) =>
+        spec.typography.families.some((f) => f.name.toLowerCase().includes(name.toLowerCase()))
+      )
+      .map((name) => `font „${name}” in tokens`),
     ...(c.expect.fontsAssumed
       ? spec.typography.families
           .filter((f) => !f.assumed && !/^(system-ui|sans-serif|serif|monospace)$/i.test(f.name))
@@ -304,6 +314,7 @@ export async function runCase(c: EvalCase, provider: AiProvider): Promise<EvalRe
     return {
       case: c.name,
       ...scoreSpec(c, spec, markdown),
+      markdown,
       tokens,
       durationMs: Date.now() - started,
     }
