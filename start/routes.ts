@@ -151,6 +151,9 @@ router
     router.patch('/settings/brand', [controllers.Brand, 'update']).as('settings.brand')
     router.post('/settings/brand/logo', [controllers.Brand, 'logo']).as('settings.brand.logo')
     router
+      .post('/settings/brand/domain/verify', [controllers.Brand, 'verifyDomain'])
+      .as('settings.brand.domain.verify')
+    router
       .delete('/settings/brand/logo', [controllers.Brand, 'removeLogo'])
       .as('settings.brand.logo.destroy')
     router.post('/settings/api-tokens', [controllers.ApiTokens, 'store']).as('apiTokens.store')

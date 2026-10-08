@@ -8,6 +8,7 @@ import { entitlementsFor } from '#services/billing/plans'
 import { t } from '#services/i18n'
 import { trackFor } from '#services/analytics/events'
 import { readFile } from 'node:fs/promises'
+import { newDomainToken, verifyPortalDomain } from '#services/portal_domain'
 
 /** SVG logo bez DTD/encji i bez odwołań poza dokument (tylko `#id` i `data:`). */
 export function safeSvg(svg: string): boolean {
@@ -59,8 +60,10 @@ export default class BrandController {
       return response.redirect().back()
     }
     if (input.portalDomain) {
+      // Zajęta jest tylko domena zweryfikowana przez kogoś innego (SEC-10).
       const taken = await User.query()
         .where('portal_domain', input.portalDomain)
+        .whereNotNull('portal_domain_verified_at')
         .whereNot('id', user.id)
         .first()
       if (taken) {
@@ -70,10 +73,31 @@ export default class BrandController {
     }
     user.brandName = input.brandName || null
     user.brandAccent = input.brandAccent || null
-    user.portalDomain = input.portalDomain || null
+    const domain = input.portalDomain || null
+    if (domain !== user.portalDomain) {
+      user.portalDomain = domain
+      user.portalDomainToken = domain ? newDomainToken() : null
+      user.portalDomainVerifiedAt = null
+    }
     await user.save()
     trackFor(ctx, 'brand_updated', { domain: Boolean(user.portalDomain) })
     session.flash('success', t('brand.saved'))
+    return response.redirect().back()
+  }
+
+  /** POST /settings/brand/domain/verify — sprawdzenie rekordu TXT domeny portalu (SEC-10). */
+  async verifyDomain(ctx: HttpContext) {
+    const { auth, session, response } = ctx
+    const user = auth.user!
+    if (!(await this.allowed(user.id))) {
+      session.flash('error', t('brand.locked'))
+      return response.redirect().back()
+    }
+    const result = await verifyPortalDomain(user)
+    trackFor(ctx, 'portal_domain_verify', { result })
+    if (result === 'verified') session.flash('success', t('brand.domainVerified'))
+    else
+      session.flash('error', t(result === 'taken' ? 'brand.domainTaken' : 'brand.domainNotFound'))
     return response.redirect().back()
   }
 

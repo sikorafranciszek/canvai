@@ -1,3 +1,4 @@
+import type { DateTime } from 'luxon'
 import { UserSchema } from '#database/schema'
 import hash from '@adonisjs/core/services/hash'
 import { compose } from '@adonisjs/core/helpers'
@@ -38,6 +39,13 @@ export default class User extends compose(UserSchema, withAuthFinder(hash)) {
   /** Własna domena portalu klienta (CNAME na aplikację). */
   @column()
   declare portalDomain: string | null
+
+  /** Token weryfikacji domeny portalu rekordem TXT (SEC-10). */
+  @column({ serializeAs: null })
+  declare portalDomainToken: string | null
+
+  @column.dateTime()
+  declare portalDomainVerifiedAt: DateTime | null
 
   /** Tagi nadawane w CRM (np. „agencja”, „beta”). */
   @column({ prepare: jsonPrepare, consume: jsonConsume })

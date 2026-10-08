@@ -1,5 +1,8 @@
 import { DateTime } from 'luxon'
 import { test } from '@japa/runner'
+import { domainDeps, verificationRecord } from '#services/portal_domain'
+
+const originalResolve = domainDeps.resolveTxt
 import testUtils from '@adonisjs/core/services/test_utils'
 import Board from '#models/board'
 import BoardShare from '#models/board_share'
@@ -141,8 +144,27 @@ test.group('Zakupy firmowe i white-label', (group) => {
       allowUpload: true,
       showDoc: true,
     })
+    // SEC-10: bez weryfikacji TXT link zostaje na adresie aplikacji.
+    const before = await client.get(`/api/boards/${board.id}/share`).headers({ cookie: cookies })
+    assert.notInclude(before.body().data.url, 'polnoc.pl')
+    await user.refresh()
+    const record = verificationRecord('projekty.polnoc.pl', user.portalDomainToken!)
+    domainDeps.resolveTxt = async (name: string) =>
+      name === record.name ? [['canvai-verify=wrong'], [record.value]] : []
+    try {
+      ;(
+        await client.post('/settings/brand/domain/verify').headers({ cookie: cookies }).redirects(0)
+      ).assertStatus(302)
+    } finally {
+      domainDeps.resolveTxt = originalResolve
+    }
+    await user.refresh()
+    assert.isNotNull(user.portalDomainVerifiedAt)
     const share = await client.get(`/api/boards/${board.id}/share`).headers({ cookie: cookies })
     assert.match(share.body().data.url, /^https:\/\/projekty\.polnoc\.pl\/c\//)
+
+    // Ograniczenie ścieżek na domenie agencji: tests/unit/host_middleware.spec.ts
+    // (serwer Vite w testach sam blokuje obce hosty).
 
     // Nagłówek DESIGN.md.
     const spec = validateDesignSpec({

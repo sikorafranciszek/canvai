@@ -53,6 +53,9 @@ export const pl = {
   'members.unnamed': 'Członek zespołu',
   'members.ownerUnnamed': 'Właściciel',
   'account.sessionsRevoked': 'Wylogowano ze wszystkich innych urządzeń.',
+  'brand.domainVerified': 'Domena zweryfikowana — linki portalu używają teraz Twojej domeny.',
+  'brand.domainNotFound':
+    'Nie znaleziono rekordu TXT. Dodaj go w DNS domeny i spróbuj ponownie (propagacja może potrwać do kilkudziesięciu minut).',
   'github.planOnly': 'Synchronizacja z GitHubem jest dostępna w planach płatnych.',
   'github.tokenRequired': 'Podaj token GitHub dla tego repozytorium.',
   'github.notConnected': 'Tablica nie ma połączonego repozytorium.',
@@ -344,6 +347,9 @@ export const en: Record<ServerMessageKey, string> = {
   'members.unnamed': 'Team member',
   'members.ownerUnnamed': 'Owner',
   'account.sessionsRevoked': 'Signed out of all other devices.',
+  'brand.domainVerified': 'Domain verified — portal links now use your domain.',
+  'brand.domainNotFound':
+    'TXT record not found. Add it in your domain’s DNS and try again (propagation can take a while).',
   'github.planOnly': 'GitHub sync is available on paid plans.',
   'github.tokenRequired': 'Provide a GitHub token for this repository.',
   'github.notConnected': 'This board has no connected repository.',

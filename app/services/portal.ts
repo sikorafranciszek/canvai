@@ -111,7 +111,8 @@ export async function printBrand(userId: number): Promise<PrintBrand> {
 /** Podstawa adresu portalu: własna domena agencji (white-label) albo adres aplikacji. */
 export async function portalBase(userId: number, fallback: string): Promise<string> {
   const owner = await User.find(userId)
-  if (!owner?.portalDomain) return fallback
+  // SEC-10: tylko zweryfikowana domena trafia do linków portalu.
+  if (!owner?.portalDomain || !owner.portalDomainVerifiedAt) return fallback
   const brand = await printBrand(userId)
   return brand.whiteLabel ? `https://${owner.portalDomain}` : fallback
 }

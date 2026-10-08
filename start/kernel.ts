@@ -36,6 +36,7 @@ server.use([
  * requests with a registered route.
  */
 router.use([
+  () => import('#middleware/host_middleware'),
   () => import('#middleware/analytics_middleware'),
   () => import('@adonisjs/core/bodyparser_middleware'),
   () => import('@adonisjs/session/session_middleware'),

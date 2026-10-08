@@ -5062,3 +5062,24 @@ li[data-done='true'] .sample-checklist__mark {
   gap: 8px;
   font-size: 13px;
 }
+
+/* Weryfikacja domeny portalu (SEC-10) */
+.brand-domain {
+  display: grid;
+  gap: 8px;
+  margin-top: var(--space-3, 12px);
+}
+
+.brand-domain__record {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.brand-domain__record dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

@@ -273,6 +273,46 @@ function BrandSection({ brand }: { brand: BrandSettings }) {
             </fieldset>
           )}
         </Form>
+        {brand.portalDomain ? (
+          <div className="brand-domain" data-testid="brand-domain-status">
+            {brand.portalDomainVerified ? (
+              <p className="t-small">
+                <span className="badge badge--success">{t('brand.domainOk')}</span>{' '}
+                {brand.portalDomain}
+              </p>
+            ) : brand.portalDomainRecord ? (
+              <>
+                <p className="t-small">{t('brand.domainVerifyHint')}</p>
+                <dl className="brand-domain__record">
+                  <dt>{t('brand.domainRecordName')}</dt>
+                  <dd>
+                    <code>{brand.portalDomainRecord.name}</code>
+                  </dd>
+                  <dt>{t('brand.domainRecordValue')}</dt>
+                  <dd>
+                    <code data-testid="brand-domain-token">{brand.portalDomainRecord.value}</code>
+                  </dd>
+                </dl>
+                <Form
+                  route="settings.brand.domain.verify"
+                  method="post"
+                  options={{ preserveScroll: true }}
+                >
+                  {({ processing }: FormState) => (
+                    <button
+                      type="submit"
+                      className="btn btn--sm"
+                      disabled={processing}
+                      data-testid="brand-domain-verify"
+                    >
+                      {t('brand.domainVerify')}
+                    </button>
+                  )}
+                </Form>
+              </>
+            ) : null}
+          </div>
+        ) : null}
         <div className="brand-logo">
           <span className="field__label">{t('brand.logo')}</span>
           {brand.logoUrl ? (
@@ -485,6 +525,8 @@ interface BrandSettings {
   accent: string | null
   logoUrl: string | null
   portalDomain: string | null
+  portalDomainVerified?: boolean
+  portalDomainRecord?: { name: string; value: string } | null
   appHost: string
 }
 

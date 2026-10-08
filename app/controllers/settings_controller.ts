@@ -10,6 +10,7 @@ import ApiToken from '#models/api_token'
 import { entitlementsFor } from '#services/billing/plans'
 import { trackFor } from '#services/analytics/events'
 import { revokeSessions } from '#services/sessions'
+import { verificationRecord } from '#services/portal_domain'
 
 function fieldError(field: string, message: string) {
   return new vineErrors.E_VALIDATION_ERROR([{ field, message, rule: field }])
@@ -41,6 +42,11 @@ export default class SettingsController {
             ? `/brand/${user.id}/logo?v=${encodeURIComponent(user.brandLogoKey.slice(-12))}`
             : null,
           portalDomain: user.portalDomain,
+          portalDomainVerified: Boolean(user.portalDomainVerifiedAt),
+          portalDomainRecord:
+            user.portalDomain && user.portalDomainToken && !user.portalDomainVerifiedAt
+              ? verificationRecord(user.portalDomain, user.portalDomainToken)
+              : null,
           appHost: new URL(absoluteUrl(ctx, '/')).host,
         },
         api: {
