@@ -8,6 +8,7 @@ import type { CommandOptions } from '@adonisjs/core/types/ace'
  *   --case=dark-chat        tylko jeden przypadek
  *   --save-baseline         zapisz wynik jako punkt odniesienia (tests/eval/baseline.json)
  *   --max-drop=5            błąd (exit 1), gdy wynik przypadku spadnie o więcej punktów
+ *   --runs=3                każdy przypadek kilka razy — średnia i odchylenie (model nie jest deterministyczny)
  *
  * Używa aktywnego dostawcy (AI_PROVIDER) — z `deepseek` to prawdziwe wywołania
  * modelu (koszt!). Uruchamiaj przed każdą zmianą promptu i porównuj z baseline.
@@ -26,6 +27,9 @@ export default class DesignEval extends BaseCommand {
   @flags.number({ description: 'Dopuszczalny spadek wyniku względem baseline', default: 5 })
   declare maxDrop: number
 
+  @flags.number({ description: 'Liczba uruchomień każdego przypadku', default: 1 })
+  declare runs: number
+
   async run() {
     const { default: app } = await import('@adonisjs/core/services/app')
     const { getProvider } = await import('#services/ai/provider')
@@ -43,11 +47,19 @@ export default class DesignEval extends BaseCommand {
       `Dostawca: ${provider.name} (${provider.compositionModel}), prompt ${PROMPT_VERSION}, przypadków: ${cases.length}`
     )
 
+    const runs = Math.max(1, Math.min(10, this.runs || 1))
     const results = []
     for (const c of cases) {
-      this.logger.info(`→ ${c.name}…`)
-      const r = await runCase(c, provider)
+      this.logger.info(`→ ${c.name}${runs > 1 ? ` ×${runs}` : ''}…`)
+      const all = []
+      for (let i = 0; i < runs; i++) all.push(await runCase(c, provider))
+      const scores = all.map((x) => x.score)
+      const mean = scores.reduce((a, b) => a + b, 0) / runs
+      const stdev = Math.sqrt(scores.reduce((a, b) => a + (b - mean) ** 2, 0) / runs)
+      // Raport: ostatnie uruchomienie (szczegóły) ze średnim wynikiem całej serii.
+      const r = { ...all[all.length - 1], score: Math.round(mean), runs: scores, stdev }
       results.push(r)
+      if (runs > 1) this.logger.info(`   wyniki ${scores.join(', ')} · σ ${stdev.toFixed(1)}`)
       const line = [
         `${r.case}: ${r.score}/100`,
         `kolory ${r.colors.found.length}/${r.colors.expected}`,

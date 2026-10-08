@@ -6,22 +6,17 @@ import Board from '#models/board'
 import BoardScene from '#models/board_scene'
 import type DesignDoc from '#models/design_doc'
 import { getProvider } from '#services/ai/provider'
-import {
-  AiProviderError,
-  InvalidModelOutputError,
-  type AiProvider,
-  type DesignSpec,
-} from '#services/ai/types'
-import { analyzeAssets, assertTokenBudget, type UsageTracker } from '#services/design/analyzer'
+import { AiProviderError, type AiProvider } from '#services/ai/types'
+import { analyzeAssets, type UsageTracker } from '#services/design/analyzer'
+import { composeVerifiedSpec } from '#services/design/compose'
 import {
   buildBoardContext,
   computeInputFingerprint,
   type BoardContext,
 } from '#services/design/board_context'
-import { composeInputPlan, PROMPT_VERSION } from '#services/design/prompts'
+import { PROMPT_VERSION } from '#services/design/prompts'
 import { renderDesignMd } from '#services/design/renderer'
-import { groundSpec } from '#services/design/spec'
-import { verifySpec, type Evidence } from '#services/design/verify'
+import type { Evidence } from '#services/design/verify'
 import type { AssetAnalysisData } from '#services/ai/types'
 import type { SceneDocument } from '#shared/scene'
 import { runWithLocale, t } from '#services/i18n'
@@ -83,11 +78,6 @@ export async function prepareGeneration(
   })
 
   return { board, assets, context, fingerprint, provider }
-}
-
-function addUsage(tracker: UsageTracker, add: { tokensIn: number; tokensOut: number }) {
-  tracker.tokensIn += add.tokensIn
-  tracker.tokensOut += add.tokensOut
 }
 
 /** Materiał dowodowy dla `verifySpec`: analizy, role materiałów i teksty ludzi. */
@@ -179,8 +169,7 @@ async function generate(
     onProgress({ stage: 'analyze', done: p.done, total: p.total })
   )
 
-  // Etap 2 — kompozycja z kontrolą ugruntowania; odrzucona odpowiedź wraca do
-  // modelu z listą problemów, do `limits.maxRetries` razy.
+  // Etap 2 — kompozycja, ugruntowanie i weryfikacja (wspólne z ewaluacją).
   await onProgress({ stage: 'compose', done: 0, total: 1 })
   const composeAssets = assets.map((a) => ({
     id: a.id,
@@ -191,54 +180,13 @@ async function generate(
     analysis: analyses.get(a.id)!,
     usage: a.usage,
   }))
-  const allowedIds = assets.map((a) => a.id)
-
-  // Jeden limit wywołań kompozycji na generację (AI-6). Odrzucona odpowiedź —
-  // błąd schematu albo ugruntowania — wraca do modelu z listą problemów (po
-  // angielsku, jak reszta promptu); identyczna powtórka niczego by nie zmieniła.
-  // Budżet wejścia (AI-5): szacunek przed wywołaniem; za duża tablica jest
-  // skracana stopniami, a dokument dostaje o tym ostrzeżenie.
-  const plan = composeInputPlan({ boardTitle: board.title, assets: composeAssets, context })
-  let spec: DesignSpec | null = null
-  let previousErrors: string[] = []
-  for (let call = 0; call < limits.maxComposeCalls && !spec; call++) {
-    assertTokenBudget(usage, plan.tokens)
-    let result: Awaited<ReturnType<AiProvider['composeDocument']>>
-    try {
-      result = await provider.composeDocument({
-        boardTitle: board.title,
-        assets: composeAssets,
-        context,
-        previousErrors: previousErrors.length ? previousErrors : undefined,
-        reasoning: doc.proMode,
-      })
-    } catch (error) {
-      // Tokeny nieudanych prób też się liczą (budżet, koszty).
-      if (error instanceof AiProviderError && error.usage) addUsage(usage, error.usage)
-      if (error instanceof InvalidModelOutputError) {
-        previousErrors = [error.message]
-        continue
-      }
-      throw error
-    }
-    addUsage(usage, result.usage)
-    doc.model = result.model
-
-    const problems = runWithLocale('en', () => groundSpec(result.data, allowedIds))
-    if (problems.length === 0) spec = result.data
-    else previousErrors = problems
-  }
-  if (!spec) {
-    // Bez ponawiania całego zadania — kolejne próby kosztowałyby tyle samo.
-    throw new AiProviderError(t('gen.notGrounded', { errors: previousErrors.join('; ') }), false)
-  }
-  if (plan.trimmed) {
-    spec.openQuestions.push(
-      'This board has many materials, so their extracted text and descriptions were shortened before composing. Check that key screens are covered, or generate from a smaller selection.'
-    )
-  }
-  // Kod sprawdza model: role materiałów, kolory, cytaty, marki (wspólne z ewaluacją).
-  verifySpec(spec, evidenceFor(board, assets, analyses, context))
+  const { spec, model } = await composeVerifiedSpec({
+    provider,
+    input: { boardTitle: board.title, assets: composeAssets, context, reasoning: doc.proMode },
+    usage,
+    evidence: evidenceFor(board, assets, analyses, context),
+  })
+  doc.model = model
 
   // Render
   await onProgress({ stage: 'render', done: 0, total: 1 })

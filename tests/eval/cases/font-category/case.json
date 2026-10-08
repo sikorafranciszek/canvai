@@ -1,0 +1,14 @@
+{
+  "boardTitle": "The Slow Garden Journal",
+  "notes": { "1-article.png": "Nagłówki szeryfowe, treść bezszeryfowa — tak ma zostać" },
+  "canvasNotes": [],
+  "expect": {
+    "colors": ["#fbf8f3", "#1c1917", "#3f6212"],
+    "fonts": [],
+    "fontsAssumed": true,
+    "text": ["The Slow Garden Journal", "Read the issue"],
+    "forbiddenColors": [],
+    "forbiddenPhrases": [],
+    "forbiddenComponents": []
+  }
+}

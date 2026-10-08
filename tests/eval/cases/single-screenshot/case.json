@@ -1,0 +1,14 @@
+{
+  "boardTitle": "Fernly — logowanie",
+  "notes": { "1-login.png": "Jedyny ekran, jaki mamy — z tego budujemy resztę" },
+  "canvasNotes": [],
+  "expect": {
+    "colors": ["#4f46e5", "#111827", "#ffffff", "#6b7280"],
+    "fonts": [],
+    "fontsAssumed": true,
+    "text": ["Sign in to Fernly", "Forgot password?"],
+    "forbiddenColors": [],
+    "forbiddenPhrases": ["lorem ipsum"],
+    "forbiddenComponents": ["modal", "toast", "date picker", "carousel", "pagination", "table", "tabs", "avatar"]
+  }
+}

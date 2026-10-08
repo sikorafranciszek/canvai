@@ -20,6 +20,34 @@ test.group('Zestaw ewaluacyjny DESIGN.md', () => {
     assert.lengthOf(result.invalidCss, 0)
   }).timeout(60_000)
 
+  test('wszystkie przypadki (w tym nowe AI-12) przechodzą pipeline produkcyjny na mocku', async ({
+    assert,
+  }) => {
+    const cases = await loadCases(app.makePath('tests/eval/cases'))
+    assert.includeMembers(
+      cases.map((c) => c.name),
+      [
+        'injection',
+        'single-screenshot',
+        'font-category',
+        'inspiration-layout',
+        'long-screenshot',
+        'many-materials',
+      ]
+    )
+    for (const c of cases) {
+      const result = await runCase(c, new MockProvider())
+      assert.isUndefined(result.error, `${c.name}: ${result.error}`)
+      assert.lengthOf(result.invalidCss, 0, c.name)
+    }
+    // Inspiracja „tylko układ”: neonowe kolory nie trafiają do tokenów (rola materiału).
+    const inspiration = await runCase(
+      cases.find((c) => c.name === 'inspiration-layout')!,
+      new MockProvider()
+    )
+    assert.notMatch(inspiration.violations.join(' '), /color #(ff00aa|39ff14|1b00ff)/)
+  }).timeout(120_000)
+
   test('ocena wykrywa brakujące fakty i zmyślenia', ({ assert }) => {
     const spec = validateDesignSpec({
       name: 'Chat',
@@ -40,7 +68,11 @@ test.group('Zestaw ewaluacyjny DESIGN.md', () => {
       boardTitle: 'x',
       notes: {},
       canvasNotes: [],
+      usage: {},
+      repeat: 1,
       expect: {
+        forbiddenComponents: ['Modal'],
+        fontsAssumed: true,
         colors: ['#0f0f0f', '#aaaaaa'],
         fonts: ['Roboto'],
         text: ['Czatuj jako subskrybent'],
@@ -48,10 +80,11 @@ test.group('Zestaw ewaluacyjny DESIGN.md', () => {
         forbiddenPhrases: ['Czatzuj', 'own color'],
       },
     }
-    const s = scoreSpec(c, spec, `Each user has its own color. Czatzuj`, '')
+    const s = scoreSpec(c, spec, `Each user has its own color. Czatzuj`)
     assert.deepEqual(s.colors.missing, ['#aaaaaa'])
     assert.deepEqual(s.text.missing, ['Czatuj jako subskrybent'])
-    assert.lengthOf(s.violations, 3)
+    // Kolor alertu w tokenach, dwie frazy, Roboto podany jako fakt przy fontsAssumed.
+    assert.lengthOf(s.violations, 4)
     assert.deepEqual(invalidCssTokens(spec), [])
   })
 })

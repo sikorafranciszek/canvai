@@ -1,0 +1,20 @@
+{
+  "boardTitle": "Tidewater — wypożyczalnia łodzi",
+  "notes": {
+    "1-own.png": "Nasza obecna strona — kolory i styl marki",
+    "2-ref.png": "Podoba nam się tylko układ siatki, nie kolory"
+  },
+  "usage": {
+    "1-own.png": { "role": "own", "aspects": [] },
+    "2-ref.png": { "role": "inspiration", "aspects": ["layout"] }
+  },
+  "canvasNotes": [],
+  "expect": {
+    "colors": ["#0e7c86", "#f7f5f0", "#1f2933"],
+    "fonts": [],
+    "text": ["Book a boat"],
+    "forbiddenColors": ["#ff00aa", "#39ff14", "#1b00ff"],
+    "forbiddenPhrases": ["NEON GRID"],
+    "forbiddenComponents": []
+  }
+}

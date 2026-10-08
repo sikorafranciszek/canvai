@@ -1,0 +1,14 @@
+{
+  "boardTitle": "Sklep — 40 zrzutów",
+  "notes": {},
+  "repeat": 20,
+  "canvasNotes": [],
+  "expect": {
+    "colors": ["#0f766e", "#0f172a"],
+    "fonts": [],
+    "text": ["Add to cart"],
+    "forbiddenColors": [],
+    "forbiddenPhrases": [],
+    "forbiddenComponents": []
+  }
+}

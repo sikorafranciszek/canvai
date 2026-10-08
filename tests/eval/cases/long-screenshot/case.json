@@ -1,0 +1,13 @@
+{
+  "boardTitle": "Ziarno — długa strona główna",
+  "notes": { "1-landing.png": "Cała strona główna jednym zrzutem" },
+  "canvasNotes": [],
+  "expect": {
+    "colors": ["#fffaf3", "#2b1d16", "#c0622d"],
+    "fonts": [],
+    "text": ["Roasted on Mondays", "Join 2,000 roasters", "Get the newsletter"],
+    "forbiddenColors": [],
+    "forbiddenPhrases": [],
+    "forbiddenComponents": []
+  }
+}
