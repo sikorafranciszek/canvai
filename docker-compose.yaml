@@ -73,6 +73,8 @@ services:
       - BACKUP_KEEP_DAYS=${BACKUP_KEEP_DAYS:-14}
       # Alerty (błędy serwera, nieudane generacje i kopie): mail do ADMIN_EMAILS + webhook Slack/Discord.
       - ALERT_WEBHOOK_URL=${ALERT_WEBHOOK_URL:-}
+      # Monitoring: /health/deep (worker, kolejka, dysk, kopie). Token odsłania szczegóły.
+      - HEALTH_TOKEN=${HEALTH_TOKEN:-}
       # Bezpieczniki kosztów AI (dziennie): globalnie i na konto.
       - AI_DAILY_TOKEN_BUDGET=${AI_DAILY_TOKEN_BUDGET:-30000000}
       - AI_USER_DAILY_GENERATIONS=${AI_USER_DAILY_GENERATIONS:-40}

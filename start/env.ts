@@ -96,6 +96,8 @@ export default await Env.create(new URL('../', import.meta.url), {
   BACKUP_KEEP_DAYS: Env.schema.number.optional(),
   ALERT_WEBHOOK_URL: Env.schema.string.optional(),
   ALERT_EMAIL: Env.schema.boolean.optional(),
+  /** Token do szczegółów /health/deep (monitoring). Bez niego tylko status. */
+  HEALTH_TOKEN: Env.schema.string.optional(),
 
   // Produkcja: trwałe ścieżki na wolumenie i zaufanie do reverse proxy.
   SQLITE_PATH: Env.schema.string.optional(),

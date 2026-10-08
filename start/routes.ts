@@ -19,6 +19,21 @@ router.get('/health', async ({ response }) => {
   return response.json({ status: 'ok' })
 })
 
+/**
+ * Pełny stan dla monitoringu (worker, kolejka, dysk, kopie, analityka).
+ * 503 przy awarii. Szczegóły tylko z tokenem HEALTH_TOKEN (nagłówek lub ?token=).
+ */
+router.get('/health/deep', async ({ request, response }) => {
+  const { deepHealth } = await import('#services/ops/health')
+  const { default: env } = await import('#start/env')
+  const result = await deepHealth()
+  const token = env.get('HEALTH_TOKEN')
+  const given = request.header('x-health-token') ?? request.qs().token
+  response.status(result.status === 'fail' ? 503 : 200)
+  response.header('Cache-Control', 'no-store')
+  return token && given === token ? result : { status: result.status }
+})
+
 router
   .get('/', [controllers.Board, 'index'])
   .as('home')

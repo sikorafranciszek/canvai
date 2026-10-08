@@ -17,6 +17,7 @@ import { recoverStaleJobs, runPendingJobs } from '#services/queue'
 import { runDueTasks } from '#services/ops/scheduler'
 import { flushAlerts } from '#services/ops/alerts'
 import '#services/ops/tasks'
+import { workerPulse } from '#services/ops/health'
 
 const POLL_MS = 1000
 const RECOVER_EVERY_MS = 60_000
@@ -25,10 +26,13 @@ const SCHEDULER_EVERY_MS = 60_000
 if (env.get('QUEUE_INLINE_WORKER', true)) {
   let busy = false
   let lastRecover = 0
+  workerPulse.enabled = true
 
   const tick = async () => {
+    workerPulse.lastTickAt = Date.now()
     if (busy) return
     busy = true
+    workerPulse.busySince = Date.now()
     try {
       if (Date.now() - lastRecover > RECOVER_EVERY_MS) {
         lastRecover = Date.now()
@@ -39,6 +43,7 @@ if (env.get('QUEUE_INLINE_WORKER', true)) {
       logger.error({ err: error }, 'queue worker tick failed')
     } finally {
       busy = false
+      workerPulse.busySince = 0
     }
   }
 

@@ -12,7 +12,7 @@ import {
 } from '#services/analytics/collector'
 import { currentLocale } from '#services/i18n'
 
-const SKIP = new Set(['/health'])
+const SKIP = new Set(['/health', '/health/deep'])
 
 /**
  * Każde żądanie → tabela `requests` (trasa, status, czas, urządzenie).
