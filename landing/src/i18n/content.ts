@@ -83,7 +83,7 @@ const en = {
       },
       {
         title: 'Arrange',
-        text: 'Group screens with frames, show the user flow with arrows and describe each material in a short note.',
+        text: 'Group screens with frames (F), show the user flow with arrows and describe each material in a short note.',
       },
       {
         title: 'Generate',
@@ -98,32 +98,32 @@ const en = {
       {
         icon: 'canvas',
         title: 'Infinite canvas',
-        text: 'Shapes, arrows, frames, sticky notes and text — an Excalidraw-like board built for design briefs.',
+        text: 'Shapes, arrows, named screen frames, sticky notes and text — plus cropping part of a screenshot into its own material.',
       },
       {
         icon: 'paste',
         title: 'Paste anything',
-        text: 'Screenshots from the clipboard, drag & drop, multi-file upload and link cards with page metadata.',
+        text: 'Screenshots from the clipboard, drag & drop, PDFs, link cards, styles imported from a website or a Figma file.',
       },
       {
         icon: 'grounded',
         title: 'Grounded in your materials',
-        text: 'Every color, font and component cites the asset it came from. Assumptions are marked and listed as open questions.',
+        text: 'Every color, font and component cites the asset it came from. Assumptions are marked, and a quality score shows what still needs confirming.',
       },
       {
         icon: 'tokens',
-        title: 'Tokens to code',
-        text: 'Ready-to-paste CSS custom properties and a Tailwind v4 theme, generated from the same tokens as the tables.',
+        title: 'Ready for your AI tools',
+        text: 'CSS, Tailwind, design tokens JSON, Cursor rules, CLAUDE.md and AGENTS.md — plus an MCP server, a REST API and pull requests to GitHub.',
       },
       {
         icon: 'flows',
         title: 'Screens & flows',
-        text: 'Arrows and frames on the board become screens and user flows in the spec — layout is part of the signal.',
+        text: 'Named frames become screens and arrows become user flows in the spec — layout is part of the signal.',
       },
       {
         icon: 'versions',
-        title: 'Versions & diff',
-        text: 'Regenerate when the brief changes, compare versions line by line and download the Markdown file.',
+        title: 'Versions that explain themselves',
+        text: 'See what changed and why, fix a version with a plain command (“darker primary”) or regenerate a single section.',
       },
       {
         icon: 'lang',
@@ -131,9 +131,9 @@ const en = {
         text: 'The whole app, emails and messages in both languages — switch any time.',
       },
       {
-        icon: 'lock',
-        title: 'Private by default',
-        text: 'Boards and files are visible only to their owner. Accounts are protected with email verification.',
+        icon: 'users',
+        title: 'Team & client portal',
+        text: 'Invite editors and viewers, work live with comments. Clients send materials and approve a visual spec — the approved version is what your tools get.',
       },
     ],
   },
@@ -268,7 +268,7 @@ const en = {
       },
       {
         q: 'Which AI tools can use it?',
-        a: 'Any tool that accepts text context — v0, Lovable, Bolt, Cursor, Claude, ChatGPT and others. Paste the file or add it to the project.',
+        a: 'Any tool that accepts text context — v0, Lovable, Bolt, Cursor, Claude Code, Codex, ChatGPT and others. Download ready files, connect your agent over MCP, or let canvai open a pull request in your GitHub repository.',
       },
       {
         q: 'What materials can I add?',
@@ -279,8 +279,8 @@ const en = {
         a: 'Every token and component cites the material it comes from. When something is not shown — for example the exact font — canvai proposes a sensible default, marks it as an assumption and lists it under open questions.',
       },
       {
-        q: 'Are my materials private?',
-        a: 'Yes. Boards and files are visible only to their owner and are never published.',
+        q: 'Who can see my boards?',
+        a: 'Only you and the people you invite. A client portal link exists only when you turn it on, and you can revoke it at any time. Materials are never published.',
       },
       {
         q: 'How much does it cost?',
@@ -377,7 +377,7 @@ const pl: Content = {
       },
       {
         title: 'Ułóż',
-        text: 'Pogrupuj ekrany ramkami, pokaż przepływ strzałkami i opisz każdy materiał krótką notatką.',
+        text: 'Pogrupuj ekrany ramkami (F), pokaż przepływ strzałkami i opisz każdy materiał krótką notatką.',
       },
       {
         title: 'Wygeneruj',
@@ -392,32 +392,32 @@ const pl: Content = {
       {
         icon: 'canvas',
         title: 'Nieskończone płótno',
-        text: 'Kształty, strzałki, ramki, karteczki i tekst — tablica w stylu Excalidraw stworzona pod briefy designu.',
+        text: 'Kształty, strzałki, nazwane ramki ekranów, karteczki i tekst — a do tego wycinanie fragmentu zrzutu jako osobnego materiału.',
       },
       {
         icon: 'paste',
         title: 'Wklej cokolwiek',
-        text: 'Zrzuty ze schowka, przeciąganie plików, upload wielu plików naraz i karty linków z opisem strony.',
+        text: 'Zrzuty ze schowka, przeciąganie plików, PDF-y, karty linków oraz style zaimportowane ze strony albo z pliku Figma.',
       },
       {
         icon: 'grounded',
         title: 'Oparte na Twoich materiałach',
-        text: 'Każdy kolor, font i komponent wskazuje materiał, z którego pochodzi. Założenia są oznaczone i trafiają do otwartych pytań.',
+        text: 'Każdy kolor, font i komponent wskazuje materiał, z którego pochodzi. Założenia są oznaczone, a ocena jakości pokazuje, co jeszcze potwierdzić.',
       },
       {
         icon: 'tokens',
-        title: 'Tokeny prosto do kodu',
-        text: 'Gotowe zmienne CSS i motyw Tailwind v4, generowane z tych samych tokenów co tabele.',
+        title: 'Gotowe dla Twoich narzędzi AI',
+        text: 'CSS, Tailwind, tokeny JSON, reguły Cursora, CLAUDE.md i AGENTS.md — a także serwer MCP, REST API i pull requesty do GitHuba.',
       },
       {
         icon: 'flows',
         title: 'Ekrany i przepływy',
-        text: 'Strzałki i ramki z tablicy stają się ekranami i ścieżkami użytkownika w specyfikacji — układ też jest informacją.',
+        text: 'Nazwane ramki stają się ekranami, a strzałki ścieżkami użytkownika w specyfikacji — układ też jest informacją.',
       },
       {
         icon: 'versions',
-        title: 'Wersje i porównania',
-        text: 'Generuj ponownie po zmianie briefu, porównuj wersje linia po linii i pobieraj plik Markdown.',
+        title: 'Wersje, które się tłumaczą',
+        text: 'Widzisz, co się zmieniło i dlaczego, poprawiasz wersję zwykłym poleceniem („ciemniejszy primary”) albo generujesz od nowa jedną sekcję.',
       },
       {
         icon: 'lang',
@@ -425,9 +425,9 @@ const pl: Content = {
         text: 'Cała aplikacja, maile i komunikaty w obu językach — zmienisz w każdej chwili.',
       },
       {
-        icon: 'lock',
-        title: 'Prywatne domyślnie',
-        text: 'Tablice i pliki widzi tylko ich właściciel. Konta chroni weryfikacja adresu e-mail.',
+        icon: 'users',
+        title: 'Zespół i portal klienta',
+        text: 'Zapraszaj edytorów i osoby do podglądu, pracujcie na żywo z komentarzami. Klient przesyła materiały i akceptuje wizualną specyfikację — narzędzia dostają zaakceptowaną wersję.',
       },
     ],
   },
@@ -562,7 +562,7 @@ const pl: Content = {
       },
       {
         q: 'Z jakimi narzędziami AI działa?',
-        a: 'Z każdym, które przyjmuje kontekst tekstowy — v0, Lovable, Bolt, Cursor, Claude, ChatGPT i innymi. Wklej plik albo dodaj go do projektu.',
+        a: 'Z każdym, które przyjmuje kontekst tekstowy — v0, Lovable, Bolt, Cursor, Claude Code, Codex, ChatGPT i innymi. Pobierz gotowe pliki, podłącz agenta przez MCP albo pozwól canvai otworzyć pull request w Twoim repozytorium GitHub.',
       },
       {
         q: 'Jakie materiały mogę dodać?',
@@ -573,8 +573,8 @@ const pl: Content = {
         a: 'Każdy token i komponent wskazuje materiał, z którego pochodzi. Gdy czegoś nie widać — np. dokładnego fontu — canvai proponuje rozsądną wartość, oznacza ją jako założenie i dopisuje do otwartych pytań.',
       },
       {
-        q: 'Czy moje materiały są prywatne?',
-        a: 'Tak. Tablice i pliki widzi tylko ich właściciel i nigdy nie są publikowane.',
+        q: 'Kto widzi moje tablice?',
+        a: 'Tylko Ty i osoby, które zaprosisz. Link do portalu klienta istnieje tylko wtedy, gdy go włączysz, i możesz go w każdej chwili odwołać. Materiały nigdy nie są publikowane.',
       },
       {
         q: 'Ile to kosztuje?',
