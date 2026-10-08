@@ -19,6 +19,7 @@ import {
   InsufficientCreditsError,
   balanceOf,
   ensureAutomaticGrants,
+  releaseAll,
   reserveCredits,
 } from '#services/billing/credits'
 import { estimateGeneration } from '#services/billing/estimate'
@@ -332,6 +333,47 @@ export default class DesignDocsController {
     return response
       .status(202)
       .json({ data: { doc: await this.serialize(doc, false), reused: false } })
+  }
+
+  /**
+   * POST /api/boards/:id/design-doc/cancel — anuluje generację w toku (UX-11).
+   * Zadanie w kolejce nie ruszy; trwające zatrzyma się na najbliższym punkcie
+   * kontrolnym. Rezerwacja kredytów wraca w całości (gotowe analizy zostają w
+   * cache — ponowna generacja ich nie powtórzy).
+   */
+  async cancel(ctx: HttpContext) {
+    const { auth, params, response } = ctx
+    const board = await this.findBoard(auth.user!.id, params.id, 'edit')
+    if (!board) return response.notFound()
+
+    const cancelled = await db.transaction(async (trx) => {
+      await lockBoard(trx, board.id)
+      const doc = await DesignDoc.query({ client: trx })
+        .where('board_id', board.id)
+        .whereIn('status', ['queued', 'running'])
+        .first()
+      if (!doc) return null
+      await DesignDoc.query({ client: trx })
+        .where('id', doc.id)
+        .update({ status: 'failed', error: t('doc.cancelled') })
+      if (doc.jobId) {
+        await trx.from('jobs').where('id', doc.jobId).where('status', 'queued').update({
+          status: 'failed',
+          last_error: 'cancelled',
+          locked_at: null,
+          locked_by: null,
+          updated_at: new Date(),
+        })
+      }
+      return doc
+    })
+    if (!cancelled) return response.notFound()
+
+    await releaseAll({ designDocId: cancelled.id }, 'generation cancelled')
+    trackFor(ctx, 'design_doc_cancelled', { version: cancelled.version }, { boardId: board.id })
+    publish(board.id, 'doc', { version: cancelled.version, status: 'failed' })
+    await cancelled.refresh()
+    return response.json({ data: await this.serialize(cancelled, false) })
   }
 
   /** GET /api/boards/:id/design-doc?version= — najnowsza (lub wskazana) wersja z treścią. */

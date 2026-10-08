@@ -7,6 +7,7 @@ import { AssetPanel } from '~/components/canvas/AssetPanel'
 import { DesignDocPanel } from '~/components/design/DesignDocPanel'
 import { useDesignStore, type SidePanelTab } from '~/lib/board/design'
 import { useCanvasAssets } from '~/lib/board/session'
+import { useSceneStore } from '~/lib/scene/store'
 import { useT } from '~/i18n'
 
 const WIDTH: Record<SidePanelTab, number> = { assets: 320, design: 480 }
@@ -83,6 +84,16 @@ export function GenerateDesignDocButton() {
   const starting = useDesignStore((s) => s.starting)
   const pending = useDesignStore((s) => Boolean(s.active))
   const busy = starting || pending
+  // Pusta tablica: przycisk nieaktywny od razu, z wyjaśnieniem (zamiast błędu serwera).
+  const hasAssets = useCanvasAssets().length > 0
+  const hasNotes = useSceneStore((s) =>
+    s.document.elements.some(
+      (el) =>
+        (el.type === 'sticky' || el.type === 'text') &&
+        Boolean((el as { text?: string }).text?.trim())
+    )
+  )
+  const empty = !hasAssets && !hasNotes
   const estimate = useDesignStore((s) => s.estimate)
   const { tp } = useT()
   const showCost = estimate?.enforced && !busy
@@ -94,14 +105,16 @@ export function GenerateDesignDocButton() {
       style={{ height: 32 }}
       data-testid="generate-design-doc"
       onClick={() => void generate()}
-      disabled={busy}
+      disabled={busy || empty}
       aria-busy={busy}
       title={
-        showCost
-          ? `${t('editor.generateHint')} — ${
-              estimate.unchanged ? t('doc.costUnchanged') : tp('count.credits', estimate.credits)
-            }`
-          : t('editor.generateHint')
+        empty
+          ? t('doc.needsContent')
+          : showCost
+            ? `${t('editor.generateHint')} — ${
+                estimate.unchanged ? t('doc.costUnchanged') : tp('count.credits', estimate.credits)
+              }`
+            : t('editor.generateHint')
       }
     >
       {busy ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Sparkles />}

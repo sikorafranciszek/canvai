@@ -346,6 +346,74 @@ test.group('Billing', (group) => {
     assert.equal(await balanceOf(user.id), before, 'kredyty wróciły')
   })
 
+  test('anulowanie generacji (UX-11): w kolejce i w trakcie — pełny zwrot, bez dokumentu', async ({
+    client,
+    assert,
+  }) => {
+    const user = await makeUser()
+    const cookies = await login(client, user)
+    const board = await createBoard(user)
+    await seedBoard(client, cookies, board)
+    await grantCredits(user.id, {
+      source: 'admin',
+      amount: 100,
+      expiresAt: null,
+      externalId: `t-cancel-${user.id}`,
+    })
+    await ensureAutomaticGrants(user.id)
+    const before = await balanceOf(user.id)
+
+    // 1. W kolejce: zadanie nie rusza, kredyty wracają, tablica wolna.
+    const queued = await client
+      .post(`/api/boards/${board.id}/design-doc`)
+      .headers({ cookie: cookies })
+      .json({})
+    queued.assertStatus(202)
+    assert.isBelow(await balanceOf(user.id), before)
+    const cancel = await client
+      .post(`/api/boards/${board.id}/design-doc/cancel`)
+      .headers({ cookie: cookies })
+    cancel.assertStatus(200)
+    assert.equal(cancel.body().data.status, 'failed')
+    assert.equal(await balanceOf(user.id), before, 'pełny zwrot')
+    let calls = 0
+    const counting = new MockProvider()
+    const compose = counting.composeDocument.bind(counting)
+    counting.composeDocument = async (input) => {
+      calls++
+      return compose(input)
+    }
+    setProviderOverride(counting)
+    await runPendingJobs()
+    assert.equal(calls, 0, 'anulowane zadanie nie wywołało modelu')
+    const first = await DesignDoc.findOrFail(queued.body().data.doc.id)
+    assert.equal(first.status, 'failed')
+    ;(
+      await client.post(`/api/boards/${board.id}/design-doc/cancel`).headers({ cookie: cookies })
+    ).assertStatus(404)
+
+    // 2. W trakcie: anulowanie podczas kompozycji — wynik porzucony, kredyty wracają.
+    const running = await client
+      .post(`/api/boards/${board.id}/design-doc`)
+      .headers({ cookie: cookies })
+      .json({ force: true })
+    running.assertStatus(202)
+    const slow = new MockProvider()
+    const realCompose = slow.composeDocument.bind(slow)
+    slow.composeDocument = async (input) => {
+      ;(
+        await client.post(`/api/boards/${board.id}/design-doc/cancel`).headers({ cookie: cookies })
+      ).assertStatus(200)
+      return realCompose(input)
+    }
+    setProviderOverride(slow)
+    await runPendingJobs()
+    const second = await DesignDoc.findOrFail(running.body().data.doc.id)
+    assert.equal(second.status, 'failed')
+    assert.isNull(second.contentMd)
+    assert.equal(await balanceOf(user.id), before, 'pełny zwrot także w trakcie')
+  })
+
   test('plan Free: 1 tablica, bez Pro reasoning i eksportów', async ({ client, assert }) => {
     const user = await makeUser()
     const cookies = await login(client, user)

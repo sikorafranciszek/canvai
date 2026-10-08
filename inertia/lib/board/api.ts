@@ -408,6 +408,17 @@ export async function editDesignDoc(
   return (await parseJson<{ data: DesignDocDto }>(res)).data
 }
 
+/** Anuluje generację w toku (UX-11); zwraca anulowaną wersję. */
+export async function cancelDesignDoc(boardId: number): Promise<DesignDocDto> {
+  const res = await fetch(`/api/boards/${boardId}/design-doc/cancel`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...csrfHeaders() },
+    credentials: 'same-origin',
+  })
+  if (!res.ok) throw await httpError(res, translate('doc.cancelFailed'))
+  return (await parseJson<{ data: DesignDocDto }>(res)).data
+}
+
 export class DesignDocRequestError extends Error {
   constructor(
     message: string,

@@ -57,6 +57,13 @@ const handlers: Record<string, JobHandler> = {
     },
     async onFailed(job, message) {
       const docId = job.payload.designDocId as number
+      // Anulowana przez użytkownika (UX-11): dokument już jest failed z powodem,
+      // kredyty zwrócone — bez nadpisywania, alertu i drugiego powiadomienia.
+      const current = await DesignDoc.find(docId)
+      if (current?.status === 'failed') {
+        await releaseAll({ designDocId: docId })
+        return
+      }
       await DesignDoc.query().where('id', docId).update({ status: 'failed', error: message })
       const board = await Board.find(job.payload.boardId as number)
       track(
@@ -79,8 +86,10 @@ const handlers: Record<string, JobHandler> = {
       }
     },
     async onRetry(job, message) {
+      // Tylko trwająca generacja wraca do kolejki — anulowana zostaje anulowana.
       await DesignDoc.query()
         .where('id', job.payload.designDocId as number)
+        .whereIn('status', ['queued', 'running'])
         .update({ status: 'queued', error: t('gen.retrying', { message }) })
     },
   },

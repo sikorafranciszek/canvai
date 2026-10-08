@@ -9,6 +9,7 @@ import { create } from 'zustand'
 import { toast } from 'sonner'
 import { fetchEstimate, useBillingStore, type CostEstimate } from '~/lib/billing'
 import {
+  cancelDesignDoc,
   DesignDocRequestError,
   editDesignDoc,
   generateDesignDoc,
@@ -64,6 +65,8 @@ interface DesignState {
   refreshRemote: () => Promise<void>
   /** Ręczna edycja tokenów bieżącej wersji → nowa wersja. Zwraca `true` po sukcesie. */
   applyEdits: (edits: DocEdits) => Promise<boolean>
+  /** Anuluje generację w toku — kredyty wracają w całości (UX-11). */
+  cancel: () => Promise<void>
   /** Czy działa strumień zdarzeń (ustawia `live.ts`). */
   liveConnected: boolean
   /** Zdarzenie `doc` z serwera: postęp / koniec mojej generacji albo nowa wersja współpracownika. */
@@ -155,6 +158,23 @@ export const useDesignStore = create<DesignState>()((set, get) => {
     starting: false,
     reusedNotice: false,
     liveConnected: false,
+
+    async cancel() {
+      const { boardId, active } = get()
+      if (boardId == null || !active) return
+      try {
+        const doc = await cancelDesignDoc(boardId)
+        seq++
+        stopPolling()
+        set({ active: null })
+        await refreshVersions(boardId)
+        if (!get().current || get().current?.version === doc.version) set({ current: doc })
+        void useBillingStore.getState().load()
+        toast.info(translate('doc.cancelled'))
+      } catch (error) {
+        notifyError(error, 'doc.cancelFailed')
+      }
+    },
 
     onDocEvent(event) {
       const { boardId, active } = get()

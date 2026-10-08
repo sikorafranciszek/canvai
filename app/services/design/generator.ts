@@ -4,7 +4,7 @@ import Asset from '#models/asset'
 import { referencedAssetIds } from '#services/assets_service'
 import Board from '#models/board'
 import BoardScene from '#models/board_scene'
-import type DesignDoc from '#models/design_doc'
+import DesignDoc from '#models/design_doc'
 import { getProvider } from '#services/ai/provider'
 import { AiProviderError, type AiProvider } from '#services/ai/types'
 import { analyzeAssets, type UsageTracker } from '#services/design/analyzer'
@@ -127,6 +127,22 @@ export async function whiteLabelName(userId: number): Promise<string | null> {
   return brand.whiteLabel ? brand.name : null
 }
 
+/** Generacja anulowana przez użytkownika — bez ponawiania. */
+export class GenerationCancelled extends AiProviderError {
+  constructor() {
+    super(t('doc.cancelled'), false)
+    this.name = 'GenerationCancelled'
+  }
+}
+
+/** Punkt kontrolny: czy dokument nadal jest w toku (nie został anulowany). */
+async function assertActive(docId: number): Promise<void> {
+  const row = await DesignDoc.query().where('id', docId).select('status').first()
+  if (!row || (row.status !== 'running' && row.status !== 'queued')) {
+    throw new GenerationCancelled()
+  }
+}
+
 export async function runGeneration(
   doc: DesignDoc,
   onProgress: (progress: GenerationProgress) => Promise<void> | void
@@ -139,12 +155,25 @@ export async function runGeneration(
   const preflight = preflightError(input)
   if (preflight) throw new AiProviderError(preflight, false)
 
+  // Start tylko z kolejki — dokument anulowany w międzyczasie (UX-11) nie rusza.
+  const claimed = await DesignDoc.query()
+    .where('id', doc.id)
+    .whereIn('status', ['queued', 'running'])
+    .update({
+      status: 'running',
+      error: null,
+      model: provider.compositionModel,
+      prompt_version: PROMPT_VERSION,
+      input_fingerprint: input.fingerprint,
+    })
+  if (!(Array.isArray(claimed) ? Number(claimed[0]) : Number(claimed))) {
+    throw new GenerationCancelled()
+  }
   doc.status = 'running'
   doc.error = null
   doc.model = provider.compositionModel
   doc.promptVersion = PROMPT_VERSION
   doc.inputFingerprint = input.fingerprint
-  await doc.save()
 
   const usage: UsageTracker = { tokensIn: 0, tokensOut: 0 }
   try {
@@ -165,10 +194,12 @@ async function generate(
   const { provider, assets, context, board } = input
 
   // Etap 1
-  const { analyses, analyzed, cached } = await analyzeAssets(assets, provider, usage, (p) =>
-    onProgress({ stage: 'analyze', done: p.done, total: p.total })
-  )
+  const { analyses, analyzed, cached } = await analyzeAssets(assets, provider, usage, async (p) => {
+    if (p.done > 0) await assertActive(doc.id)
+    await onProgress({ stage: 'analyze', done: p.done, total: p.total })
+  })
 
+  await assertActive(doc.id)
   // Etap 2 — kompozycja, ugruntowanie i weryfikacja (wspólne z ewaluacją).
   await onProgress({ stage: 'compose', done: 0, total: 1 })
   const composeAssets = assets.map((a) => ({
@@ -188,6 +219,7 @@ async function generate(
   })
   doc.model = model
 
+  await assertActive(doc.id)
   // Render
   await onProgress({ stage: 'render', done: 0, total: 1 })
   const generatedAt = DateTime.utc()
@@ -210,6 +242,7 @@ async function generate(
 
   const content = await withPlanFooter(markdown, board.userId)
 
+  await assertActive(doc.id)
   doc.status = 'ready'
   doc.contentMd = content
   doc.spec = spec

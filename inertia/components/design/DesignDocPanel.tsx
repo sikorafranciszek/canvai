@@ -66,7 +66,13 @@ export function DesignDocPanel() {
   const limits = useBillingStore((s) => s.summary?.limits)
   const showPreview = usePreviewStore((s) => s.show)
 
-  const { t } = useT()
+  const { t, tp } = useT()
+  const estimate = useDesignStore((s) => s.estimate)
+  // Koszt ponownej generacji widoczny na przycisku, nie tylko w podpowiedzi (UX-11).
+  const retryCost =
+    estimate?.enforced && !estimate.unchanged && estimate.credits > 0
+      ? ` · ${tp('count.credits', estimate.credits)}`
+      : ''
   const assets = useBoardStore((s) => s.assets)
   const canEdit = useCanEdit()
   const canvasAssets = useCanvasAssets()
@@ -315,6 +321,7 @@ export function DesignDocPanel() {
                   >
                     <RefreshCw />
                     {t('common.retry')}
+                    {retryCost}
                   </button>
                 </div>
               </div>
@@ -337,6 +344,7 @@ export function DesignDocPanel() {
                     >
                       <RefreshCw />
                       {t('doc.generateAnyway')}
+                      {retryCost}
                     </button>
                   </div>
                 </div>
@@ -444,6 +452,9 @@ function shortTitle(title: string): string {
 
 function GenerationProgress({ doc }: { doc: DesignDocDto }) {
   const { t } = useT()
+  const canEdit = useCanEdit()
+  const cancel = useDesignStore((s) => s.cancel)
+  const [cancelling, setCancelling] = useState(false)
   const stageIndex = doc.progress ? STAGES.findIndex((s) => s.key === doc.progress!.stage) : -1
   return (
     <div
@@ -461,6 +472,21 @@ function GenerationProgress({ doc }: { doc: DesignDocDto }) {
         <span className="t-muted" style={{ marginLeft: 'auto', fontSize: 12 }}>
           {progressLabel(doc)}
         </span>
+        {canEdit ? (
+          <button
+            type="button"
+            className="btn btn--quiet btn--sm"
+            data-testid="design-doc-cancel"
+            disabled={cancelling}
+            onClick={async () => {
+              setCancelling(true)
+              await cancel()
+              setCancelling(false)
+            }}
+          >
+            {t('common.cancel')}
+          </button>
+        ) : null}
       </div>
       <div className="progress">
         <div

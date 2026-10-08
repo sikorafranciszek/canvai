@@ -41,6 +41,7 @@ export const pl = {
 
   // DESIGN.md — API
   'doc.inProgress': 'Generacja DESIGN.md dla tej tablicy już trwa',
+  'doc.cancelled': 'Generacja anulowana — kredyty wróciły na konto',
   'doc.emptyBoard': 'Tablica jest pusta — dodaj zrzuty ekranu, obrazy, linki albo notatki',
   'doc.tooManyAssets':
     'Tablica ma {count} materiałów, a limit jednej generacji to {limit}. Usuń część materiałów albo podnieś limit w config/ai.ts.',
@@ -304,6 +305,7 @@ export const en: Record<ServerMessageKey, string> = {
   'asset.mismatch.unknown': 'unknown',
 
   'doc.inProgress': 'DESIGN.md generation for this board is already running',
+  'doc.cancelled': 'Generation cancelled — your credits were returned',
   'doc.emptyBoard': 'The board is empty — add screenshots, images, links or notes',
   'doc.tooManyAssets':
     'The board has {count} materials and the per-generation limit is {limit}. Remove some materials or raise the limit in config/ai.ts.',

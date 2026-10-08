@@ -129,6 +129,8 @@ test.group('Collaboration e2e', (group) => {
     const ownerPage = await visit(`/boards/${board.id}`)
     await ownerPage.locator('[data-testid=canvas-root]').waitFor()
     const origin = new URL(ownerPage.url()).origin
+    // Pusta tablica: „Generuj” nieaktywny od razu (UX-11).
+    assert.isTrue(await ownerPage.locator('[data-testid=generate-design-doc]').isDisabled())
 
     const editorPage = await loginInNewContext(browser as never, origin, editor)
     cleanup(() => editorPage.context().close())
