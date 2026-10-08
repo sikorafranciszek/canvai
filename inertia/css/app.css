@@ -1572,6 +1572,7 @@ input.title-edit {
 }
 
 .side-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -4669,4 +4670,41 @@ input.title-edit {
   border-color: var(--color-deep-teal);
   background: var(--color-teal-tint);
   color: var(--color-ink);
+}
+
+/* Blok kodu w DESIGN.md z przyciskiem Kopiuj (UX-6). */
+.code-block {
+  position: relative;
+}
+
+.code-block__copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  height: 24px;
+  font-size: 12px;
+  background: var(--color-soft-paper);
+}
+
+/* Uchwyt zmiany szerokości panelu DESIGN.md. */
+.side-panel__resize {
+  position: absolute;
+  top: 0;
+  left: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.side-panel__resize:hover,
+.side-panel__resize:focus-visible {
+  background: var(--color-teal-tint);
+}
+
+.side-drawer[data-resizing='true'] {
+  transition: none;
 }

@@ -67,6 +67,11 @@ interface DesignState {
   applyEdits: (edits: DocEdits) => Promise<boolean>
   /** Anuluje generację w toku — kredyty wracają w całości (UX-11). */
   cancel: () => Promise<void>
+  /** Tryb czytania: panel DESIGN.md prawie na cały ekran (UX-6). */
+  readMode: boolean
+  setReadMode: (on: boolean) => void
+  /** Porównanie z wybraną wersją (zamiast tylko z poprzednią). */
+  compareWith: (version: number) => Promise<void>
   /** Czy działa strumień zdarzeń (ustawia `live.ts`). */
   liveConnected: boolean
   /** Zdarzenie `doc` z serwera: postęp / koniec mojej generacji albo nowa wersja współpracownika. */
@@ -158,6 +163,15 @@ export const useDesignStore = create<DesignState>()((set, get) => {
     starting: false,
     reusedNotice: false,
     liveConnected: false,
+    readMode: false,
+    setReadMode: (readMode) => set({ readMode }),
+
+    async compareWith(version) {
+      const boardId = get().boardId
+      if (boardId == null) return
+      const doc = await getDesignDoc(boardId, version)
+      if (get().boardId === boardId) set({ previous: doc })
+    },
 
     async cancel() {
       const { boardId, active } = get()

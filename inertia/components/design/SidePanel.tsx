@@ -2,15 +2,28 @@
  * Prawy panel tablicy z zakładkami „Materiały” i „DESIGN.md” + przycisk
  * generacji używany w górnym pasku edytora.
  */
+import { useState } from 'react'
 import { Coins, Sparkles } from 'lucide-react'
 import { AssetPanel } from '~/components/canvas/AssetPanel'
 import { DesignDocPanel } from '~/components/design/DesignDocPanel'
-import { useDesignStore, type SidePanelTab } from '~/lib/board/design'
+import { useDesignStore } from '~/lib/board/design'
 import { useCanvasAssets } from '~/lib/board/session'
 import { useSceneStore } from '~/lib/scene/store'
 import { useT } from '~/i18n'
 
-const WIDTH: Record<SidePanelTab, number> = { assets: 320, design: 480 }
+const ASSETS_WIDTH = 320
+const DOC_MIN = 380
+const DOC_MAX = 960
+const DOC_KEY = 'canvai.docPanelWidth'
+
+function storedDocWidth(): number {
+  try {
+    const n = Number(localStorage.getItem(DOC_KEY))
+    return n >= DOC_MIN && n <= DOC_MAX ? n : 480
+  } catch {
+    return 480
+  }
+}
 
 export function SidePanel({ open = true }: { open?: boolean }) {
   const { t } = useT()
@@ -19,7 +32,41 @@ export function SidePanel({ open = true }: { open?: boolean }) {
   const pending = useDesignStore((s) => Boolean(s.active))
   const latest = useDesignStore((s) => s.versions.find((v) => v.status === 'ready'))
   const assetCount = useCanvasAssets().length
-  const width = WIDTH[tab]
+  const readMode = useDesignStore((s) => s.readMode)
+  // Szerokość panelu DESIGN.md regulowana uchwytem (UX-6), pamiętana w przeglądarce;
+  // tryb czytania rozszerza panel prawie na cały ekran.
+  const [docWidth, setDocWidth] = useState(storedDocWidth)
+  const [resizing, setResizing] = useState(false)
+  const width =
+    tab === 'assets'
+      ? ASSETS_WIDTH
+      : readMode
+        ? Math.max(DOC_MIN, Math.min(1100, window.innerWidth - 96))
+        : docWidth
+
+  const startResize = (e: React.PointerEvent) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const start = docWidth
+    setResizing(true)
+    const move = (ev: PointerEvent) =>
+      setDocWidth(Math.max(DOC_MIN, Math.min(DOC_MAX, start + (startX - ev.clientX))))
+    const up = () => {
+      setResizing(false)
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      setDocWidth((w) => {
+        try {
+          localStorage.setItem(DOC_KEY, String(w))
+        } catch {
+          // brak localStorage — szerokość tylko do odświeżenia
+        }
+        return w
+      })
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
 
   return (
     // Zewnętrzna „szuflada” animuje szerokość; treść ma stałą szerokość i jest
@@ -28,6 +75,7 @@ export function SidePanel({ open = true }: { open?: boolean }) {
     <div
       className="side-drawer"
       data-open={open}
+      data-resizing={resizing}
       style={{ width: open ? width : 0 }}
       inert={!open}
       aria-hidden={!open}
@@ -38,6 +86,21 @@ export function SidePanel({ open = true }: { open?: boolean }) {
         aria-label={t('panel.label')}
         style={{ width, minWidth: width }}
       >
+        {tab === 'design' && !readMode && open ? (
+          <button
+            type="button"
+            className="side-panel__resize"
+            aria-label={t('doc.resize')}
+            data-testid="doc-panel-resize"
+            onPointerDown={startResize}
+            onKeyDown={(e) => {
+              const step = e.key === 'ArrowLeft' ? 40 : e.key === 'ArrowRight' ? -40 : 0
+              if (!step) return
+              e.preventDefault()
+              setDocWidth((w) => Math.max(DOC_MIN, Math.min(DOC_MAX, w + step)))
+            }}
+          />
+        ) : null}
         <div className="side-panel__tabs" role="tablist" aria-label={t('panel.tabs')}>
           <button
             type="button"

@@ -3,9 +3,9 @@
  * są klikalnymi chipami — wyśrodkowują asset na płótnie. Nagłówki H2 dostają
  * stabilne `id` (`doc-section-<n>`), żeby spis sekcji mógł do nich przewijać.
  */
-import { Fragment, memo, useMemo } from 'react'
+import { Fragment, memo, useMemo, useState } from 'react'
 import { parseMarkdown, type Block, type Inline } from '@shared/markdown'
-import { translate } from '~/i18n'
+import { translate, useT } from '~/i18n'
 
 interface Props {
   source: string
@@ -152,12 +152,38 @@ function BlockNode({
         </div>
       )
     case 'code':
-      return <pre>{block.text}</pre>
+      return <CodeBlock text={block.text} />
     case 'rule':
       return <hr />
     default:
       return null
   }
+}
+
+/** Blok kodu z przyciskiem Kopiuj (UX-6) — Quick Start, eksporty, przykłady. */
+function CodeBlock({ text }: { text: string }) {
+  const { t } = useT()
+  const [copied, setCopied] = useState(false)
+  return (
+    <div className="code-block">
+      <button
+        type="button"
+        className="btn btn--quiet btn--sm code-block__copy"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(text)
+            setCopied(true)
+            setTimeout(() => setCopied(false), 1500)
+          } catch {
+            // brak uprawnień do schowka — przycisk po prostu nic nie robi
+          }
+        }}
+      >
+        {copied ? t('common.copied') : t('common.copy')}
+      </button>
+      <pre>{text}</pre>
+    </div>
+  )
 }
 
 /** Tytuły sekcji H2 dokumentu — do spisu treści. */

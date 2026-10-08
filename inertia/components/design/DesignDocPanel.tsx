@@ -22,6 +22,8 @@ import {
   Sparkles,
   Bot,
   Printer,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react'
 import { router } from '@inertiajs/react'
 import { Menu } from '~/components/ui/Menu'
@@ -88,6 +90,13 @@ export function DesignDocPanel() {
 
   const content = current?.status === 'ready' ? (current.contentMd ?? '') : ''
   const canDiff = Boolean(content && previous?.contentMd)
+  const readMode = useDesignStore((s) => s.readMode)
+  const setReadMode = useDesignStore((s) => s.setReadMode)
+  const compareWith = useDesignStore((s) => s.compareWith)
+  // Wersje do porównania: gotowe, inne niż bieżąca (UX-6).
+  const compareOptions = versions.filter(
+    (v) => v.status === 'ready' && v.version !== current?.version
+  )
   const sections = useMemo(() => (content ? sectionTitles(content) : []), [content])
 
   const diff = useMemo(
@@ -154,6 +163,34 @@ export function DesignDocPanel() {
               {t('doc.diff')}
             </button>
           ) : null}
+          {showDiff && canDiff && compareOptions.length > 1 ? (
+            <label>
+              <span className="sr-only">{t('doc.compareWith')}</span>
+              <select
+                className="select select--sm"
+                data-testid="design-doc-compare-select"
+                value={previous!.version}
+                onChange={(e) => void compareWith(Number(e.target.value))}
+              >
+                {compareOptions.map((v) => (
+                  <option key={v.id} value={v.version}>
+                    {t('doc.compareWith')} v{v.version}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <button
+            type="button"
+            className="btn btn--quiet btn--icon btn--sm"
+            data-testid="design-doc-read-mode"
+            aria-pressed={readMode}
+            aria-label={readMode ? t('doc.readModeExit') : t('doc.readMode')}
+            data-tip={readMode ? t('doc.readModeExit') : t('doc.readMode')}
+            onClick={() => setReadMode(!readMode)}
+          >
+            {readMode ? <Minimize2 /> : <Maximize2 />}
+          </button>
           {content && boardId != null ? (
             <>
               <button
@@ -258,7 +295,7 @@ export function DesignDocPanel() {
                 <Bot />
               </button>
               <a
-                className="btn btn--icon btn--sm"
+                className="btn btn--sm"
                 data-testid="design-doc-download"
                 href={designDocDownloadUrl(boardId, current!.version)}
                 download="DESIGN.md"
@@ -266,6 +303,7 @@ export function DesignDocPanel() {
                 data-tip={t('doc.downloadTip')}
               >
                 <Download />
+                {t('doc.download')}
               </a>
             </>
           ) : null}
@@ -351,6 +389,11 @@ export function DesignDocPanel() {
               </div>
             ) : null}
 
+            {!current.quality && current.status === 'ready' ? (
+              <p className="t-small t-muted" style={{ margin: '12px 16px 0' }}>
+                {t('doc.noQuality')}
+              </p>
+            ) : null}
             {current.quality ? (
               <div className="doc-views">
                 <div className="segmented segmented--text" role="group" aria-label={t('doc.views')}>
