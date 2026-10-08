@@ -14,7 +14,7 @@ import { JOB_GENERATE_PREVIEW, enqueue } from '#services/queue'
 import { currentLocale, t } from '#services/i18n'
 import { trackFor } from '#services/analytics/events'
 import { aiBudgetDenial, claimGenerationSlot, releaseGenerationSlot } from '#services/ops/ai_budget'
-import { boardAccess, type BoardAction } from '#services/board_access'
+import { accessibleBoard } from '#services/board_access'
 
 const previewValidator = vine.compile(
   vine.object({
@@ -40,10 +40,6 @@ const PREVIEW_CSP = [
 
 /** Podgląd UI z wersji DESIGN.md (przykładowa strona HTML), rozliczany kredytami. */
 export default class DesignPreviewsController {
-  private async findBoard(userId: number, boardId: string | number, action: BoardAction = 'view') {
-    return (await boardAccess(userId, boardId, action))?.board ?? null
-  }
-
   private async findDoc(boardId: number, version?: number) {
     const query = DesignDoc.query().where('board_id', boardId).where('status', 'ready')
     return version
@@ -66,7 +62,7 @@ export default class DesignPreviewsController {
 
   /** GET /api/boards/:id/design-doc/preview?version= — najnowszy podgląd wersji i koszt nowego. */
   async show({ auth, params, request, response }: HttpContext) {
-    const board = await this.findBoard(auth.user!.id, params.id)
+    const board = await accessibleBoard(auth.user!.id, params.id)
     if (!board) return response.notFound()
     const { version } = await previewValidator.validate(request.qs())
     const doc = await this.findDoc(board.id, version)
@@ -83,7 +79,7 @@ export default class DesignPreviewsController {
   async store(ctx: HttpContext) {
     const { auth, params, request, response } = ctx
     const user = auth.user!
-    const board = await this.findBoard(user.id, params.id, 'edit')
+    const board = await accessibleBoard(user.id, params.id, 'edit')
     if (!board) return response.notFound()
     const { version, force } = await previewValidator.validate(request.body())
 
@@ -163,7 +159,7 @@ export default class DesignPreviewsController {
 
   /** GET /boards/:id/previews/:previewId — sam HTML (iframe w aplikacji, nowa karta, pobranie). */
   async html({ auth, params, request, response }: HttpContext) {
-    const board = await this.findBoard(auth.user!.id, params.id)
+    const board = await accessibleBoard(auth.user!.id, params.id)
     if (!board) return response.notFound()
     const preview = await DesignPreview.find(params.previewId)
     const doc = preview ? await DesignDoc.find(preview.designDocId) : null

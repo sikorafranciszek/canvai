@@ -46,6 +46,15 @@ export async function boardAccess(
   return can(role, action) ? { board, role } : null
 }
 
+/** Sama tablica (bez roli), gdy użytkownik może wykonać `action`; inaczej `null`. */
+export async function accessibleBoard(
+  userId: number,
+  boardId: string | number,
+  action: BoardAction = 'view'
+): Promise<Board | null> {
+  return (await boardAccess(userId, boardId, action))?.board ?? null
+}
+
 /** Jak `boardAccess`, ale rozróżnia brak dostępu (404) od braku uprawnień (403). */
 export async function boardAccessOrStatus(
   userId: number,

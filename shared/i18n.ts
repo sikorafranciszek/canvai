@@ -3,8 +3,8 @@
  *
  * Język: preferencja zapisana w koncie → cookie `dc_locale` (wybór w UI) →
  * nagłówek `Accept-Language` (polski → PL, każdy inny język → EN) → polski,
- * gdy przeglądarka nie podała żadnego języka. Słowniki żyją osobno: `app/i18n/messages.ts` (serwer)
- * i `inertia/i18n/messages.ts` (UI).
+ * gdy przeglądarka nie podała żadnego języka. Słowniki żyją osobno: `app/services/i18n_messages.ts` (serwer)
+ * i `inertia/i18n/messages/<język>.ts` (UI, ładowane per język).
  */
 
 export const LOCALES = ['pl', 'en'] as const

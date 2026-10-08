@@ -12,7 +12,7 @@ import { CreateBoardDialog } from '~/components/boards/CreateBoardDialog'
 import { useUiStore } from '~/lib/ui'
 import { translateFlash } from '~/lib/format'
 import { LanguageSwitcher } from '~/components/ui/LanguageSwitcher'
-import { useLocaleStore, useT } from '~/i18n'
+import { ensureLocale, useLocaleStore, useT } from '~/i18n'
 import { isLocale } from '@shared/i18n'
 
 type SharedUser = { id: number; fullName: string | null; email: string; initials: string }
@@ -35,7 +35,7 @@ export default function Layout({ children }: { children: ReactElement<Data.Share
     // Nawigacja Inertii nie przeładowuje dokumentu — `lang` aktualizujemy ręcznie.
     document.documentElement.lang = serverLocale
     if (useLocaleStore.getState().locale !== serverLocale) {
-      useLocaleStore.setState({ locale: serverLocale })
+      void ensureLocale(serverLocale).then(() => useLocaleStore.setState({ locale: serverLocale }))
     }
   }, [serverLocale])
 

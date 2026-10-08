@@ -11,7 +11,7 @@ import { newShareToken, portalBase } from '#services/portal'
 import { serializeAsset } from '#services/assets_service'
 import { t } from '#services/i18n'
 import { trackFor } from '#services/analytics/events'
-import { boardAccess } from '#services/board_access'
+import { boardAccess, accessibleBoard } from '#services/board_access'
 
 const updateValidator = vine.compile(
   vine.object({
@@ -23,11 +23,6 @@ const updateValidator = vine.compile(
 
 /** Właściciel: ustawienia portalu klienta tablicy i decyzje klienta. */
 export default class BoardSharesController {
-  private async findBoard(userId: number, id: string | number) {
-    const board = await Board.find(id)
-    return board && board.userId === userId ? board : null
-  }
-
   private async payload(ctx: HttpContext, board: Board) {
     const { limits } = await entitlementsFor(ctx.auth.user!.id)
     const share = await BoardShare.findBy('board_id', board.id)
@@ -57,7 +52,7 @@ export default class BoardSharesController {
 
   /** GET /api/boards/:id/share */
   async show(ctx: HttpContext) {
-    const board = await this.findBoard(ctx.auth.user!.id, ctx.params.id)
+    const board = await accessibleBoard(ctx.auth.user!.id, ctx.params.id, 'manage')
     if (!board) return ctx.response.notFound()
     return ctx.response.json({ data: await this.payload(ctx, board) })
   }
@@ -65,7 +60,7 @@ export default class BoardSharesController {
   /** PUT /api/boards/:id/share — włącz/wyłącz portal i jego opcje. */
   async update(ctx: HttpContext) {
     const { auth, params, request, response } = ctx
-    const board = await this.findBoard(auth.user!.id, params.id)
+    const board = await accessibleBoard(auth.user!.id, params.id, 'manage')
     if (!board) return response.notFound()
     const { limits } = await entitlementsFor(auth.user!.id)
     const input = await request.validateUsing(updateValidator)
@@ -93,7 +88,7 @@ export default class BoardSharesController {
 
   /** POST /api/boards/:id/share/rotate — nowy link (stary przestaje działać). */
   async rotate(ctx: HttpContext) {
-    const board = await this.findBoard(ctx.auth.user!.id, ctx.params.id)
+    const board = await accessibleBoard(ctx.auth.user!.id, ctx.params.id, 'manage')
     if (!board) return ctx.response.notFound()
     const share = await BoardShare.findBy('board_id', board.id)
     if (share) {

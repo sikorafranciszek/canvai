@@ -1,10 +1,9 @@
 import { versionVisible } from '#services/design/access'
 import type { HttpContext } from '@adonisjs/core/http'
 import DesignDoc from '#models/design_doc'
+import { startGeneration } from '#services/design/generation_service'
 import Job from '#models/job'
-import { providerNotReadyMessage, providerReady } from '#services/ai/provider'
-import { hasContent, preflightError, prepareGeneration } from '#services/design/generator'
-import { JOB_GENERATE_DESIGN_DOC, enqueue } from '#services/queue'
+import { prepareGeneration } from '#services/design/generator'
 import {
   designDocVersionValidator,
   editDesignDocValidator,
@@ -12,27 +11,20 @@ import {
   exportValidator,
   generateDesignDocValidator,
 } from '#validators/design_doc'
-import { currentLocale, t } from '#services/i18n'
+import { t } from '#services/i18n'
 import { billing } from '#config/billing'
 import { entitlementsFor } from '#services/billing/plans'
-import {
-  InsufficientCreditsError,
-  balanceOf,
-  ensureAutomaticGrants,
-  releaseAll,
-  reserveCredits,
-} from '#services/billing/credits'
+import { balanceOf, ensureAutomaticGrants, releaseAll } from '#services/billing/credits'
 import { estimateGeneration } from '#services/billing/estimate'
 import { renderExport } from '#services/design/exports'
 import { assessQuality } from '#services/design/quality'
 import db from '@adonisjs/lucid/services/db'
 import { lockBoard } from '#services/design/board_lock'
 import { printBrand } from '#services/portal'
-import { boardAccess, type BoardAction } from '#services/board_access'
+import { accessibleBoard } from '#services/board_access'
 import { publish } from '#services/board_events'
 import { createEditedVersion, SpecEditError } from '#services/design/edit'
 import { trackFor } from '#services/analytics/events'
-import { aiBudgetDenial, claimGenerationSlot, releaseGenerationSlot } from '#services/ops/ai_budget'
 
 /**
  * DESIGN.md tablicy: zlecanie generacji, status, wersje, pobieranie.
@@ -57,9 +49,6 @@ const DESIGN_DOC_LIST_COLUMNS = [
 
 export default class DesignDocsController {
   /** Tablica, do której użytkownik ma dostęp (`view` albo `edit`). Rozliczenia — konto właściciela. */
-  private async findBoard(userId: number, boardId: string | number, action: BoardAction = 'view') {
-    return (await boardAccess(userId, boardId, action))?.board ?? null
-  }
 
   private async serialize(doc: DesignDoc, withContent: boolean) {
     const job =
@@ -112,7 +101,7 @@ export default class DesignDocsController {
   /** POST /api/boards/:id/design-doc/edit — poprawione tokeny jako nowa wersja (bez AI i kredytów). */
   async edit(ctx: HttpContext) {
     const { auth, params, request, response } = ctx
-    const board = await this.findBoard(auth.user!.id, params.id, 'edit')
+    const board = await accessibleBoard(auth.user!.id, params.id, 'edit')
     if (!board) return response.notFound()
     const { version, ...edits } = await request.validateUsing(editDesignDocValidator)
 
@@ -170,169 +159,59 @@ export default class DesignDocsController {
   async store(ctx: HttpContext) {
     const { auth, params, request, response } = ctx
     const user = auth.user!
-    const board = await this.findBoard(user.id, params.id, 'edit')
+    const board = await accessibleBoard(user.id, params.id, 'edit')
     if (!board) return response.notFound()
 
     const { force, proMode = false } = await request.validateUsing(generateDesignDocValidator)
-    const { limits } = await entitlementsFor(board.userId)
-    if (proMode && !limits.proReasoning) {
-      return response.status(403).json({ message: t('billing.proOnly'), code: 'E_PLAN_FEATURE' })
-    }
-
-    if (!providerReady()) {
-      return response
-        .status(503)
-        .json({ message: providerNotReadyMessage(), code: 'E_AI_NOT_READY' })
-    }
-
-    const inProgress = await DesignDoc.query()
-      .where('board_id', board.id)
-      .whereIn('status', ['queued', 'running'])
-      .orderBy('version', 'desc')
-      .first()
-    if (inProgress) {
-      return response.status(409).json({
-        message: t('doc.inProgress'),
-        code: 'E_DESIGN_DOC_IN_PROGRESS',
-        data: await this.serialize(inProgress, false),
-      })
-    }
-
-    const input = await prepareGeneration(board)
-    if (!hasContent(input)) {
-      return response.status(422).json({
-        message: t('doc.emptyBoard'),
-        code: 'E_DESIGN_DOC_EMPTY_BOARD',
-      })
-    }
-    const preflight = preflightError(input)
-    if (preflight) {
-      return response.status(422).json({ message: preflight, code: 'E_DESIGN_DOC_LIMIT' })
-    }
-
-    const latest = await DesignDoc.query()
-      .where('board_id', board.id)
-      .orderBy('version', 'desc')
-      .first()
-
-    if (
-      !force &&
-      latest?.status === 'ready' &&
-      latest.inputFingerprint === input.fingerprint &&
-      latest.proMode === proMode
-    ) {
-      return response
-        .status(200)
-        .json({ data: { doc: await this.serialize(latest, true), reused: true } })
-    }
-
-    // Bezpieczniki kosztów (dzienne limity) — przed rezerwacją kredytów.
-    const denial = (await aiBudgetDenial(user.id)) ?? (await claimGenerationSlot(user.id))
-    if (denial) return response.status(429).json({ message: denial, code: 'E_AI_BUDGET' })
-
-    // Kredyty: szacunek = opłata. Brak środków → 402, zanim cokolwiek powstanie.
-    const estimate = billing.enforced ? await estimateGeneration(input, proMode) : null
-    if (estimate) {
-      await ensureAutomaticGrants(board.userId)
-      const balance = await balanceOf(board.userId)
-      if (balance < estimate.credits) {
-        await releaseGenerationSlot(user.id)
-        return response.status(402).json({
-          message: t('billing.insufficient', { needed: estimate.credits, balance }),
-          code: 'E_INSUFFICIENT_CREDITS',
-          needed: estimate.credits,
-          balance,
+    const result = await startGeneration(board, user.id, { force, proMode })
+    switch (result.kind) {
+      case 'plan':
+        return response.status(403).json({ message: result.message, code: 'E_PLAN_FEATURE' })
+      case 'unavailable':
+        return response.status(503).json({ message: result.message, code: 'E_AI_NOT_READY' })
+      case 'busy':
+        return response.status(409).json({
+          message: t('doc.inProgress'),
+          code: 'E_DESIGN_DOC_IN_PROGRESS',
+          data: await this.serialize(result.doc, false),
         })
-      }
-    }
-
-    // Utworzenie wersji, rezerwacja kredytów i zadanie w JEDNEJ transakcji pod
-    // blokadą tablicy (DAT-2): podwójne kliknięcie lub dwóch współpracowników nie
-    // da dwóch generacji, a awaria w środku nie zostawi wersji bez zadania.
-    let outcome:
-      | { kind: 'ok'; doc: DesignDoc }
-      | { kind: 'busy'; doc: DesignDoc }
-      | { kind: 'credits'; error: InsufficientCreditsError }
-    try {
-      outcome = await db.transaction(async (trx) => {
-        await lockBoard(trx, board.id)
-        const running = await DesignDoc.query({ client: trx })
-          .where('board_id', board.id)
-          .whereIn('status', ['queued', 'running'])
-          .first()
-        if (running) return { kind: 'busy' as const, doc: running }
-        const top = await DesignDoc.query({ client: trx })
-          .where('board_id', board.id)
-          .max('version as v')
-        const created = await DesignDoc.create(
+      case 'empty':
+        return response
+          .status(422)
+          .json({ message: result.message, code: 'E_DESIGN_DOC_EMPTY_BOARD' })
+      case 'limit':
+        return response.status(422).json({ message: result.message, code: 'E_DESIGN_DOC_LIMIT' })
+      case 'budget':
+        return response.status(429).json({ message: result.message, code: 'E_AI_BUDGET' })
+      case 'credits':
+        return response.status(402).json({
+          message: result.message,
+          code: 'E_INSUFFICIENT_CREDITS',
+          needed: result.needed,
+          balance: result.balance,
+        })
+      case 'reused':
+        return response
+          .status(200)
+          .json({ data: { doc: await this.serialize(result.doc, true), reused: true } })
+      case 'queued':
+        trackFor(
+          ctx,
+          'design_doc_requested',
           {
-            boardId: board.id,
-            version: Number(top[0].$extras.v ?? 0) + 1,
-            status: 'queued',
-            inputFingerprint: input.fingerprint,
+            version: result.doc.version,
             proMode,
+            credits: result.credits,
+            newMaterials: result.newMaterials,
+            materials: result.materials,
+            force: Boolean(force),
           },
-          { client: trx }
+          { boardId: board.id }
         )
-        if (estimate) {
-          await reserveCredits(board.userId, estimate.credits, { designDocId: created.id }, trx)
-        }
-        const job = await enqueue(
-          JOB_GENERATE_DESIGN_DOC,
-          {
-            designDocId: created.id,
-            boardId: board.id,
-            // Język użytkownika — komunikaty generacji w tle mówią tym samym językiem.
-            locale: currentLocale(),
-          },
-          trx
-        )
-        created.jobId = job.id
-        await created.save()
-        return { kind: 'ok' as const, doc: created }
-      })
-    } catch (error) {
-      if (!(error instanceof InsufficientCreditsError)) {
-        await releaseGenerationSlot(user.id)
-        throw error
-      }
-      outcome = { kind: 'credits', error }
+        return response
+          .status(202)
+          .json({ data: { doc: await this.serialize(result.doc, false), reused: false } })
     }
-    if (outcome.kind === 'credits') {
-      await releaseGenerationSlot(user.id)
-      return response.status(402).json({
-        message: outcome.error.message,
-        code: 'E_INSUFFICIENT_CREDITS',
-        needed: outcome.error.needed,
-        balance: outcome.error.balance,
-      })
-    }
-    if (outcome.kind === 'busy') {
-      await releaseGenerationSlot(user.id)
-      return response.status(409).json({
-        message: t('doc.inProgress'),
-        code: 'E_DESIGN_DOC_IN_PROGRESS',
-        data: await this.serialize(outcome.doc, false),
-      })
-    }
-    const doc = outcome.doc
-    trackFor(
-      ctx,
-      'design_doc_requested',
-      {
-        version: doc.version,
-        proMode,
-        credits: estimate?.credits ?? 0,
-        newMaterials: estimate?.newMaterials ?? input.assets.length,
-        materials: input.assets.length,
-        force: Boolean(force),
-      },
-      { boardId: board.id }
-    )
-
-    return response
-      .status(202)
-      .json({ data: { doc: await this.serialize(doc, false), reused: false } })
   }
 
   /**
@@ -343,7 +222,7 @@ export default class DesignDocsController {
    */
   async cancel(ctx: HttpContext) {
     const { auth, params, response } = ctx
-    const board = await this.findBoard(auth.user!.id, params.id, 'edit')
+    const board = await accessibleBoard(auth.user!.id, params.id, 'edit')
     if (!board) return response.notFound()
 
     const cancelled = await db.transaction(async (trx) => {
@@ -378,7 +257,7 @@ export default class DesignDocsController {
 
   /** GET /api/boards/:id/design-doc?version= — najnowsza (lub wskazana) wersja z treścią. */
   async show({ auth, params, request, response }: HttpContext) {
-    const board = await this.findBoard(auth.user!.id, params.id)
+    const board = await accessibleBoard(auth.user!.id, params.id)
     if (!board) return response.notFound()
 
     const { version } = await designDocVersionValidator.validate(request.qs())
@@ -398,7 +277,7 @@ export default class DesignDocsController {
 
   /** GET /api/boards/:id/design-docs — historia wersji (bez treści). */
   async index({ auth, params, response }: HttpContext) {
-    const board = await this.findBoard(auth.user!.id, params.id)
+    const board = await accessibleBoard(auth.user!.id, params.id)
     if (!board) return response.notFound()
 
     const { limits } = await entitlementsFor(board.userId)
@@ -422,7 +301,7 @@ export default class DesignDocsController {
   /** GET /api/boards/:id/design-doc/download?version= — plik DESIGN.md. */
   async download(ctx: HttpContext) {
     const { auth, params, request, response } = ctx
-    const board = await this.findBoard(auth.user!.id, params.id)
+    const board = await accessibleBoard(auth.user!.id, params.id)
     if (!board) return response.notFound()
 
     const { version } = await designDocVersionValidator.validate(request.qs())
@@ -447,7 +326,7 @@ export default class DesignDocsController {
   /** GET /boards/:id/design-doc/print?version= — DESIGN.md do druku / zapisu jako PDF. */
   async print(ctx: HttpContext) {
     const { auth, params, request, response, inertia } = ctx
-    const board = await this.findBoard(auth.user!.id, params.id)
+    const board = await accessibleBoard(auth.user!.id, params.id)
     if (!board) return response.notFound()
     const { version } = await designDocVersionValidator.validate(request.qs())
     const query = DesignDoc.query().where('board_id', board.id).where('status', 'ready')
@@ -485,7 +364,7 @@ export default class DesignDocsController {
    */
   async estimate({ auth, params, request, response }: HttpContext) {
     const user = auth.user!
-    const board = await this.findBoard(user.id, params.id, 'edit')
+    const board = await accessibleBoard(user.id, params.id, 'edit')
     if (!board) return response.notFound()
 
     const { pro = false } = await estimateValidator.validate(request.qs())
@@ -515,7 +394,7 @@ export default class DesignDocsController {
   /** GET /api/boards/:id/design-doc/export?format= — tokeny jako CSS, Tailwind v4 albo JSON (W3C). */
   async export(ctx: HttpContext) {
     const { auth, params, request, response } = ctx
-    const board = await this.findBoard(auth.user!.id, params.id)
+    const board = await accessibleBoard(auth.user!.id, params.id)
     if (!board) return response.notFound()
 
     const { limits } = await entitlementsFor(board.userId)
@@ -549,7 +428,7 @@ export default class DesignDocsController {
   async job({ auth, params, response }: HttpContext) {
     const job = await Job.find(params.id)
     const boardId = job?.payload?.boardId as number | undefined
-    const board = job && boardId ? await this.findBoard(auth.user!.id, boardId) : null
+    const board = job && boardId ? await accessibleBoard(auth.user!.id, boardId) : null
     if (!job || !board) return response.notFound()
 
     return response.json({
