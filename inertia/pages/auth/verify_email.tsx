@@ -1,10 +1,16 @@
 import { Form } from '@adonisjs/inertia/react'
-import { Head } from '@inertiajs/react'
+import { Head, Link } from '@inertiajs/react'
 import { MailCheck } from 'lucide-react'
 import { FlashAlert } from '~/components/ui/FlashAlert'
 import { useT } from '~/i18n'
 
-export default function VerifyEmail({ email }: { email: string }) {
+export default function VerifyEmail({
+  email,
+  sampleBoardId,
+}: {
+  email: string
+  sampleBoardId?: number | null
+}) {
   const { t } = useT()
   return (
     <>
@@ -32,6 +38,15 @@ export default function VerifyEmail({ email }: { email: string }) {
             </button>
           )}
         </Form>
+        {sampleBoardId ? (
+          <Link
+            href={`/boards/${sampleBoardId}`}
+            className="btn btn--lg btn--block"
+            data-testid="verify-sample"
+          >
+            {t('auth.verify.sample')}
+          </Link>
+        ) : null}
       </div>
       <Form route="session.destroy" style={{ display: 'flex', justifyContent: 'center' }}>
         <button type="submit" className="btn btn--quiet btn--sm">

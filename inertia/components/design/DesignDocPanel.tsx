@@ -24,6 +24,8 @@ import {
   Printer,
   Maximize2,
   Minimize2,
+  Check,
+  X,
 } from 'lucide-react'
 import { router } from '@inertiajs/react'
 import { Menu } from '~/components/ui/Menu'
@@ -91,6 +93,7 @@ export function DesignDocPanel() {
   const content = current?.status === 'ready' ? (current.contentMd ?? '') : ''
   const canDiff = Boolean(content && previous?.contentMd)
   const readMode = useDesignStore((s) => s.readMode)
+  const sample = useDesignStore((s) => s.sample)
   const setReadMode = useDesignStore((s) => s.setReadMode)
   const compareWith = useDesignStore((s) => s.compareWith)
   // Wersje do porównania: gotowe, inne niż bieżąca (UX-6).
@@ -322,6 +325,7 @@ export function DesignDocPanel() {
         </button>
       ) : null}
 
+      {sample && canEdit && current?.status === 'ready' ? <SampleChecklist /> : null}
       {active ? <GenerationProgress doc={active} /> : null}
 
       <div className="panel-scroll" ref={scroller}>
@@ -491,6 +495,81 @@ export function DesignDocPanel() {
 function shortTitle(title: string): string {
   const bare = title.replace(/^Tokens\s+[—-]\s+/, '').replace(/^\d+\.\s*/, '')
   return /^\d+\.\s/.test(title) ? bare.split(/\s+/)[0] : bare
+}
+
+/**
+ * Pierwsze kroki na tablicy przykładowej (UX-5): obejrzyj dokument, zmień rolę
+ * materiału, wygeneruj ponownie. Stan wynika z danych (role, liczba wersji),
+ * zamknięcie pamiętane w przeglądarce.
+ */
+function SampleChecklist() {
+  const { t } = useT()
+  const boardId = useDesignStore((s) => s.boardId)
+  const versions = useDesignStore((s) => s.versions)
+  const setTab = useDesignStore((s) => s.setTab)
+  const assets = useCanvasAssets()
+  const key = `canvai.sampleChecklist.${boardId}`
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(key) === 'done'
+    } catch {
+      return false
+    }
+  })
+  if (dismissed || boardId == null) return null
+  const steps = [
+    { label: t('sample.step.read'), done: true },
+    {
+      label: t('sample.step.role'),
+      done: assets.some((a) => a.usage && (a.usage.role || a.usage.aspects.length)),
+      action: () => setTab('assets'),
+    },
+    {
+      label: t('sample.step.regenerate'),
+      done: versions.filter((v) => v.status === 'ready').length > 1,
+    },
+  ]
+  const close = () => {
+    setDismissed(true)
+    try {
+      localStorage.setItem(key, 'done')
+    } catch {
+      // bez localStorage lista wróci po odświeżeniu
+    }
+  }
+  return (
+    <div className="sample-checklist" data-testid="sample-checklist">
+      <div className="sample-checklist__head">
+        <strong>{t('sample.title')}</strong>
+        <button
+          type="button"
+          className="btn btn--quiet btn--icon btn--sm"
+          aria-label={t('common.close')}
+          onClick={close}
+        >
+          <X />
+        </button>
+      </div>
+      <p className="t-small t-muted">{t('sample.body')}</p>
+      <ol className="sample-checklist__steps">
+        {steps.map((step, i) => (
+          <li key={step.label} data-done={step.done}>
+            <span className="sample-checklist__mark" aria-hidden="true">
+              {step.done ? <Check size={12} /> : i + 1}
+            </span>
+            {step.action && !step.done ? (
+              <button type="button" className="link-button" onClick={step.action}>
+                {step.label}
+              </button>
+            ) : (
+              <span>{step.label}</span>
+            )}
+            <span className="sr-only">{step.done ? t('sample.done') : ''}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
 }
 
 function GenerationProgress({ doc }: { doc: DesignDocDto }) {

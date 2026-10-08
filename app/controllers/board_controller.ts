@@ -112,6 +112,27 @@ export default class BoardController {
     )
   }
 
+  /**
+   * GET /api/board-limit — ile tablic zostało w planie (UX-5). Okno tworzenia
+   * pokazuje limit od razu, zamiast przekierować do rozliczeń po wpisaniu tytułu.
+   */
+  async limit({ auth, response }: HttpContext) {
+    const { limits } = await entitlementsFor(auth.user!.id)
+    if (limits.boards == null)
+      return response.json({ data: { limit: null, used: 0, reached: false } })
+    const used = await this.ownBoardCount(auth.user!.id)
+    return response.json({ data: { limit: limits.boards, used, reached: used >= limits.boards } })
+  }
+
+  /** Własne tablice liczone do limitu planu (przykładowa nie zajmuje miejsca). */
+  private async ownBoardCount(userId: number): Promise<number> {
+    const [{ $extras }] = await Board.query()
+      .where('user_id', userId)
+      .where('is_sample', false)
+      .count('* as total')
+    return Number($extras.total)
+  }
+
   async create({ inertia }: HttpContext) {
     return inertia.render('boards/create' as any, {} as any)
   }
@@ -123,12 +144,7 @@ export default class BoardController {
 
     const { limits } = await entitlementsFor(user.id)
     if (limits.boards != null) {
-      // Przykładowa tablica nie zajmuje miejsca w limicie planu.
-      const [{ $extras }] = await Board.query()
-        .where('user_id', user.id)
-        .where('is_sample', false)
-        .count('* as total')
-      if (Number($extras.total) >= limits.boards) {
+      if ((await this.ownBoardCount(user.id)) >= limits.boards) {
         session.flash('error', t('billing.boardLimit', { limit: limits.boards }))
         return response.redirect().toPath('/billing')
       }
@@ -159,10 +175,13 @@ export default class BoardController {
     response.redirect().toPath(`/boards/${board.id}`)
   }
 
-  async show({ auth, inertia, params, response }: HttpContext) {
+  async show(ctx: HttpContext) {
+    const { auth, inertia, params, response } = ctx
     const access = await boardAccess(auth.user!.id, params.id, 'view')
     if (!access) return response.redirect().toPath('/boards')
-    const { board, role } = access
+    const { board } = access
+    // Przed potwierdzeniem e-maila przykład tylko do oglądania (UX-5).
+    const role = ctx.sampleOnly ? 'viewer' : access.role
 
     return inertia.render(
       'boards/show' as any,
@@ -176,6 +195,7 @@ export default class BoardController {
           role,
           isSample: board.isSample,
         },
+        emailUnverified: Boolean(ctx.sampleOnly),
       } as any
     )
   }

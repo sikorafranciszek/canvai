@@ -55,7 +55,10 @@ interface DesignState {
   /** Ostatnie „bez zmian” — panel proponuje wymuszenie. */
   reusedNotice: boolean
 
-  init: (boardId: number) => Promise<void>
+  /** `sample` — tablica przykładowa: otwiera się na gotowym DESIGN.md (UX-5). */
+  init: (boardId: number, opts?: { sample?: boolean }) => Promise<void>
+  /** Czy bieżąca tablica jest przykładowa (checklista pierwszych kroków). */
+  sample: boolean
   dispose: () => void
   setTab: (tab: SidePanelTab) => void
   setProMode: (on: boolean) => void
@@ -163,6 +166,7 @@ export const useDesignStore = create<DesignState>()((set, get) => {
     starting: false,
     reusedNotice: false,
     liveConnected: false,
+    sample: false,
     readMode: false,
     setReadMode: (readMode) => set({ readMode }),
 
@@ -216,11 +220,12 @@ export const useDesignStore = create<DesignState>()((set, get) => {
       }
     },
 
-    async init(boardId) {
+    async init(boardId, opts) {
       stopPolling()
       const mySeq = ++seq
       set({
         boardId,
+        sample: Boolean(opts?.sample),
         versions: [],
         current: null,
         previous: null,
@@ -235,7 +240,8 @@ export const useDesignStore = create<DesignState>()((set, get) => {
         const latestReady = versions.find((v) => v.status === 'ready') ?? versions[0] ?? null
         const current = latestReady ? await getDesignDoc(boardId, latestReady.version) : null
         if (mySeq !== seq) return
-        set({ current, active: pending })
+        // Przykład: od razu gotowy dokument — najkrótsza droga do zrozumienia produktu.
+        set({ current, active: pending, ...(opts?.sample && current ? { tab: 'design' } : {}) })
         await loadPrevious(boardId, current)
         if (pending) schedulePoll(boardId, pending.version, mySeq)
       } catch {

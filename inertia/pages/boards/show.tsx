@@ -28,11 +28,16 @@ interface Board {
   createdAt: string | null
   updatedAt: string | null
   role?: 'owner' | 'editor' | 'viewer'
+  isSample?: boolean
 }
 
 type SharedUser = { id?: number; fullName: string | null; email: string; initials: string }
 
-const BoardsShow: React.FC<{ board: Board; user?: SharedUser }> = ({ board, user }) => {
+const BoardsShow: React.FC<{ board: Board; user?: SharedUser; emailUnverified?: boolean }> = ({
+  board,
+  user,
+  emailUnverified,
+}) => {
   // react-konva wymaga przeglądarki (canvas). Render dopiero po stronie klienta —
   // w SSR pokazujemy stan ładowania.
   const [mounted, setMounted] = useState(false)
@@ -41,9 +46,9 @@ const BoardsShow: React.FC<{ board: Board; user?: SharedUser }> = ({ board, user
   // Stan DESIGN.md (wersje, generacja w toku) — niezależny od silnika płótna.
   useEffect(() => {
     const design = useDesignStore.getState()
-    void design.init(board.id)
+    void design.init(board.id, { sample: Boolean(board.isSample) })
     return () => design.dispose()
-  }, [board.id])
+  }, [board.id, board.isSample])
 
   // Współpraca na żywo: zdarzenia tablicy, obecność, kursory.
   useEffect(() => {
@@ -144,6 +149,14 @@ const BoardsShow: React.FC<{ board: Board; user?: SharedUser }> = ({ board, user
         </div>
       </header>
 
+      {emailUnverified ? (
+        <div className="unverified-banner" role="status" data-testid="unverified-banner">
+          {t('board.unverifiedBanner')}
+          <Link href="/verify-email" className="link-button">
+            {t('auth.verify.title')}
+          </Link>
+        </div>
+      ) : null}
       <div className="workspace" data-clarity-mask="true">
         <div className="canvas-area">
           {Canvas ? (

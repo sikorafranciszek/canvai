@@ -196,6 +196,7 @@ router
     router.post('/boards/:id/share/rotate', [controllers.BoardShares, 'rotate'])
     router.post('/assets/:id/accept', [controllers.BoardShares, 'accept'])
     // Współpraca: członkowie, zdarzenia na żywo, kursory, komentarze
+    router.get('/board-limit', [controllers.Board, 'limit'])
     router.get('/boards/:id/members', [controllers.BoardMembers, 'index'])
     router.post('/boards/:id/members', [controllers.BoardMembers, 'store'])
     router.patch('/boards/:id/members/:memberId', [controllers.BoardMembers, 'update'])

@@ -5,13 +5,23 @@ import { sendVerificationLink } from '#services/account_mail'
 import { t } from '#services/i18n'
 import { rewardReferral } from '#services/billing/referrals'
 import { trackFor } from '#services/analytics/events'
+import Board from '#models/board'
 
 export default class EmailVerificationController {
   /** GET /verify-email — ekran „sprawdź skrzynkę” (dla zalogowanego, niezweryfikowanego). */
   async notice({ auth, inertia, response }: HttpContext) {
     const user = auth.user!
     if (user.emailVerifiedAt) return response.redirect().toPath('/boards')
-    return inertia.render('auth/verify_email' as any, { email: user.email } as any)
+    // Przykład do obejrzenia od razu, zanim przyjdzie mail (UX-5).
+    const sample = await Board.query()
+      .where('user_id', user.id)
+      .where('is_sample', true)
+      .select('id')
+      .first()
+    return inertia.render(
+      'auth/verify_email' as any,
+      { email: user.email, sampleBoardId: sample?.id ?? null } as any
+    )
   }
 
   /** POST /verify-email/resend — ponowna wysyłka z ograniczeniem częstotliwości. */
