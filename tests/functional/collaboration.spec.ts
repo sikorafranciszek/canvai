@@ -102,6 +102,17 @@ test.group('Współpraca: członkowie, uprawnienia, komentarze, zdarzenia', (gro
     const list = await client.get('/boards').headers({ cookie: viewer.cookies })
     assert.include(list.text(), 'Wspólna')
 
+    // SEC-16: podgląd widzi członków bez adresów e-mail (poza własnym).
+    const seen = (
+      await client.get(`/api/boards/${board.id}/members`).headers({ cookie: viewer.cookies })
+    ).body().data
+    assert.isNull(seen.owner.email)
+    for (const m of seen.members) {
+      if (m.isYou) assert.equal(m.email, viewer.user.email)
+      else assert.isNull(m.email)
+    }
+    assert.notInclude(JSON.stringify(seen), editor.user.email)
+
     // Podgląd nie zaprasza; właściciel może zmienić rolę i usunąć.
     ;(await invite(client, viewer.cookies, board.id, 'x@y.test', 'viewer')).assertStatus(403)
     const vm = await BoardMember.query().where('email', viewer.user.email).firstOrFail()

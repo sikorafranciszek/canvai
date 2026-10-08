@@ -386,10 +386,10 @@ export function CommentsButton() {
 interface MembersPayload {
   canManage: boolean
   limit: number | null
-  owner: { id: number; name: string; email: string } | null
+  owner: { id: number; name: string; email: string | null } | null
   members: {
     id: number
-    email: string
+    email: string | null
     name: string | null
     role: 'editor' | 'viewer'
     pending: boolean
@@ -538,7 +538,9 @@ export function MembersButton({ boardId, isOwner }: { boardId: number; isOwner: 
             <li>
               <div>
                 <b>{data.owner.name}</b>
-                <div className="t-small t-muted">{data.owner.email}</div>
+                {data.owner.email ? (
+                  <div className="t-small t-muted">{data.owner.email}</div>
+                ) : null}
               </div>
               <span className="badge badge--outline">{t('members.owner')}</span>
             </li>

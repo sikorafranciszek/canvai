@@ -7,6 +7,16 @@ import User from '#models/user'
 import { entitlementsFor } from '#services/billing/plans'
 import { t } from '#services/i18n'
 import { trackFor } from '#services/analytics/events'
+import { readFile } from 'node:fs/promises'
+
+/** SVG logo bez DTD/encji i bez odwołań poza dokument (tylko `#id` i `data:`). */
+export function safeSvg(svg: string): boolean {
+  if (/<!DOCTYPE|<!ENTITY|<\?xml-stylesheet/i.test(svg)) return false
+  for (const m of svg.matchAll(/(?:xlink:)?href\s*=\s*["']([^"']*)["']/gi)) {
+    if (!/^(#|data:image\/(png|jpe?g|webp|gif);)/i.test(m[1].trim())) return false
+  }
+  return !/url\(\s*["']?(?!#|data:)/i.test(svg) && !/@import/i.test(svg)
+}
 
 const brandValidator = vine.compile(
   vine.object({
@@ -84,7 +94,13 @@ export default class BrandController {
     }
     let png: Buffer
     try {
-      png = await sharp(file.tmpPath, { density: 300 })
+      // SEC-16: render z bufora (bez ścieżki w katalogu tmp — librsvg nie rozwiąże
+      // względnych odwołań), SVG bez DTD/encji i bez zewnętrznych zasobów.
+      const input = await readFile(file.tmpPath)
+      if (file.extname?.toLowerCase() === 'svg' && !safeSvg(input.toString('utf8'))) {
+        throw new Error('unsafe svg')
+      }
+      png = await sharp(input, { density: 300 })
         .resize({ width: 600, height: 240, fit: 'inside', withoutEnlargement: true })
         .png()
         .toBuffer()

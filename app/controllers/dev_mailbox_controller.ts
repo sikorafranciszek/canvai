@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import app from '@adonisjs/core/services/app'
+import env from '#start/env'
 import { listOutbox } from '#services/mail_outbox'
 
 function escape(value: string): string {
@@ -12,7 +13,8 @@ function escape(value: string): string {
  */
 export default class DevMailboxController {
   async index({ response, request }: HttpContext) {
-    if (app.inProduction) return response.notFound()
+    // SEC-16: tylko lokalnie — środowisko development i transport outbox.
+    if (!app.inDev || (env.get('MAIL_MAILER') ?? 'outbox') !== 'outbox') return response.notFound()
     const mails = await listOutbox()
     const selected = mails.find((m) => m.id === request.qs().id) ?? mails[0]
     const list = mails

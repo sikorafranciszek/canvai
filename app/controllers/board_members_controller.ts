@@ -47,8 +47,13 @@ export default class BoardMembersController {
     return {
       canManage: manage,
       limit: Number.isFinite(limits.collaborators) ? limits.collaborators : null,
+      // SEC-16: adresy e-mail widzi tylko zarządzający tablicą (i każdy swój).
       owner: owner
-        ? { id: owner.id, name: owner.fullName?.trim() || owner.email, email: owner.email }
+        ? {
+            id: owner.id,
+            name: owner.fullName?.trim() || (manage ? owner.email : t('members.ownerUnnamed')),
+            email: manage || owner.id === viewerId ? owner.email : null,
+          }
         : null,
       members: members
         .filter((m) => manage || m.acceptedAt)
@@ -56,8 +61,10 @@ export default class BoardMembersController {
           const u = users.find((x) => x.id === m.userId)
           return {
             id: m.id,
-            email: m.email,
-            name: u?.fullName?.trim() || null,
+            email: manage || m.userId === viewerId ? m.email : null,
+            name:
+              u?.fullName?.trim() ||
+              (manage || m.userId === viewerId ? null : t('members.unnamed')),
             role: m.role,
             pending: !m.acceptedAt,
             isYou: m.userId === viewerId,
