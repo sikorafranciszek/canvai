@@ -107,6 +107,8 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   // Kolejka: worker in-process w `node ace serve` (domyślnie włączony).
   QUEUE_INLINE_WORKER: Env.schema.boolean.optional(),
+  /** Liczba równoległych generacji w workerze (ARC-1); podglądy mają osobny tor. */
+  QUEUE_CONCURRENCY: Env.schema.number.optional(),
 
   // Poczta: `outbox` (domyślnie, lokalnie — tmp/mail-outbox) albo `smtp`.
   MAIL_MAILER: Env.schema.enum.optional(['outbox', 'smtp', 'resend'] as const),

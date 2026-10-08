@@ -36,6 +36,8 @@ services:
       - ALLOW_MOCK_AI=${ALLOW_MOCK_AI:-false}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - DEEPSEEK_THINKING=${DEEPSEEK_THINKING:-off}
+      # Równoległe generacje w workerze (+ osobny tor podglądów).
+      - QUEUE_CONCURRENCY=${QUEUE_CONCURRENCY:-3}
       # Poczta (weryfikacja kont, reset hasła): resend + RESEND_API_KEY albo smtp + SMTP_*.
       - MAIL_MAILER=${MAIL_MAILER:-resend}
       - MAIL_FROM_NAME=${MAIL_FROM_NAME:-canvai}

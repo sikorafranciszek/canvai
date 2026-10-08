@@ -109,9 +109,11 @@ const handlers: Record<string, JobHandler> = {
   },
 }
 
-/** Rejestracja typu zadania (testy, przyszłe zadania). */
-export function registerJobHandler(type: string, handler: JobHandler) {
+/** Rejestracja typu zadania (testy, przyszłe zadania). Zwraca poprzedni handler. */
+export function registerJobHandler(type: string, handler: JobHandler): JobHandler | undefined {
+  const previous = handlers[type]
   handlers[type] = handler
+  return previous
 }
 
 function sqlTime(dt: DateTime): string {
@@ -136,13 +138,29 @@ const HEARTBEAT_MS = 30_000
 /** Zadania trzymane przez ten proces (token → id) — do zwolnienia przy zamykaniu. */
 const owned = new Map<string, number>()
 
-export async function claimNext(): Promise<Job | null> {
+/** Filtr toru: tylko te typy (`only`) albo wszystkie poza (`except`). */
+export interface QueueLane {
+  only?: readonly string[]
+  except?: readonly string[]
+}
+
+/**
+ * Tory kolejki (ARC-1): podglądy mają własny tor i nie czekają za kilkuminutowymi
+ * generacjami; tor ogólny bierze wszystko inne (także przyszłe typy zadań).
+ */
+export const QUEUE_LANES = {
+  general: { except: [JOB_GENERATE_PREVIEW] },
+  preview: { only: [JOB_GENERATE_PREVIEW] },
+} satisfies Record<string, QueueLane>
+
+export async function claimNext(lane: QueueLane = {}): Promise<Job | null> {
   const now = DateTime.utc()
-  const candidates = await Job.query()
+  const query = Job.query()
     .where('status', 'queued')
     .where((q) => q.whereNull('run_at').orWhere('run_at', '<=', sqlTime(now)))
-    .orderBy('id', 'asc')
-    .limit(5)
+  if (lane.only?.length) query.whereIn('type', [...lane.only])
+  if (lane.except?.length) query.whereNotIn('type', [...lane.except])
+  const candidates = await query.orderBy('id', 'asc').limit(5)
 
   for (const candidate of candidates) {
     const token = randomUUID()
@@ -291,10 +309,13 @@ export async function releaseOwnedJobs(): Promise<number> {
 }
 
 /** Uruchamia zadania gotowe do wykonania, jedno po drugim. Zwraca ich liczbę. */
-export async function runPendingJobs(max = Number.POSITIVE_INFINITY): Promise<number> {
+export async function runPendingJobs(
+  max = Number.POSITIVE_INFINITY,
+  lane: QueueLane = {}
+): Promise<number> {
   let count = 0
   while (count < max) {
-    const job = await claimNext()
+    const job = await claimNext(lane)
     if (!job) break
     await runJob(job)
     count++

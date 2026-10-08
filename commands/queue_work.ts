@@ -27,21 +27,20 @@ export default class QueueWork extends BaseCommand {
       return
     }
 
-    this.logger.info('Worker kolejki działa (Ctrl+C aby zakończyć)')
-    let stopped = false
-    this.app.terminating(() => {
-      stopped = true
+    const { startQueueWorker } = await import('#services/queue_worker')
+    const concurrency = Number(process.env.QUEUE_CONCURRENCY ?? 3)
+    const worker = startQueueWorker({
+      concurrency,
+      pollMs: this.interval,
+      onBatch: (count) => this.logger.info(`Przetworzono zadań: ${count}`),
     })
-
-    let lastRecover = 0
-    while (!stopped) {
-      if (Date.now() - lastRecover > 60_000) {
-        lastRecover = Date.now()
-        await recoverStaleJobs()
-      }
-      const count = await runPendingJobs(10)
-      if (count > 0) this.logger.info(`Przetworzono zadań: ${count}`)
-      await new Promise((resolve) => setTimeout(resolve, this.interval))
-    }
+    this.logger.info(`Worker kolejki działa: ${concurrency} + 1 (podglądy) (Ctrl+C aby zakończyć)`)
+    await new Promise<void>((resolve) => {
+      this.app.terminating(async () => {
+        const released = await worker.stop(20_000)
+        if (released) this.logger.info(`Oddano do kolejki: ${released}`)
+        resolve()
+      })
+    })
   }
 }

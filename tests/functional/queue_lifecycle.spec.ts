@@ -118,3 +118,75 @@ test.group('Kolejka: cykl życia i własność zadania (DAT-3)', (group) => {
     assert.equal(job.status, 'queued', 'zakończenie po oddaniu nie nadpisuje stanu')
   })
 })
+
+test.group('Kolejka: równoległe sloty i tor podglądów (ARC-1)', () => {
+  test('dwa zadania wykonują się równolegle; podgląd nie czeka za generacjami', async ({
+    assert,
+    cleanup,
+  }) => {
+    const { startQueueWorker } = await import('#services/queue_worker')
+    const { JOB_GENERATE_PREVIEW } = await import('#services/queue')
+    let running = 0
+    let peak = 0
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const seen: string[] = []
+    registerJobHandler('test_parallel', {
+      async run(job) {
+        running++
+        peak = Math.max(peak, running)
+        seen.push(`start:${job.id}`)
+        await gate
+        running--
+      },
+      async onFailed() {},
+    })
+    // Podgląd w teście: zastępczy handler (bez modelu), na torze podglądów.
+    let previewRan = false
+    const original = registerJobHandler(JOB_GENERATE_PREVIEW, {
+      async run() {
+        previewRan = true
+      },
+      async onFailed() {},
+    })
+    cleanup(() => {
+      if (original) registerJobHandler(JOB_GENERATE_PREVIEW, original)
+    })
+
+    const jobs = [
+      await enqueue('test_parallel', {}),
+      await enqueue('test_parallel', {}),
+      await enqueue(JOB_GENERATE_PREVIEW, {}),
+    ]
+    cleanup(async () => {
+      await db
+        .from('jobs')
+        .whereIn(
+          'id',
+          jobs.map((j) => j.id)
+        )
+        .delete()
+    })
+
+    const worker = startQueueWorker({ concurrency: 2, pollMs: 50 })
+    const deadline = Date.now() + 5000
+    while ((peak < 2 || !previewRan) && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 50))
+    }
+    assert.equal(peak, 2, 'oba zadania jednocześnie')
+    assert.isTrue(previewRan, 'podgląd wykonany, choć sloty ogólne są zajęte')
+    release()
+    await worker.stop(3000)
+    const statuses = await db
+      .from('jobs')
+      .whereIn(
+        'id',
+        jobs.map((j) => j.id)
+      )
+      .select('status')
+    assert.deepEqual(
+      statuses.map((s) => s.status),
+      ['done', 'done', 'done']
+    )
+  }).timeout(15_000)
+})

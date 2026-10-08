@@ -13,7 +13,7 @@
 import app from '@adonisjs/core/services/app'
 import logger from '@adonisjs/core/services/logger'
 import env from '#start/env'
-import { recoverStaleJobs, releaseOwnedJobs, runPendingJobs } from '#services/queue'
+import { startQueueWorker } from '#services/queue_worker'
 import { runDueTasks } from '#services/ops/scheduler'
 import { flushAlerts } from '#services/ops/alerts'
 import '#services/ops/tasks'
@@ -27,37 +27,20 @@ const SCHEDULER_EVERY_MS = 60_000
 const SHUTDOWN_GRACE_MS = 20_000
 
 if (env.get('QUEUE_INLINE_WORKER', true)) {
-  let busy = false
-  let lastRecover = 0
   workerPulse.enabled = true
-
-  const tick = async () => {
-    workerPulse.lastTickAt = Date.now()
-    if (busy) return
-    busy = true
-    workerPulse.busySince = Date.now()
-    try {
-      if (Date.now() - lastRecover > RECOVER_EVERY_MS) {
-        lastRecover = Date.now()
-        await recoverStaleJobs()
-      }
-      await runPendingJobs(10)
-    } catch (error) {
-      logger.error({ err: error }, 'queue worker tick failed')
-    } finally {
-      busy = false
-      workerPulse.busySince = 0
-    }
-  }
-
-  const timer = setInterval(() => void tick(), POLL_MS)
-  timer.unref()
-  // Zamykanie (deploy): czekamy chwilę na bieżące zadanie, resztę oddajemy do kolejki.
+  const worker = startQueueWorker({
+    concurrency: env.get('QUEUE_CONCURRENCY', 3),
+    pollMs: POLL_MS,
+    recoverEveryMs: RECOVER_EVERY_MS,
+    onTick: (busySince) => {
+      workerPulse.lastTickAt = Date.now()
+      // Zdrowie: „zajęty od” = najstarsze trwające zadanie, 0 = bezczynny.
+      workerPulse.busySince = busySince
+    },
+  })
+  // Zamykanie (deploy): czekamy chwilę na bieżące zadania, resztę oddajemy do kolejki.
   app.terminating(async () => {
-    clearInterval(timer)
-    const deadline = Date.now() + SHUTDOWN_GRACE_MS
-    while (busy && Date.now() < deadline) await new Promise((r) => setTimeout(r, 250))
-    const released = await releaseOwnedJobs().catch(() => 0)
+    const released = await worker.stop(SHUTDOWN_GRACE_MS)
     if (released) logger.info({ released }, 'jobs returned to queue on shutdown')
   })
 }
