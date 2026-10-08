@@ -16,7 +16,7 @@ import { stats as pipelineStats, track } from '#services/analytics/collector'
 import { balanceOf, grantCredits, nextExpiry, sqlTime } from '#services/billing/credits'
 import { entitlementsFor } from '#services/billing/plans'
 import { referralStats } from '#services/billing/referrals'
-import { deleteAssetFiles } from '#services/assets_service'
+import { deleteUserFiles } from '#services/assets_service'
 import { issueToken } from '#services/account_tokens'
 import { sendPasswordResetEmail } from '#services/account_mail'
 import { adminDenial, isAdmin } from '#services/crm/admin'
@@ -544,12 +544,13 @@ export default class CrmController {
       return response.redirect().back()
     }
     const boardIds = (await Board.query().where('user_id', user.id).select('id')).map((b) => b.id)
-    if (boardIds.length) {
-      for (const asset of await Asset.query().whereIn('board_id', boardIds))
-        await deleteAssetFiles(asset)
-    }
+    const assets = boardIds.length ? await Asset.query().whereIn('board_id', boardIds) : []
     const userId = user.id
     await user.delete()
+    await deleteUserFiles(
+      boardIds.map((id) => ({ id, assets: assets.filter((a) => a.boardId === id) })),
+      userId
+    )
     try {
       await eraseUserAnalytics(userId)
     } catch (error) {

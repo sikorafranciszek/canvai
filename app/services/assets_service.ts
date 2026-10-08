@@ -360,6 +360,69 @@ export async function deleteAssetFiles(asset: Asset): Promise<void> {
   )
 }
 
+/**
+ * Pliki tablicy na dysku (DAT-8): wszystkie warianty materiałów i cały katalog
+ * `boards/<id>/`. Wołane PO usunięciu wierszy — błąd usuwania plików nie
+ * cofa usunięcia tablicy (resztki sprząta cotygodniowe zadanie).
+ */
+export async function deleteBoardFiles(boardId: number, assets: Asset[] = []): Promise<void> {
+  for (const asset of assets) await deleteAssetFiles(asset)
+  await drive
+    .use()
+    .deleteAll(`boards/${boardId}`)
+    .catch(() => {})
+}
+
+/** Pliki konta: tablice i logo marki. */
+export async function deleteUserFiles(
+  boards: { id: number; assets: Asset[] }[],
+  userId: number
+): Promise<void> {
+  for (const b of boards) await deleteBoardFiles(b.id, b.assets)
+  await drive
+    .use()
+    .deleteAll(`brands/${userId}`)
+    .catch(() => {})
+}
+
+/**
+ * Sprząta pliki bez wiersza w bazie (np. po awarii w trakcie usuwania).
+ * Plik musi być starszy niż `minAgeMs` — świeży upload może jeszcze nie mieć wiersza.
+ */
+export async function sweepOrphanFiles(minAgeMs = 7 * 24 * 3600_000): Promise<number> {
+  const known = new Set<string>()
+  const rows = await Asset.query().select('storage_key', 'thumb_key', 'analysis_key')
+  for (const r of rows) {
+    for (const k of [r.storageKey, r.thumbKey, r.analysisKey]) if (k) known.add(k)
+  }
+  const { default: User } = await import('#models/user')
+  for (const u of await User.query().whereNotNull('brand_logo_key').select('brand_logo_key')) {
+    if (u.brandLogoKey) known.add(u.brandLogoKey)
+  }
+  let removed = 0
+  for (const prefix of ['boards', 'brands']) {
+    let token: string | undefined
+    do {
+      const page = await drive
+        .use()
+        .listAll(prefix, { recursive: true, paginationToken: token })
+        .catch(() => ({ objects: [] as never[], paginationToken: undefined }))
+      for (const obj of page.objects) {
+        if (!('key' in obj) || known.has(obj.key)) continue
+        const meta = await obj.getMetaData().catch(() => null)
+        if (!meta || Date.now() - meta.lastModified.getTime() < minAgeMs) continue
+        await drive
+          .use()
+          .delete(obj.key)
+          .catch(() => {})
+        removed++
+      }
+      token = page.paginationToken
+    } while (token)
+  }
+  return removed
+}
+
 /** Serializuje asset do kształtu odpowiedzi API. */
 export function serializeAsset(asset: Asset) {
   return {

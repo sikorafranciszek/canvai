@@ -37,6 +37,16 @@ registerTask({
   },
 })
 
+/** Cotygodniowe sprzątanie plików bez wiersza w bazie (DAT-8). */
+registerTask({
+  name: 'orphan_files',
+  due: every(7 * 24 * 60),
+  async run() {
+    const { sweepOrphanFiles } = await import('#services/assets_service')
+    return `removed ${await sweepOrphanFiles()} orphan files`
+  },
+})
+
 registerTask({
   name: 'backup',
   due: (last, now) => backupConfigured() && dailyAt(ops.backup.hourUtc)(last, now),

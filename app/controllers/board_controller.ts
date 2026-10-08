@@ -11,6 +11,7 @@ import { trackFor } from '#services/analytics/events'
 import { BOARD_TEMPLATES, TEMPLATE_CAMERA, buildTemplateScene } from '#shared/board-templates'
 import User from '#models/user'
 import { boardAccess, memberBoardIds } from '#services/board_access'
+import { deleteBoardFiles } from '#services/assets_service'
 
 export default class BoardController {
   async index({ auth, inertia, session, response }: HttpContext) {
@@ -168,7 +169,10 @@ export default class BoardController {
       return response.redirect().toPath('/boards')
     }
 
+    const assets = await Asset.query().where('board_id', board.id)
     await board.delete()
+    // Pliki po usunięciu wierszy — usunięta tablica nie zostawia danych na dysku.
+    await deleteBoardFiles(board.id, assets)
     trackFor(ctx, 'board_deleted', {}, { boardId: board.id })
 
     response.redirect().toPath('/boards')

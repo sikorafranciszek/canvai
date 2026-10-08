@@ -59,10 +59,14 @@ export default class BoardCommentsController {
   async index({ auth, params, response }: HttpContext) {
     const access = await boardAccess(auth.user!.id, params.id, 'view')
     if (!access) return response.notFound()
-    const comments = await BoardComment.query()
-      .where('board_id', access.board.id)
-      .orderBy('created_at', 'asc')
-      .limit(1000)
+    // Najnowsze 1000 (DAT-6), wyświetlane chronologicznie.
+    const comments = (
+      await BoardComment.query()
+        .where('board_id', access.board.id)
+        .orderBy('created_at', 'desc')
+        .orderBy('id', 'desc')
+        .limit(1000)
+    ).reverse()
     return response.json({
       data: await this.serialize(comments, auth.user!.id, access.board.userId),
     })
