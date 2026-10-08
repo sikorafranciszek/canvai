@@ -44,22 +44,62 @@ function ipv4Blocked(ip: string): boolean {
   )
 }
 
+/** Rozwija adres IPv6 do 8 liczb 16-bitowych (obsługuje `::` i końcówkę IPv4). */
+function ipv6Hextets(ip: string): number[] | null {
+  let addr = ip.toLowerCase().replace(/%.*$/, '')
+  // Końcówka w postaci kropkowej (::ffff:1.2.3.4) → dwie grupy szesnastkowe.
+  const v4 = addr.match(/(\d+\.\d+\.\d+\.\d+)$/)
+  if (v4) {
+    if (!net.isIPv4(v4[1])) return null
+    const [a, b, c, d] = v4[1].split('.').map(Number)
+    addr =
+      addr.slice(0, -v4[1].length) + ((a << 8) | b).toString(16) + ':' + ((c << 8) | d).toString(16)
+  }
+  const halves = addr.split('::')
+  if (halves.length > 2) return null
+  const head = halves[0] ? halves[0].split(':') : []
+  const tail = halves.length === 2 && halves[1] ? halves[1].split(':') : []
+  const fill = halves.length === 2 ? 8 - head.length - tail.length : 0
+  const groups = [...head, ...Array(fill).fill('0'), ...tail]
+  if (groups.length !== 8) return null
+  const out = groups.map((g) => Number.parseInt(g, 16))
+  return out.every((n) => Number.isInteger(n) && n >= 0 && n <= 0xffff) ? out : null
+}
+
+function embeddedIPv4(h: number[], from: number): string {
+  return [h[from] >> 8, h[from] & 0xff, h[from + 1] >> 8, h[from + 1] & 0xff].join('.')
+}
+
+/**
+ * Czy adres jest niepubliczny. IPv6 jest rozwijany do pełnej postaci, więc
+ * każdy zapis (`::ffff:7f00:1`, `::ffff:127.0.0.1`, `0:0:0:0:0:ffff:…`) daje ten
+ * sam wynik. Adresy z osadzonym IPv4 (mapowane, zgodne, NAT64) sprawdzamy jak
+ * IPv4; tunele i przestarzałe zakresy blokujemy w całości.
+ */
 export function isBlockedAddress(ip: string): boolean {
   if (net.isIPv4(ip)) return ipv4Blocked(ip)
   if (!net.isIPv6(ip)) return true
-  const lower = ip.toLowerCase()
-  const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)
-  if (mapped) return ipv4Blocked(mapped[1])
+  const h = ipv6Hextets(ip)
+  if (!h) return true
+  const zeros = (n: number) => h.slice(0, n).every((x) => x === 0)
+  // :: (nieokreślony) i ::1 (loopback)
+  if (zeros(7) && (h[7] === 0 || h[7] === 1)) return true
+  // ::ffff:a.b.c.d (mapowany) i ::a.b.c.d (zgodny, przestarzały)
+  if (zeros(5) && h[5] === 0xffff) return ipv4Blocked(embeddedIPv4(h, 6))
+  if (zeros(6)) return ipv4Blocked(embeddedIPv4(h, 6))
+  // 64:ff9b::/96 i 64:ff9b:1::/48 (NAT64) — osadzony IPv4
+  if (h[0] === 0x64 && h[1] === 0xff9b) return true
+  const first = h[0]
   return (
-    lower === '::' ||
-    lower === '::1' ||
-    lower.startsWith('fc') ||
-    lower.startsWith('fd') ||
-    lower.startsWith('fe8') ||
-    lower.startsWith('fe9') ||
-    lower.startsWith('fea') ||
-    lower.startsWith('feb') ||
-    lower.startsWith('ff')
+    first === 0x2002 || // 6to4 (osadzony IPv4 dowolnej sieci)
+    (first === 0x2001 && h[1] === 0) || // Teredo
+    (first === 0x2001 && h[1] === 0xdb8) || // dokumentacja
+    (first & 0xfe00) === 0xfc00 || // fc00::/7 unikalne lokalne
+    (first & 0xffc0) === 0xfe80 || // fe80::/10 link-local
+    (first & 0xffc0) === 0xfec0 || // fec0::/10 site-local (przestarzałe)
+    (first & 0xff00) === 0xff00 || // multicast
+    first < 0x2000 || // poza globalnym unicastem 2000::/3
+    first >= 0x4000
   )
 }
 
