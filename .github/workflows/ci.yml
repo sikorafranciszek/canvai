@@ -55,6 +55,10 @@ jobs:
       - name: Playwright (Chromium)
         run: npx playwright install --with-deps chromium
 
+      # Typy tras/kontrolerów (.adonisjs/) nie są w repo — generujemy przed typecheckiem.
+      - name: Codegen
+        run: node ace codegen
+
       - name: Typecheck
         run: npm run typecheck
 
