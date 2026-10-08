@@ -4303,7 +4303,9 @@ input.title-edit {
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  z-index: 3;
+  /* Nad kartą pustej tablicy (.canvas-empty, 5), pod paskami narzędzi (.float, 10):
+     pinezki i okienko komentarza nie chowają się pod kartą. */
+  z-index: 6;
 }
 
 .collab-layer--placing {
