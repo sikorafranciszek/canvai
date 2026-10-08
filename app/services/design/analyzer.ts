@@ -51,8 +51,9 @@ export function analysisCacheKey(asset: Asset): string {
   return `${asset.kind}:${createHash('sha256').update(payload).digest('hex')}`
 }
 
-export function assertTokenBudget(usage: UsageTracker): void {
-  const total = usage.tokensIn + usage.tokensOut
+/** `upcoming` — szacunek tokenów wejścia następnego wywołania (sprawdzany przed nim). */
+export function assertTokenBudget(usage: UsageTracker, upcoming = 0): void {
+  const total = usage.tokensIn + usage.tokensOut + upcoming
   if (total > limits.maxTokensPerGeneration) {
     throw new AiProviderError(
       t('gen.tokenLimit', { total, limit: limits.maxTokensPerGeneration }),
@@ -145,6 +146,11 @@ export async function analyzeAssets(
           image: await loadImage(asset),
         })
       } catch (error) {
+        // Nieudane próby też zużyły tokeny — liczą się do budżetu i kosztów.
+        if (error instanceof AiProviderError && error.usage) {
+          usage.tokensIn += error.usage.tokensIn
+          usage.tokensOut += error.usage.tokensOut
+        }
         const reason = error instanceof Error ? error.message : t('gen.unknownError')
         throw new AiProviderError(
           t('gen.assetFailed', { id: asset.id, name: asset.filename.slice(0, 80), reason }),

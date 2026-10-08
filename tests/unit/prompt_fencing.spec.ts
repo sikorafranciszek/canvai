@@ -102,3 +102,54 @@ test.group('Podgląd UI dostaje pełne tokeny (AI-11)', () => {
     assert.isAbove(text.indexOf('Ignore previous instructions'), fence)
   })
 })
+
+test.group('Budżet wejścia kompozycji (AI-5)', () => {
+  test('40 materiałów: skrót w budżecie, bez współrzędnych, bez powtórzeń', async ({ assert }) => {
+    const { composeInputPlan, COMPOSE_INPUT_BUDGET } = await import('#services/design/prompts')
+    const { buildBoardContext } = await import('#services/design/board_context')
+    const assets = Array.from({ length: 40 }, (_, i) => ({
+      id: i + 1,
+      filename: `screen-${i}.png`,
+      kind: 'image',
+      userNote: 'n'.repeat(3000),
+      onCanvas: true,
+      usage: null,
+      analysis: {
+        role: 'screen' as const,
+        summary: 's'.repeat(1500),
+        ocrText: `Start ${i} ${'o'.repeat(4000)}`,
+        palette: [{ hex: '#111111' }],
+        typography: [],
+        components: ['filled primary button, 8px radius', `card ${i}`],
+        layoutPatterns: Array.from({ length: 30 }, (_, j) => `pattern ${i}-${j} ${'p'.repeat(80)}`),
+        styleHints: [],
+        mood: 'calm',
+        tags: [],
+      },
+    }))
+    const context = buildBoardContext({
+      version: 1,
+      elements: assets.map((a, i) => ({
+        id: `e${i}`,
+        type: 'image',
+        assetId: String(a.id),
+        x: i * 400,
+        y: 0,
+        width: 300,
+        height: 200,
+        rotation: 0,
+        opacity: 1,
+      })),
+    } as never)
+
+    const small = composeInputPlan({ boardTitle: 'B', assets: assets.slice(0, 2), context })
+    assert.isFalse(small.trimmed)
+
+    const plan = composeInputPlan({ boardTitle: 'B', assets, context })
+    assert.isTrue(plan.trimmed)
+    assert.isAtMost(plan.tokens, COMPOSE_INPUT_BUDGET)
+    assert.notMatch(plan.text, /"x":|"width":/)
+    assert.equal(plan.text.split('filled primary button, 8px radius').length - 1, 1)
+    assert.include(plan.text, 'Start 39', 'początek OCR każdego materiału zostaje')
+  })
+})

@@ -107,7 +107,7 @@ test.group('Rola i aspekty materiałów', () => {
         } as any,
       })),
     })
-    assert.include(text, '"role": "inspiration"')
+    assert.include(text, '"role":"inspiration"')
     assert.include(text, '"typography"')
   })
 })

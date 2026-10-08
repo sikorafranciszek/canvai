@@ -193,7 +193,32 @@ export const COMPOSE_SYSTEM_PROMPT = [
   `Reply ONLY with a JSON object of exactly this shape:\n${SPEC_SHAPE}`,
 ].join('\n')
 
-export function buildComposeUserText(input: ComposeInput): string {
+/** Przybliżona liczba tokenów tekstu (≈ 3,5 znaku na token dla JSON-a i angielskiego). */
+export function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 3.5)
+}
+
+/** Budżet wejścia kompozycji (AI-5) — powyżej treść analiz jest skracana. */
+export const COMPOSE_INPUT_BUDGET = 60_000
+
+interface CompactLevel {
+  ocrChars: number
+  summaryChars: number
+  listItems: number
+  noteChars: number
+}
+
+/** Kolejne stopnie skracania: od pełnej treści do minimum, które wciąż niesie fakty. */
+const LEVELS: CompactLevel[] = [
+  { ocrChars: 1500, summaryChars: 1500, listItems: 30, noteChars: 2000 },
+  { ocrChars: 800, summaryChars: 600, listItems: 12, noteChars: 800 },
+  { ocrChars: 400, summaryChars: 300, listItems: 6, noteChars: 400 },
+  { ocrChars: 200, summaryChars: 160, listItems: 3, noteChars: 200 },
+]
+
+const cut = (text: string, max: number) => (text.length > max ? `${text.slice(0, max)}…` : text)
+
+function composeText(input: ComposeInput, level: CompactLevel): string {
   // Zaufana część: tylko identyfikatory, wartości wyliczeniowe i hexy (sprawdzone
   // walidatorem). Każdy tekst napisany przez model w etapie analizy mógł być
   // sterowany treścią obrazu lub nazwą pliku — trafia do ogrodzonego bloku niżej.
@@ -213,44 +238,70 @@ export function buildComposeUserText(input: ComposeInput): string {
         : { role: 'auto', aspects: 'all' },
   }))
 
+  // Limit OCR na materiał maleje z liczbą materiałów (40 zrzutów × 4000 znaków
+  // to setki tysięcy tokenów), ale zawsze zostaje początek tekstu.
+  const ocrChars = Math.max(
+    200,
+    Math.min(level.ocrChars, Math.floor(30_000 / Math.max(1, input.assets.length)))
+  )
+
   // Tekst pochodzący od użytkownika (nazwy, notatki, OCR) idzie osobnym,
   // ogrodzonym blokiem — struktura analiz powyżej jest już zwalidowana.
   const userText = input.assets.map((a) => ({
     id: a.id,
     filename: a.filename,
-    userNote: a.userNote ?? '',
-    ocrText: a.analysis.ocrText,
+    userNote: cut(a.userNote ?? '', level.noteChars),
+    ocrText: cut(a.analysis.ocrText, ocrChars),
   }))
+
+  // Komponenty, wzorce i wskazówki powtarzające się między materiałami — raz.
+  const seen = new Set<string>()
+  const unique = (items: string[]) =>
+    items
+      .filter((item) => {
+        const key = item.toLowerCase().replace(/\s+/g, ' ').trim()
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      .slice(0, level.listItems)
   const analysisText = input.assets.map((a) => ({
     id: a.id,
-    summary: a.analysis.summary,
+    summary: cut(a.analysis.summary, level.summaryChars),
     mood: a.analysis.mood,
     palette: a.analysis.palette,
-    typography: a.analysis.typography,
-    components: a.analysis.components,
-    layoutPatterns: a.analysis.layoutPatterns,
-    styleHints: a.analysis.styleHints,
-    tags: a.analysis.tags,
+    textColors: a.analysis.textColors ?? [],
+    typography: a.analysis.typography.slice(0, level.listItems),
+    components: unique(a.analysis.components),
+    layoutPatterns: unique(a.analysis.layoutPatterns),
+    styleHints: unique(a.analysis.styleHints),
+    tags: a.analysis.tags.slice(0, level.listItems),
   }))
   const notes = input.context.items
     .filter((it) => it.text)
-    .map((it) => ({ ref: it.ref, text: it.text }))
+    .map((it) => ({ ref: it.ref, text: cut(it.text!, level.noteChars) }))
 
+  // Struktura bez współrzędnych — kolejność czytania i ramki niosą układ.
   const structure = {
-    frames: input.context.frames,
+    frames: input.context.frames.map((f) => ({ ref: f.ref, shape: f.shape, contains: f.contains })),
     flows: input.context.flows,
     readingOrder: input.context.readingOrder,
-    items: input.context.items.map(({ text: _text, ...rest }) => rest),
+    items: input.context.items.map((it) => ({
+      ref: it.ref,
+      type: it.type,
+      ...(it.frame ? { frame: it.frame } : {}),
+      ...(it.label ? { label: true } : {}),
+    })),
   }
 
   const parts = [
     `Board title: ${fenceUntrusted('board-title', input.boardTitle)}`,
     `Allowed source ids: ${input.assets.map((a) => a.id).join(', ') || '(none)'}`,
-    `ASSETS (JSON; trusted ids, roles, palette hex values and usage):\n${JSON.stringify(assets, null, 1)}`,
-    `ASSET ANALYSES (descriptions extracted from each asset by an earlier pass):\n${fenceUntrusted('asset-analyses', JSON.stringify(analysisText, null, 1))}`,
-    `ASSET TEXT AND CLIENT NOTES:\n${fenceUntrusted('asset-text', JSON.stringify(userText, null, 1))}`,
-    `NOTES AND TEXT ON THE CANVAS:\n${fenceUntrusted('canvas-notes', JSON.stringify(notes, null, 1))}`,
-    `CANVAS STRUCTURE (JSON; A<id> = asset, N<n> = note, F<n> = frame):\n${JSON.stringify(structure, null, 1)}`,
+    `ASSETS (JSON; trusted ids, roles, palette and text color hex values, usage):\n${JSON.stringify(assets)}`,
+    `ASSET ANALYSES (descriptions extracted from each asset by an earlier pass):\n${fenceUntrusted('asset-analyses', JSON.stringify(analysisText))}`,
+    `ASSET TEXT AND CLIENT NOTES:\n${fenceUntrusted('asset-text', JSON.stringify(userText))}`,
+    `NOTES AND TEXT ON THE CANVAS:\n${fenceUntrusted('canvas-notes', JSON.stringify(notes))}`,
+    `CANVAS STRUCTURE (JSON; A<id> = asset, N<n> = note, F<n> = frame; reading order = layout):\n${JSON.stringify(structure)}`,
   ]
   if (input.previousErrors?.length) {
     parts.push(
@@ -258,6 +309,31 @@ export function buildComposeUserText(input: ComposeInput): string {
     )
   }
   return parts.join('\n\n')
+}
+
+/**
+ * Wejście kompozycji w budżecie (AI-5): pełna treść, a gdy szacunek tokenów
+ * przekracza budżet — kolejne stopnie skracania. `trimmed` = dokument dostaje
+ * ostrzeżenie, że szczegóły części materiałów zostały skrócone.
+ */
+export function composeInputPlan(input: ComposeInput): {
+  text: string
+  tokens: number
+  trimmed: boolean
+} {
+  let text = ''
+  for (const [i, level] of LEVELS.entries()) {
+    text = composeText(input, level)
+    const tokens = estimateTokens(text)
+    if (tokens <= COMPOSE_INPUT_BUDGET || i === LEVELS.length - 1) {
+      return { text, tokens, trimmed: i > 0 }
+    }
+  }
+  return { text, tokens: estimateTokens(text), trimmed: true }
+}
+
+export function buildComposeUserText(input: ComposeInput): string {
+  return composeInputPlan(input).text
 }
 
 // ---------------------------------------------------------------------------

@@ -18,7 +18,7 @@ import {
   computeInputFingerprint,
   type BoardContext,
 } from '#services/design/board_context'
-import { PROMPT_VERSION } from '#services/design/prompts'
+import { composeInputPlan, PROMPT_VERSION } from '#services/design/prompts'
 import { renderDesignMd } from '#services/design/renderer'
 import { groundSpec } from '#services/design/spec'
 import { verifySpec, type Evidence } from '#services/design/verify'
@@ -196,10 +196,13 @@ async function generate(
   // Jeden limit wywołań kompozycji na generację (AI-6). Odrzucona odpowiedź —
   // błąd schematu albo ugruntowania — wraca do modelu z listą problemów (po
   // angielsku, jak reszta promptu); identyczna powtórka niczego by nie zmieniła.
+  // Budżet wejścia (AI-5): szacunek przed wywołaniem; za duża tablica jest
+  // skracana stopniami, a dokument dostaje o tym ostrzeżenie.
+  const plan = composeInputPlan({ boardTitle: board.title, assets: composeAssets, context })
   let spec: DesignSpec | null = null
   let previousErrors: string[] = []
   for (let call = 0; call < limits.maxComposeCalls && !spec; call++) {
-    assertTokenBudget(usage)
+    assertTokenBudget(usage, plan.tokens)
     let result: Awaited<ReturnType<AiProvider['composeDocument']>>
     try {
       result = await provider.composeDocument({
@@ -228,6 +231,11 @@ async function generate(
   if (!spec) {
     // Bez ponawiania całego zadania — kolejne próby kosztowałyby tyle samo.
     throw new AiProviderError(t('gen.notGrounded', { errors: previousErrors.join('; ') }), false)
+  }
+  if (plan.trimmed) {
+    spec.openQuestions.push(
+      'This board has many materials, so their extracted text and descriptions were shortened before composing. Check that key screens are covered, or generate from a smaller selection.'
+    )
   }
   // Kod sprawdza model: role materiałów, kolory, cytaty, marki (wspólne z ewaluacją).
   verifySpec(spec, evidenceFor(board, assets, analyses, context))
