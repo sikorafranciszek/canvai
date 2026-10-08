@@ -6,6 +6,7 @@ import type { SceneDocument, SceneElement, ScenePoint } from '@shared/scene'
 import { useSceneStore, createElementForTool, type Tool } from '~/lib/scene/store'
 import { getElementBounds, screenToWorld } from '~/lib/scene/geometry'
 import { isHttpUrl } from '@shared/asset-utils'
+import { toolForKey, VIEW_TOOLS } from '@shared/tools'
 import { createElementId } from '@shared/scene-ops'
 import {
   parseClipboardElements,
@@ -105,21 +106,41 @@ export function Canvas({ boardId, readOnly = false }: { boardId: number; readOnl
     transformer.getLayer()?.batchDraw()
   }, [selection, document])
 
-  // Przechwytuj klawiaturę (poza polami tekstowymi).
+  // Przechwytuj klawiaturę tylko, gdy fokus jest na płótnie / stronie — nie
+  // w polach, przyciskach, listach, menu ani oknach dialogowych (UX-1).
+  const readOnlyRef = useRef(readOnly)
   useEffect(() => {
-    const isTypingTarget = (el: EventTarget | null) => {
-      if (!(el instanceof HTMLElement)) return false
-      const tag = el.tagName
-      return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable
+    readOnlyRef.current = readOnly
+  }, [readOnly])
+  useEffect(() => {
+    const ownsKeyboard = (el: EventTarget | null, mod: boolean) => {
+      if (!(el instanceof HTMLElement)) return true
+      if (el.isContentEditable || el.closest('input, textarea, select')) return false
+      if (el.closest('dialog, [role="dialog"], [role="menu"], [role="listbox"]')) return false
+      // Na przycisku/linku Spacja, Enter, strzałki i Delete należą do niego;
+      // przepuszczamy tylko skróty z Ctrl/⌘ (cofnij, ponów).
+      if (el.closest('button, a[href], summary, [role="tab"], [role="button"]')) return mod
+      return true
     }
+    const anyModalOpen = () =>
+      Boolean(window.document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]'))
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (isTypingTarget(e.target)) return
-      // Tryb podglądu: bez skrótów edycji (usuwanie, wklejanie, cofanie).
-      if (readOnly) return
-
-      const store = useSceneStore.getState()
+      if (e.defaultPrevented) return
       const mod = e.ctrlKey || e.metaKey
+      if (!ownsKeyboard(e.target, mod) || anyModalOpen()) return
+      const viewOnly = readOnlyRef.current
+      const store = useSceneStore.getState()
+
+      // Narzędzia: V/H/R/O/L/A/P/T/S (bez modyfikatorów). Podgląd — tylko V i H.
+      if (!mod && !e.altKey && !e.repeat) {
+        const keyTool = toolForKey(e.key)
+        if (keyTool && (!viewOnly || VIEW_TOOLS.includes(keyTool))) {
+          e.preventDefault()
+          store.setTool(keyTool)
+          return
+        }
+      }
 
       if (e.code === 'Space') {
         e.preventDefault()
@@ -130,6 +151,9 @@ export function Canvas({ boardId, readOnly = false }: { boardId: number; readOnl
         }
         return
       }
+
+      // Tryb podglądu: bez skrótów edycji (usuwanie, wklejanie, cofanie).
+      if (viewOnly) return
 
       if (mod && e.key.toLowerCase() === 'z') {
         e.preventDefault()
@@ -656,50 +680,92 @@ export function Canvas({ boardId, readOnly = false }: { boardId: number; readOnl
 
         {/* Placeholdery uploadu (optymistyczne, z paskiem postępu). */}
         {pendingUploads.length > 0 && (
-          <Layer listening={false}>
-            {pendingUploads.map((u) => (
-              <Group key={u.id} x={u.x} y={u.y} listening={false}>
-                <Rect
-                  width={u.width}
-                  height={u.height}
-                  fill="#fdfbfa"
-                  stroke="#d1d1cd"
-                  strokeWidth={1}
-                  dash={[4, 4]}
-                  cornerRadius={4}
-                />
-                <Rect
-                  width={Math.max(0, u.width * u.progress)}
-                  height={6}
-                  x={0}
-                  y={u.height - 10}
-                  fill={SELECTION}
-                />
-                <Text
-                  text={u.filename}
-                  x={8}
-                  y={u.height / 2 - 22}
-                  width={u.width - 16}
-                  fontSize={12}
-                  fill={INK}
-                  ellipsis
-                  listening={false}
-                />
-                <Text
-                  text={
-                    u.status === 'error'
-                      ? t('canvas.uploadError')
-                      : `${Math.round(u.progress * 100)}%`
-                  }
-                  x={8}
-                  y={u.height / 2 - 2}
-                  width={u.width - 16}
-                  fontSize={11}
-                  fill={GRAPHITE}
-                  listening={false}
-                />
-              </Group>
-            ))}
+          <Layer listening={pendingUploads.some((u) => u.status === 'error')}>
+            {pendingUploads.map((u) => {
+              const failed = u.status === 'error'
+              return (
+                <Group key={u.id} x={u.x} y={u.y} listening={failed}>
+                  <Rect
+                    width={u.width}
+                    height={u.height}
+                    fill={failed ? '#fdf4f2' : '#fdfbfa'}
+                    stroke={failed ? '#c4553d' : '#d1d1cd'}
+                    strokeWidth={1}
+                    dash={[4, 4]}
+                    cornerRadius={4}
+                  />
+                  {failed ? null : (
+                    <Rect
+                      width={Math.max(0, u.width * u.progress)}
+                      height={6}
+                      x={0}
+                      y={u.height - 10}
+                      fill={SELECTION}
+                    />
+                  )}
+                  <Text
+                    text={u.filename}
+                    x={8}
+                    y={failed ? 10 : u.height / 2 - 22}
+                    width={u.width - 16}
+                    fontSize={12}
+                    fill={INK}
+                    ellipsis
+                    wrap="none"
+                    listening={false}
+                  />
+                  <Text
+                    text={
+                      failed
+                        ? (u.error ?? t('canvas.uploadError'))
+                        : `${Math.round(u.progress * 100)}%`
+                    }
+                    x={8}
+                    y={failed ? 30 : u.height / 2 - 2}
+                    width={u.width - 16}
+                    height={failed ? u.height - 70 : undefined}
+                    fontSize={11}
+                    lineHeight={1.3}
+                    fill={failed ? '#9b3b26' : GRAPHITE}
+                    ellipsis
+                    listening={false}
+                  />
+                  {failed && !readOnly ? (
+                    <Group
+                      x={8}
+                      y={u.height - 34}
+                      onClick={() => useBoardStore.getState().dismissUpload(u.id)}
+                      onTap={() => useBoardStore.getState().dismissUpload(u.id)}
+                      onMouseEnter={(e) => {
+                        const c = e.target.getStage()?.container()
+                        if (c) c.style.cursor = 'pointer'
+                      }}
+                      onMouseLeave={(e) => {
+                        const c = e.target.getStage()?.container()
+                        if (c) c.style.cursor = ''
+                      }}
+                    >
+                      <Rect
+                        width={64}
+                        height={24}
+                        fill="#ffffff"
+                        stroke="#d1d1cd"
+                        cornerRadius={4}
+                      />
+                      <Text
+                        text={t('canvas.uploadRemove')}
+                        width={64}
+                        height={24}
+                        align="center"
+                        verticalAlign="middle"
+                        fontSize={12}
+                        fill={INK}
+                      />
+                    </Group>
+                  ) : null}
+                </Group>
+              )
+            })}
           </Layer>
         )}
 

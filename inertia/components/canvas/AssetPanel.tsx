@@ -15,7 +15,7 @@ import {
   Search,
   Trash2,
 } from 'lucide-react'
-import { useBoardStore, useCanvasAssets } from '~/lib/board/session'
+import { useBoardStore, useCanEdit, useCanvasAssets } from '~/lib/board/session'
 import { formatBytes } from '@shared/asset-utils'
 import { useT, type MessageKey } from '~/i18n'
 import { ASSET_ASPECTS, type AssetRole, type AssetUsage } from '@shared/asset-usage'
@@ -27,6 +27,7 @@ export function AssetPanel() {
   // Tylko materiały obecne na płótnie (usunięty element znika też stąd).
   const assets = useCanvasAssets()
   const loading = useBoardStore((s) => s.assetsLoading)
+  const canEdit = useCanEdit()
   const initialized = useBoardStore((s) => s.initialized)
   const [query, setQuery] = useState('')
   const [deleting, setDeleting] = useState<AssetDto | null>(null)
@@ -76,7 +77,7 @@ export function AssetPanel() {
       ) : null}
 
       <div className="panel-scroll">
-        {inbox.length > 0 ? (
+        {canEdit && inbox.length > 0 ? (
           <div className="inbox" data-testid="asset-inbox">
             <div className="inbox__head">
               <Inbox size={15} />
@@ -176,6 +177,7 @@ const AssetRow = memo(function AssetRow({
   onDelete: () => void
 }) {
   const { t } = useT()
+  const canEdit = useCanEdit()
   const centerOnAsset = useBoardStore((s) => s.centerOnAsset)
   const updateNote = useBoardStore((s) => s.updateNote)
 
@@ -236,7 +238,7 @@ const AssetRow = memo(function AssetRow({
           <span className="badge badge--outline" style={{ height: 18 }}>
             A{asset.id}
           </span>
-          <div className="asset-row__actions">
+          <div className="asset-row__actions" hidden={!canEdit}>
             <button
               type="button"
               className="btn btn--quiet btn--icon btn--sm"
@@ -259,13 +261,14 @@ const AssetRow = memo(function AssetRow({
           className="textarea note-input"
           data-testid={`asset-note-${asset.id}`}
           value={note}
+          readOnly={!canEdit}
           maxLength={2000}
           onChange={(e) => {
             noteDirty.current = true
             setNote(e.target.value)
           }}
           onBlur={commitNote}
-          placeholder={t('assets.notePlaceholder')}
+          placeholder={canEdit ? t('assets.notePlaceholder') : ''}
           rows={note.length > 60 ? 3 : 1}
         />
         <UsagePicker asset={asset} />

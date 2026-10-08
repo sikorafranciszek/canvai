@@ -14,6 +14,7 @@ import { toast } from 'sonner'
 import { AutosaveEngine, AutosaveConflictError, type SaveStatus } from '@shared/autosave'
 import {
   createPendingUpload,
+  failUpload,
   resolveUploadResult,
   type PendingUpload,
   type UploadSource,
@@ -43,6 +44,7 @@ import { DEFAULTS } from '~/lib/scene/palette'
 import { hasLocalChanges, mergeScenes } from '@shared/scene-merge'
 import type { AssetUsage } from '@shared/asset-usage'
 import { translate } from '~/i18n'
+import { describeError, notifyError } from '~/lib/errors'
 
 export type BoardSaveStatus = SaveStatus | 'dirty' | 'loading'
 
@@ -71,6 +73,8 @@ interface BoardState {
   dispose: () => void
   refreshAssets: () => Promise<void>
   saveNow: (opts?: { keepalive?: boolean }) => Promise<void>
+  /** Usuwa placeholder nieudanego uploadu. */
+  dismissUpload: (id: string) => void
   uploadFiles: (
     files: File[],
     source: UploadSource,
@@ -205,7 +209,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       await get().refreshAssets()
     } catch (error) {
       set({ saveStatus: 'error' })
-      toast.error(error instanceof Error ? error.message : translate('session.loadFailed'))
+      notifyError(error, 'session.loadFailed')
     }
   },
 
@@ -312,48 +316,82 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
     )
     set({ pendingUploads: [...get().pendingUploads, ...placeholders] })
 
-    try {
-      const assets = await uploadFiles(boardId, valid, source, (fileIndex, e) => {
-        const progress = e.total > 0 ? e.loaded / e.total : 0
-        set((state) => ({
-          pendingUploads: state.pendingUploads.map((u) =>
-            u.id === placeholders[fileIndex].id ? { ...u, progress } : u
-          ),
-        }))
-      })
-
-      // Podmiana placeholderów na właściwe elementy sceny (w kolejności plików).
-      // Kolejne obrazy układamy w rzędzie (bez nakładania), duże skalujemy do
-      // MAX_IMAGE_EDGE — plik się nie zmienia, tylko jego rozmiar na płótnie.
-      let cursorX = point.x
-      for (const [i, asset] of assets.entries()) {
-        const resolution = resolveUploadResult(get().pendingUploads, placeholders[i].id, {
-          ok: true,
-          asset: { id: String(asset.id), width: asset.width, height: asset.height },
-          elementId: createElementId(),
-        })
-        set({ pendingUploads: resolution.pendingUploads })
-        if (resolution.addedElement) {
-          const el = resolution.addedElement
-          const fit = Math.min(1, MAX_IMAGE_EDGE / Math.max(el.width, el.height, 1))
-          const placed = {
-            ...el,
-            x: cursorX,
-            y: point.y,
-            width: Math.round(el.width * fit),
-            height: Math.round(el.height * fit),
-          }
-          cursorX += placed.width + IMAGE_GAP
-          useSceneStore.getState().addElement(placed)
+    // Każdy plik osobnym żądaniem (po 3 naraz): błąd jednego nie anuluje
+    // reszty, a nieudany zostaje na płótnie z powodem i przyciskiem Usuń (UX-4).
+    const results: (AssetDto | Error)[] = new Array(valid.length)
+    let next = 0
+    const worker = async () => {
+      while (next < valid.length) {
+        const i = next++
+        try {
+          const [asset] = await uploadFiles(boardId, [valid[i]], source, (_, e) => {
+            const progress = e.total > 0 ? e.loaded / e.total : 0
+            set((state) => ({
+              pendingUploads: state.pendingUploads.map((u) =>
+                u.id === placeholders[i].id ? { ...u, progress } : u
+              ),
+            }))
+          })
+          if (!asset) throw new Error(translate('api.badResponse'))
+          results[i] = asset
+        } catch (error) {
+          results[i] = error instanceof Error ? error : new Error(String(error))
         }
       }
-      await get().refreshAssets()
-    } catch (error) {
-      // Rollback: usuń wszystkie placeholdery tej partii (brak sierot).
-      const ids = new Set(placeholders.map((p) => p.id))
-      set({ pendingUploads: get().pendingUploads.filter((u) => !ids.has(u.id)) })
-      toast.error(error instanceof Error ? error.message : translate('session.uploadFailed'))
     }
+    await Promise.all(Array.from({ length: Math.min(3, valid.length) }, worker))
+    if (get().boardId !== boardId) return
+
+    // Udane → elementy sceny w kolejności plików, w rzędzie bez nakładania;
+    // duże skalujemy do MAX_IMAGE_EDGE (plik się nie zmienia, tylko rozmiar).
+    let cursorX = point.x
+    const failures: Error[] = []
+    for (const [i, result] of results.entries()) {
+      if (result instanceof Error) {
+        failures.push(result)
+        const reason = describeError(result, 'session.uploadFailed').message
+        // Nieudany zostaje w tym samym rzędzie, obok udanych — nic nie zasłania.
+        const x = cursorX
+        set((state) => ({
+          pendingUploads: state.pendingUploads.map((u) =>
+            u.id === placeholders[i].id ? { ...failUpload(u, reason), x, y: point.y } : u
+          ),
+        }))
+        cursorX += placeholders[i].width + IMAGE_GAP
+        continue
+      }
+      const resolution = resolveUploadResult(get().pendingUploads, placeholders[i].id, {
+        ok: true,
+        asset: { id: String(result.id), width: result.width, height: result.height },
+        elementId: createElementId(),
+      })
+      set({ pendingUploads: resolution.pendingUploads })
+      if (resolution.addedElement) {
+        const el = resolution.addedElement
+        const fit = Math.min(1, MAX_IMAGE_EDGE / Math.max(el.width, el.height, 1))
+        const placed = {
+          ...el,
+          x: cursorX,
+          y: point.y,
+          width: Math.round(el.width * fit),
+          height: Math.round(el.height * fit),
+        }
+        cursorX += placed.width + IMAGE_GAP
+        useSceneStore.getState().addElement(placed)
+      }
+    }
+    if (failures.length < valid.length) await get().refreshAssets()
+    if (failures.length === 1 && valid.length === 1)
+      notifyError(failures[0], 'session.uploadFailed')
+    else if (failures.length > 0) {
+      toast.error(
+        translate('session.uploadPartial', { failed: failures.length, total: valid.length })
+      )
+    }
+  },
+
+  dismissUpload(id) {
+    set({ pendingUploads: get().pendingUploads.filter((u) => u.id !== id) })
   },
 
   async addLink(url, point) {
@@ -367,7 +405,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       useSceneStore.getState().addElement(el)
       await get().refreshAssets()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : translate('session.linkFailed'))
+      notifyError(error, 'session.linkFailed')
     }
   },
 
@@ -383,9 +421,9 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
     try {
       const updated = await apiUpdateUsage(assetId, usage)
       set({ assets: get().assets.map((a) => (String(a.id) === String(assetId) ? updated : a)) })
-    } catch {
+    } catch (error) {
       set({ assets: before })
-      toast.error(translate('session.noteFailed'))
+      notifyError(error, 'session.usageFailed')
     }
   },
 
@@ -393,8 +431,8 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
     try {
       const updated = await apiUpdateNote(assetId, note)
       set({ assets: get().assets.map((a) => (String(a.id) === String(assetId) ? updated : a)) })
-    } catch {
-      toast.error(translate('session.noteFailed'))
+    } catch (error) {
+      notifyError(error, 'session.noteFailed')
     }
   },
 
@@ -409,8 +447,8 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
         .filter((el) => elementAssetId(el) === String(assetId))
         .map((el) => el.id)
       if (ids.length > 0) store.deleteElements(ids)
-    } catch {
-      toast.error(translate('session.deleteFailed'))
+    } catch (error) {
+      notifyError(error, 'session.deleteFailed')
     }
   },
 
@@ -453,7 +491,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       )
       return true
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : translate('siteImport.failedShort'))
+      notifyError(error, 'siteImport.failedShort')
       return false
     }
   },
@@ -676,6 +714,11 @@ if (typeof window !== 'undefined') {
 }
 
 /** Czy są zmiany, których serwer jeszcze nie ma (ostrzeżenie przy zamykaniu karty). */
+/** Czy bieżący użytkownik może edytować tablicę (właściciel/edytor) — UX-2. */
+export function useCanEdit(): boolean {
+  return useBoardStore((s) => !s.readOnly)
+}
+
 export function hasUnsavedChanges(): boolean {
   const status = useBoardStore.getState().saveStatus
   return (

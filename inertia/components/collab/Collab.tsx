@@ -21,7 +21,8 @@ import { useCommentsStore, type BoardCommentDto } from '~/lib/board/comments'
 import { onMembersChanged, useLiveStore } from '~/lib/board/live'
 import { useSceneStore } from '~/lib/scene/store'
 import { relativeTime } from '~/lib/format'
-import { useT } from '~/i18n'
+import { translate, useT } from '~/i18n'
+import { httpError, notifyError } from '~/lib/errors'
 
 // ---------------------------------------------------------------------------
 // Obecność
@@ -106,7 +107,8 @@ function Composer({
   placeholder,
   autoFocus = true,
 }: {
-  onSubmit: (body: string) => Promise<void> | void
+  /** Zwraca `false` przy błędzie — wtedy treść zostaje w polu. */
+  onSubmit: (body: string) => Promise<boolean | void> | boolean | void
   onCancel?: () => void
   placeholder: string
   autoFocus?: boolean
@@ -117,9 +119,9 @@ function Composer({
   const submit = async () => {
     if (!body.trim() || busy) return
     setBusy(true)
-    await onSubmit(body.trim())
+    const ok = await onSubmit(body.trim())
     setBusy(false)
-    setBody('')
+    if (ok !== false) setBody('')
   }
   return (
     <div className="comment-composer">
@@ -374,9 +376,8 @@ async function membersRequest(url: string, init: RequestInit = {}) {
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...csrfHeaders() },
     credentials: 'same-origin',
   })
-  const body = (await res.json().catch(() => ({}))) as { data?: MembersPayload; message?: string }
-  if (!res.ok)
-    throw Object.assign(new Error(body.message ?? `HTTP ${res.status}`), { status: res.status })
+  if (!res.ok) throw await httpError(res, translate('members.changeFailed'))
+  const body = (await res.json().catch(() => ({}))) as { data?: MembersPayload }
   return body.data ?? null
 }
 
@@ -413,26 +414,32 @@ export function MembersButton({ boardId, isOwner }: { boardId: number; isOwner: 
       setEmail('')
       toast.success(t('members.invited'))
     } catch (error) {
-      const status = (error as { status?: number }).status
-      toast.error((error as Error).message, {
-        ...(status === 403
-          ? { action: { label: t('billing.upgrade'), onClick: () => router.visit('/billing') } }
-          : {}),
-      })
+      notifyError(error, 'members.inviteFailed')
     } finally {
       setBusy(false)
     }
   }
 
-  const change = async (id: number, next: 'editor' | 'viewer') =>
-    setData(
-      await membersRequest(`/api/boards/${boardId}/members/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ role: next }),
-      })
-    )
+  const change = async (id: number, next: 'editor' | 'viewer') => {
+    try {
+      setData(
+        await membersRequest(`/api/boards/${boardId}/members/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ role: next }),
+        })
+      )
+    } catch (error) {
+      notifyError(error, 'members.changeFailed')
+    }
+  }
   const remove = async (id: number, self: boolean) => {
-    const next = await membersRequest(`/api/boards/${boardId}/members/${id}`, { method: 'DELETE' })
+    let next: MembersPayload | null
+    try {
+      next = await membersRequest(`/api/boards/${boardId}/members/${id}`, { method: 'DELETE' })
+    } catch (error) {
+      notifyError(error, 'members.removeFailed')
+      return
+    }
     if (self && !isOwner) {
       router.visit('/boards')
       return

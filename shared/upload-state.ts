@@ -4,8 +4,8 @@
  *
  * Kluczowa własność: placeholder (pending upload) NIE jest elementem sceny —
  * żyje osobno, dopóki serwer nie potwierdzi zapisu. Dopiero po sukcesie
- * powstaje element `image`. Przy błędzie placeholder znika bez śladu
- * (rollback — brak sieroty ani na płótnie, ani w panelu).
+ * powstaje element `image`. Przy błędzie nie powstaje element ani asset;
+ * placeholder zostaje z powodem (`failUpload`), dopóki użytkownik go nie usunie.
  */
 import type { SceneImageElement } from './scene.js'
 

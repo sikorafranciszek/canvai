@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react'
 import { usePreviewStore } from '~/lib/board/preview'
+import { useCanEdit } from '~/lib/board/session'
 import { useT } from '~/i18n'
 
 const DEVICES = [
@@ -36,6 +37,7 @@ export function PreviewDialog() {
   const starting = usePreviewStore((s) => s.starting)
   const close = usePreviewStore((s) => s.close)
   const generate = usePreviewStore((s) => s.generate)
+  const canEdit = useCanEdit()
 
   const [device, setDevice] = useState<(typeof DEVICES)[number]['id']>('desktop')
   const ref = useRef<HTMLDialogElement>(null)
@@ -108,6 +110,7 @@ export function PreviewDialog() {
                   <button
                     type="button"
                     className="btn btn--sm"
+                    hidden={!canEdit}
                     onClick={() => void generate(true)}
                     disabled={starting}
                     data-testid="preview-regenerate"
@@ -164,9 +167,14 @@ export function PreviewDialog() {
                 </div>
                 <strong style={{ fontSize: 18 }}>{t('preview.emptyTitle')}</strong>
                 <p className="t-muted" style={{ maxWidth: 460, textAlign: 'center' }}>
-                  {hasSpec ? t('preview.emptyBody') : t('preview.needsSpec')}
+                  {!canEdit
+                    ? t('preview.viewerOnly')
+                    : hasSpec
+                      ? t('preview.emptyBody')
+                      : t('preview.needsSpec')}
                 </p>
                 <button
+                  hidden={!canEdit}
                   type="button"
                   className="btn btn--primary"
                   onClick={() => void generate(preview?.status === 'failed')}

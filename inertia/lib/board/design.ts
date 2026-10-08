@@ -5,7 +5,6 @@
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import { toast } from 'sonner'
-import { router } from '@inertiajs/react'
 import { fetchEstimate, useBillingStore, type CostEstimate } from '~/lib/billing'
 import {
   DesignDocRequestError,
@@ -18,6 +17,7 @@ import {
 } from '~/lib/board/api'
 import { useBoardStore } from '~/lib/board/session'
 import { translate } from '~/i18n'
+import { notifyError } from '~/lib/errors'
 
 export type SidePanelTab = 'assets' | 'design'
 
@@ -239,21 +239,8 @@ export const useDesignStore = create<DesignState>()((set, get) => {
           schedulePoll(boardId, error.doc.version, seq)
           return
         }
-        // Brak kredytów / funkcja planu — komunikat z przejściem do rozliczeń.
-        if (
-          error instanceof DesignDocRequestError &&
-          (error.status === 402 || error.status === 403)
-        ) {
-          toast.error(error.message, {
-            duration: 8000,
-            action: {
-              label: translate(error.status === 402 ? 'billing.topUp' : 'billing.upgrade'),
-              onClick: () => router.visit('/billing'),
-            },
-          })
-          return
-        }
-        toast.error(error instanceof Error ? error.message : translate('doc.startFailed'))
+        // Kredyty/plan → przejście do rozliczeń; limity i awarie → co zrobić dalej.
+        notifyError(error, 'doc.startFailed')
       } finally {
         set({ starting: false })
       }

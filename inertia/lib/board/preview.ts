@@ -4,10 +4,10 @@
  */
 import { create } from 'zustand'
 import { toast } from 'sonner'
-import { router } from '@inertiajs/react'
 import { csrfHeaders } from '~/lib/board/api'
 import { useBillingStore } from '~/lib/billing'
 import { translate } from '~/i18n'
+import { HttpError, notifyError } from '~/lib/errors'
 
 export interface PreviewDto {
   id: number
@@ -109,6 +109,7 @@ export const usePreviewStore = create<PreviewState>()((set, get) => {
         const body = (await res.json().catch(() => ({}))) as {
           data?: PreviewDto
           message?: string
+          code?: string
         }
         if (res.ok || res.status === 409) {
           if (body.data) set({ preview: body.data })
@@ -116,19 +117,17 @@ export const usePreviewStore = create<PreviewState>()((set, get) => {
           void useBillingStore.getState().load()
           return
         }
-        toast.error(body.message ?? translate('preview.failed'), {
-          duration: 8000,
-          ...(res.status === 402
-            ? {
-                action: {
-                  label: translate('billing.topUp'),
-                  onClick: () => router.visit('/billing'),
-                },
-              }
-            : {}),
-        })
-      } catch {
-        toast.error(translate('preview.failed'))
+        notifyError(
+          new HttpError(
+            body.message ?? translate('preview.failed'),
+            res.status,
+            body.code ?? null,
+            Boolean(body.message)
+          ),
+          'preview.failed'
+        )
+      } catch (error) {
+        notifyError(error, 'preview.failed')
       } finally {
         set({ starting: false })
       }

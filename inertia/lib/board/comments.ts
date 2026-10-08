@@ -1,8 +1,8 @@
 /** Komentarze tablicy: wątki przypięte do płótna, odpowiedzi, rozwiązywanie. */
 import { create } from 'zustand'
-import { toast } from 'sonner'
 import { csrfHeaders } from '~/lib/board/api'
 import { translate } from '~/i18n'
+import { httpError, notifyError } from '~/lib/errors'
 
 export interface BoardCommentDto {
   id: number
@@ -31,8 +31,9 @@ interface CommentsState {
   setDraft: (draft: { x: number; y: number } | null) => void
   open: (id: number | null) => void
   toggleResolved: () => void
-  create: (body: string) => Promise<void>
-  reply: (parentId: number, body: string) => Promise<void>
+  /** `true`, gdy zapisano — przy błędzie treść zostaje w polu (UX-3). */
+  create: (body: string) => Promise<boolean>
+  reply: (parentId: number, body: string) => Promise<boolean>
   resolve: (id: number, resolved: boolean) => Promise<void>
   remove: (id: number) => Promise<void>
 }
@@ -43,7 +44,7 @@ async function request<T>(url: string, init: RequestInit = {}): Promise<T> {
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...csrfHeaders() },
     credentials: 'same-origin',
   })
-  if (!res.ok) throw new Error(translate('comments.failed'))
+  if (!res.ok) throw await httpError(res, translate('comments.failed'))
   return res.status === 204 ? (undefined as T) : ((await res.json()) as { data: T }).data
 }
 
@@ -72,29 +73,33 @@ export const useCommentsStore = create<CommentsState>()((set, get) => ({
 
   async create(body) {
     const { boardId, draft } = get()
-    if (boardId == null || !draft) return
+    if (boardId == null || !draft) return false
     try {
       const c = await request<BoardCommentDto>(`/api/boards/${boardId}/comments`, {
         method: 'POST',
         body: JSON.stringify({ body, x: draft.x, y: draft.y }),
       })
       set({ comments: [...get().comments, c], draft: null, openId: c.id })
+      return true
     } catch (error) {
-      toast.error((error as Error).message)
+      notifyError(error, 'comments.failed')
+      return false
     }
   },
 
   async reply(parentId, body) {
     const { boardId } = get()
-    if (boardId == null) return
+    if (boardId == null) return false
     try {
       const c = await request<BoardCommentDto>(`/api/boards/${boardId}/comments`, {
         method: 'POST',
         body: JSON.stringify({ body, parentId }),
       })
       set({ comments: [...get().comments, c] })
+      return true
     } catch (error) {
-      toast.error((error as Error).message)
+      notifyError(error, 'comments.failed')
+      return false
     }
   },
 
@@ -109,7 +114,7 @@ export const useCommentsStore = create<CommentsState>()((set, get) => ({
         openId: resolved ? null : get().openId,
       })
     } catch (error) {
-      toast.error((error as Error).message)
+      notifyError(error, 'comments.failed')
     }
   },
 
@@ -121,7 +126,7 @@ export const useCommentsStore = create<CommentsState>()((set, get) => ({
         openId: get().openId === id ? null : get().openId,
       })
     } catch (error) {
-      toast.error((error as Error).message)
+      notifyError(error, 'comments.failed')
     }
   },
 }))

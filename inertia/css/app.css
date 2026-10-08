@@ -82,6 +82,11 @@
   padding: 0;
 }
 
+/* Atrybut `hidden` wygrywa z `display` klas komponentów (np. .btn). */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   height: 100%;

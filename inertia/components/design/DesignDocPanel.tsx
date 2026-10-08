@@ -34,7 +34,7 @@ import { createBrandKit, useBrandKitStore } from '~/lib/brand_kits'
 import { diffLines, diffStats } from '@shared/line-diff'
 import { designDocDownloadUrl, type DesignDocDto } from '~/lib/board/api'
 import { progressLabel, progressRatio, useDesignStore } from '~/lib/board/design'
-import { useBoardStore, useCanvasAssets } from '~/lib/board/session'
+import { useBoardStore, useCanEdit, useCanvasAssets } from '~/lib/board/session'
 import { MarkdownView, sectionTitles } from '~/components/design/MarkdownView'
 import { formatDateTime, relativeTime } from '~/lib/format'
 import { useT, type MessageKey } from '~/i18n'
@@ -68,6 +68,7 @@ export function DesignDocPanel() {
 
   const { t } = useT()
   const assets = useBoardStore((s) => s.assets)
+  const canEdit = useCanEdit()
   const canvasAssets = useCanvasAssets()
   const centerOnAsset = useBoardStore((s) => s.centerOnAsset)
 
@@ -289,7 +290,10 @@ export function DesignDocPanel() {
           </div>
         ) : !current ? (
           active ? null : (
-            <EmptyDoc onGenerate={() => void generate()} hasAssets={canvasAssets.length > 0} />
+            <EmptyDoc
+              onGenerate={canEdit ? () => void generate() : undefined}
+              hasAssets={canvasAssets.length > 0}
+            />
           )
         ) : current.status === 'failed' ? (
           <div style={{ padding: 16 }}>
@@ -302,7 +306,7 @@ export function DesignDocPanel() {
                   </div>
                   <div>{current.error ?? t('doc.unknownError')}</div>
                 </div>
-                <div>
+                <div hidden={!canEdit}>
                   <button
                     type="button"
                     className="btn btn--sm"
@@ -320,7 +324,7 @@ export function DesignDocPanel() {
           <div className="panel-empty">{t('doc.stillGenerating')}</div>
         ) : (
           <>
-            {reusedNotice ? (
+            {reusedNotice && canEdit ? (
               <div className="alert alert--notice" style={{ margin: '12px 16px 0' }}>
                 <FileText />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -342,7 +346,10 @@ export function DesignDocPanel() {
             {current.quality ? (
               <div className="doc-views">
                 <div className="segmented segmented--text" role="group" aria-label={t('doc.views')}>
-                  {(['doc', 'quality', 'tokens'] as const).map((v) => (
+                  {(canEdit
+                    ? (['doc', 'quality', 'tokens'] as const)
+                    : (['doc', 'quality'] as const)
+                  ).map((v) => (
                     <button
                       key={v}
                       type="button"
@@ -373,7 +380,7 @@ export function DesignDocPanel() {
             ) : null}
 
             {view === 'quality' && current.quality && !diff ? (
-              <QualityView doc={current} onEdit={() => setView('tokens')} />
+              <QualityView doc={current} onEdit={canEdit ? () => setView('tokens') : undefined} />
             ) : view === 'tokens' && current.tokens && !diff ? (
               <TokenEditor key={current.version} doc={current} />
             ) : diff ? (
@@ -414,7 +421,7 @@ export function DesignDocPanel() {
           </>
         )}
       </div>
-      <GenerationOptions />
+      {canEdit ? <GenerationOptions /> : null}
       <PreviewDialog />
       {boardId != null && current?.status === 'ready' ? (
         <AiToolsDialog
@@ -481,7 +488,7 @@ function GenerationProgress({ doc }: { doc: DesignDocDto }) {
   )
 }
 
-function EmptyDoc({ onGenerate, hasAssets }: { onGenerate: () => void; hasAssets: boolean }) {
+function EmptyDoc({ onGenerate, hasAssets }: { onGenerate?: () => void; hasAssets: boolean }) {
   const { t } = useT()
   const points = [
     t('doc.empty.point1'),
@@ -506,18 +513,24 @@ function EmptyDoc({ onGenerate, hasAssets }: { onGenerate: () => void; hasAssets
           </li>
         ))}
       </ul>
-      <div>
-        <button
-          type="button"
-          className="btn btn--primary"
-          onClick={onGenerate}
-          disabled={!hasAssets}
-        >
-          <Sparkles />
-          {t('editor.generate')}
-        </button>
-      </div>
-      {!hasAssets ? <span className="t-small t-faint">{t('doc.empty.needAssets')}</span> : null}
+      {onGenerate ? (
+        <div>
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={onGenerate}
+            disabled={!hasAssets}
+          >
+            <Sparkles />
+            {t('editor.generate')}
+          </button>
+        </div>
+      ) : (
+        <span className="t-small t-faint">{t('doc.empty.viewerOnly')}</span>
+      )}
+      {onGenerate && !hasAssets ? (
+        <span className="t-small t-faint">{t('doc.empty.needAssets')}</span>
+      ) : null}
     </div>
   )
 }

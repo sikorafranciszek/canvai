@@ -21,7 +21,7 @@ const GRADE: Record<QualityReport['grade'], MessageKey> = {
 
 const SEVERITY_TONE = { high: 'critical', medium: 'warning', low: 'neutral' } as const
 
-export function QualityView({ doc, onEdit }: { doc: DesignDocDto; onEdit: () => void }) {
+export function QualityView({ doc, onEdit }: { doc: DesignDocDto; onEdit?: () => void }) {
   const { t } = useT()
   const q = doc.quality
   if (!q) return <div className="panel-empty">{t('quality.unavailable')}</div>
@@ -124,7 +124,7 @@ export function QualityView({ doc, onEdit }: { doc: DesignDocDto; onEdit: () => 
         </section>
       ) : null}
 
-      {q.assumed.length || failing.length ? (
+      {onEdit && (q.assumed.length || failing.length) ? (
         <button type="button" className="btn btn--sm" onClick={onEdit}>
           {t('quality.openEditor', { n: q.assumed.length })}
         </button>

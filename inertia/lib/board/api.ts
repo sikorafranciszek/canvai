@@ -6,6 +6,7 @@ import type { SceneDocument } from '@shared/scene'
 import { AutosaveConflictError } from '@shared/autosave'
 import type { UploadSource } from '@shared/upload-state'
 import { translate } from '~/i18n'
+import { HttpError, httpError } from '~/lib/errors'
 import type { AssetUsage } from '@shared/asset-usage'
 
 export interface SceneResponse {
@@ -65,7 +66,7 @@ async function parseJson<T>(res: Response): Promise<T> {
 
 export async function getScene(boardId: number): Promise<SceneResponse> {
   const res = await fetch(`/api/boards/${boardId}/scene`, { credentials: 'same-origin' })
-  if (!res.ok) throw new Error(translate('api.sceneLoad', { status: res.status }))
+  if (!res.ok) throw await httpError(res, translate('api.sceneLoad'))
   const body = await parseJson<{ data: SceneResponse }>(res)
   return body.data
 }
@@ -89,7 +90,7 @@ export async function putScene(
     )
     throw new AutosaveConflictError(body.currentVersion ?? payload.version)
   }
-  if (!res.ok) throw new Error(translate('api.sceneSave', { status: res.status }))
+  if (!res.ok) throw await httpError(res, translate('api.sceneSave'))
 
   const body = await parseJson<{ data: SceneResponse }>(res)
   return body.data.version
@@ -97,7 +98,7 @@ export async function putScene(
 
 export async function listAssets(boardId: number): Promise<AssetDto[]> {
   const res = await fetch(`/api/boards/${boardId}/assets`, { credentials: 'same-origin' })
-  if (!res.ok) throw new Error(translate('api.assetsLoad', { status: res.status }))
+  if (!res.ok) throw await httpError(res, translate('api.assetsLoad'))
   const body = await parseJson<{ data: AssetDto[] }>(res)
   return body.data
 }
@@ -108,7 +109,9 @@ export interface UploadProgressEvent {
 }
 
 function parseUploadError(xhr: XMLHttpRequest): Error {
-  let message = translate('api.uploadFailed', { status: xhr.status })
+  let message = translate('api.uploadFailed')
+  let fromServer = false
+  let code: string | null = null
   try {
     const body = JSON.parse(xhr.responseText)
     if (typeof body === 'string' && body) message = body
@@ -116,10 +119,12 @@ function parseUploadError(xhr: XMLHttpRequest): Error {
     else if (Array.isArray(body?.errors) && typeof body.errors[0]?.message === 'string') {
       message = body.errors[0].message
     }
+    fromServer = message !== translate('api.uploadFailed')
+    if (typeof body?.code === 'string') code = body.code
   } catch {
     // odpowiedź nie jest JSON — zostaje komunikat domyślny
   }
-  return new Error(message)
+  return new HttpError(message, xhr.status, code, fromServer)
 }
 
 /**
@@ -140,6 +145,8 @@ export function uploadFiles(
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `/api/boards/${boardId}/assets`)
     xhr.withCredentials = true
+    // JSON z powodem odrzucenia (np. „plik nie jest PNG”), a nie strona błędu.
+    xhr.setRequestHeader('Accept', 'application/json')
     const token = readCookie('XSRF-TOKEN')
     if (token) xhr.setRequestHeader('X-XSRF-TOKEN', token)
 
@@ -188,9 +195,7 @@ export async function createLinkAsset(boardId: number, url: string): Promise<Ass
     credentials: 'same-origin',
   })
   if (!res.ok) {
-    throw new Error(
-      await extractErrorMessage(res, translate('api.linkFailed', { status: res.status }))
-    )
+    throw await httpError(res, translate('api.linkFailed'))
   }
   const body = await parseJson<{ data: AssetDto[] }>(res)
   return body.data[0]
@@ -203,7 +208,7 @@ export async function updateAssetNote(assetId: string, note: string): Promise<As
     body: JSON.stringify({ note }),
     credentials: 'same-origin',
   })
-  if (!res.ok) throw new Error(translate('api.noteFailed', { status: res.status }))
+  if (!res.ok) throw await httpError(res, translate('api.noteFailed'))
   const body = await parseJson<{ data: AssetDto }>(res)
   return body.data
 }
@@ -216,7 +221,7 @@ export async function updateAssetUsage(assetId: string, usage: AssetUsage): Prom
     body: JSON.stringify({ usage }),
     credentials: 'same-origin',
   })
-  if (!res.ok) throw new Error(translate('api.noteFailed', { status: res.status }))
+  if (!res.ok) throw await httpError(res, translate('api.noteFailed'))
   return (await parseJson<{ data: AssetDto }>(res)).data
 }
 
@@ -234,7 +239,7 @@ export async function importSite(boardId: number, url: string): Promise<SiteImpo
     credentials: 'same-origin',
     body: JSON.stringify({ url }),
   })
-  if (!res.ok) throw new Error(await extractErrorMessage(res, translate('siteImport.failedShort')))
+  if (!res.ok) throw await httpError(res, translate('siteImport.failedShort'))
   return ((await res.json()) as { data: SiteImportResult }).data
 }
 
@@ -284,7 +289,7 @@ export async function setFigmaToken(token: string | null): Promise<{ connected: 
     credentials: 'same-origin',
     body: token ? JSON.stringify({ token }) : undefined,
   })
-  if (!res.ok) throw new Error(await extractErrorMessage(res, translate('figma.failedShort')))
+  if (!res.ok) throw await httpError(res, translate('figma.failedShort'))
   return ((await res.json()) as { data: { connected: boolean } }).data
 }
 
@@ -303,21 +308,7 @@ export async function deleteAsset(assetId: string): Promise<void> {
     headers: csrfHeaders(),
     credentials: 'same-origin',
   })
-  if (!res.ok && res.status !== 404)
-    throw new Error(translate('api.deleteFailed', { status: res.status }))
-}
-
-async function extractErrorMessage(res: Response, fallback: string): Promise<string> {
-  try {
-    const body = await parseJson<{ message?: string; errors?: { message?: string }[] }>(res)
-    if (typeof body?.message === 'string') return body.message
-    if (Array.isArray(body?.errors) && typeof body.errors[0]?.message === 'string') {
-      return body.errors[0].message
-    }
-  } catch {
-    // ignore
-  }
-  return fallback
+  if (!res.ok && res.status !== 404) throw await httpError(res, translate('api.deleteFailed'))
 }
 
 // ---------------------------------------------------------------------------
@@ -413,7 +404,7 @@ export async function editDesignDoc(
     body: JSON.stringify({ version, ...edits }),
     credentials: 'same-origin',
   })
-  if (!res.ok) throw new Error(await extractErrorMessage(res, translate('tokens.saveFailed')))
+  if (!res.ok) throw await httpError(res, translate('tokens.saveFailed'))
   return (await parseJson<{ data: DesignDocDto }>(res)).data
 }
 
@@ -453,7 +444,7 @@ export async function generateDesignDoc(
   }
   const inProgress = res.status === 409 ? ((body.data as DesignDocDto | undefined) ?? null) : null
   throw new DesignDocRequestError(
-    body.message ?? translate('api.generateFailed', { status: res.status }),
+    body.message ?? translate('api.generateFailed'),
     res.status,
     body.code ?? null,
     inProgress
@@ -467,7 +458,7 @@ export async function getDesignDoc(
   const qs = version ? `?version=${version}` : ''
   const res = await fetch(`/api/boards/${boardId}/design-doc${qs}`, { credentials: 'same-origin' })
   if (res.status === 404) return null
-  if (!res.ok) throw new Error(translate('api.docLoad', { status: res.status }))
+  if (!res.ok) throw await httpError(res, translate('api.docLoad'))
   const body = await parseJson<{ data: DesignDocDto | null }>(res)
   return body.data
 }
@@ -476,7 +467,7 @@ export async function listDesignDocs(
   boardId: number
 ): Promise<{ versions: DesignDocDto[]; hiddenVersions: number }> {
   const res = await fetch(`/api/boards/${boardId}/design-docs`, { credentials: 'same-origin' })
-  if (!res.ok) throw new Error(translate('api.docsLoad', { status: res.status }))
+  if (!res.ok) throw await httpError(res, translate('api.docsLoad'))
   const body = await parseJson<{ data: DesignDocDto[]; meta?: { hiddenVersions?: number } }>(res)
   return { versions: body.data, hiddenVersions: body.meta?.hiddenVersions ?? 0 }
 }
