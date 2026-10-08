@@ -51,6 +51,19 @@ export function sqlTime(dt: DateTime): string {
   return dt.toUTC().toFormat(db.connection().dialect.dateTimeFormat)
 }
 
+/**
+ * Blokady doradcze Postgresa (do końca transakcji) — serializują operacje na
+ * saldzie jednego użytkownika i na jednej rezerwacji. Bez nich dwie równoległe
+ * rezerwacje widziały to samo saldo i obie przechodziły (SEC-3).
+ */
+const LOCK_USER = 7101
+const LOCK_DOC_REF = 7102
+const LOCK_PREVIEW_REF = 7103
+
+async function lockKey(trx: TransactionClientContract, ns: number, id: number) {
+  await trx.rawQuery('select pg_advisory_xact_lock(?, ?)', [ns, id])
+}
+
 function activeGrants(userId: number, trx?: TransactionClientContract) {
   const now = sqlTime(DateTime.utc())
   return CreditGrant.query({ client: trx })
@@ -125,8 +138,15 @@ export async function grantCredits(userId: number, input: GrantInput): Promise<C
 /** Cofa niewykorzystaną część puli (zwrot płatności). */
 export async function revokeGrant(externalId: string, note: string): Promise<boolean> {
   return db.transaction(async (trx) => {
-    const grant = await CreditGrant.query({ client: trx }).where('external_id', externalId).first()
-    if (!grant || grant.revokedAt) return false
+    const found = await CreditGrant.query({ client: trx }).where('external_id', externalId).first()
+    if (!found || found.revokedAt) return false
+    await lockKey(trx, LOCK_USER, found.userId)
+    // Świeży odczyt pod blokadą — saldo mogło się zmienić w międzyczasie.
+    const grant = await CreditGrant.query({ client: trx })
+      .where('id', found.id)
+      .forUpdate()
+      .firstOrFail()
+    if (grant.revokedAt) return false
     const taken = grant.remaining
     grant.remaining = 0
     grant.revokedAt = DateTime.utc()
@@ -176,7 +196,9 @@ export async function reserveCredits(
 ): Promise<void> {
   if (amount <= 0) return
   await db.transaction(async (trx) => {
+    await lockKey(trx, LOCK_USER, userId)
     const grants = await activeGrants(userId, trx)
+      .forUpdate()
       .orderByRaw('expires_at is null asc')
       .orderBy('expires_at', 'asc')
       .orderBy('id', 'asc')
@@ -187,10 +209,16 @@ export async function reserveCredits(
     for (const grant of grants) {
       if (left === 0) break
       const take = Math.min(grant.remaining, left)
-      grant.remaining -= take
       left -= take
-      grant.useTransaction(trx)
-      await grant.save()
+      // Atomowe zdjęcie z warunkiem — nigdy poniżej zera.
+      const affected = await trx
+        .from('credit_grants')
+        .where('id', grant.id)
+        .where('remaining', '>=', take)
+        .decrement('remaining', take)
+      if (Number(Array.isArray(affected) ? affected[0] : affected) !== 1) {
+        throw new InsufficientCreditsError(amount, balance - left - take)
+      }
       await CreditTransaction.create(
         { userId, kind: 'reserve', amount: -take, grantId: grant.id, ...refFields(ref) },
         { client: trx }
@@ -203,6 +231,8 @@ export async function reserveCredits(
 export async function releaseAll(ref: CreditRef, note = 'generation failed'): Promise<number> {
   const { column, id } = refColumn(ref)
   return db.transaction(async (trx) => {
+    // Jedna rezerwacja zwracana najwyżej raz, nawet przy równoległych wywołaniach.
+    await lockKey(trx, 'designDocId' in ref ? LOCK_DOC_REF : LOCK_PREVIEW_REF, id)
     const rows = await CreditTransaction.query({ client: trx })
       .where(column, id)
       .whereIn('kind', ['reserve', 'release'])
@@ -218,8 +248,8 @@ export async function releaseAll(ref: CreditRef, note = 'generation failed'): Pr
       const grant = await CreditGrant.query({ client: trx }).where('id', grantId).first()
       if (!grant) continue
       if (!grant.revokedAt) {
-        grant.remaining += amount
-        await grant.save()
+        // Atomowe dodanie — nie nadpisuje równoległej rezerwacji z tej samej puli.
+        await trx.from('credit_grants').where('id', grantId).increment('remaining', amount)
       }
       await CreditTransaction.create(
         { userId: grant.userId, kind: 'release', amount, grantId, ...refFields(ref), note },

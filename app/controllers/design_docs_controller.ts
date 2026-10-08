@@ -28,7 +28,7 @@ import { boardAccess, type BoardAction } from '#services/board_access'
 import { publish } from '#services/board_events'
 import { createEditedVersion, SpecEditError } from '#services/design/edit'
 import { trackFor } from '#services/analytics/events'
-import { aiBudgetDenial, countGeneration } from '#services/ops/ai_budget'
+import { aiBudgetDenial, claimGenerationSlot, releaseGenerationSlot } from '#services/ops/ai_budget'
 
 /**
  * DESIGN.md tablicy: zlecanie generacji, status, wersje, pobieranie.
@@ -199,7 +199,7 @@ export default class DesignDocsController {
     }
 
     // Bezpieczniki kosztów (dzienne limity) — przed rezerwacją kredytów.
-    const denial = await aiBudgetDenial(user.id)
+    const denial = (await aiBudgetDenial(user.id)) ?? (await claimGenerationSlot(user.id))
     if (denial) return response.status(429).json({ message: denial, code: 'E_AI_BUDGET' })
 
     // Kredyty: szacunek = opłata. Brak środków → 402, zanim cokolwiek powstanie.
@@ -208,6 +208,7 @@ export default class DesignDocsController {
       await ensureAutomaticGrants(board.userId)
       const balance = await balanceOf(board.userId)
       if (balance < estimate.credits) {
+        await releaseGenerationSlot(user.id)
         return response.status(402).json({
           message: t('billing.insufficient', { needed: estimate.credits, balance }),
           code: 'E_INSUFFICIENT_CREDITS',
@@ -230,6 +231,7 @@ export default class DesignDocsController {
       } catch (error) {
         await doc.delete()
         if (error instanceof InsufficientCreditsError) {
+          await releaseGenerationSlot(user.id)
           return response.status(402).json({
             message: error.message,
             code: 'E_INSUFFICIENT_CREDITS',
@@ -248,7 +250,6 @@ export default class DesignDocsController {
     })
     doc.jobId = job.id
     await doc.save()
-    await countGeneration(user.id)
     trackFor(
       ctx,
       'design_doc_requested',

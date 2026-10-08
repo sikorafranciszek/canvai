@@ -37,9 +37,34 @@ async function bump(
     })
 }
 
-/** Zlecenie generacji (DESIGN.md albo podgląd) — liczone do dziennego limitu użytkownika. */
-export async function countGeneration(userId: number) {
-  await bump(userId, { generations: 1 })
+/**
+ * Zajmuje miejsce w dziennym limicie generacji użytkownika — atomowo (jedno
+ * UPSERT zwracające nową wartość), więc równoległe żądania nie przekroczą
+ * limitu. Zwraca komunikat odmowy albo `null`. Przy późniejszym błędzie
+ * (np. brak kredytów) miejsce oddaje `releaseGenerationSlot`.
+ */
+export async function claimGenerationSlot(userId: number): Promise<string | null> {
+  const limit = ops.aiBudget.userDailyGenerations
+  const [row] = await db
+    .table('ai_usage_daily')
+    .insert({ day: today(), user_id: userId, tokens_in: 0, tokens_out: 0, generations: 1 })
+    .onConflict(['day', 'user_id'])
+    .merge({ generations: db.raw('ai_usage_daily.generations + 1') })
+    .returning('generations')
+  const used = Number((row as { generations?: number })?.generations ?? row)
+  if (limit > 0 && used > limit) {
+    await releaseGenerationSlot(userId)
+    return t('ops.budgetUserGenerations', { limit })
+  }
+  return null
+}
+
+export async function releaseGenerationSlot(userId: number) {
+  await db
+    .from('ai_usage_daily')
+    .where({ day: today(), user_id: userId })
+    .where('generations', '>', 0)
+    .decrement('generations', 1)
 }
 
 /** Tokeny faktycznie zużyte (także przez generację zakończoną błędem). */
@@ -90,9 +115,6 @@ export async function aiBudgetDenial(userId: number): Promise<string | null> {
       `Global daily AI token budget reached: ${usage.tokens} / ${limits.dailyTokens}. New generations are blocked until 00:00 UTC.`
     )
     return t('ops.budgetGlobal')
-  }
-  if (limits.userDailyGenerations > 0 && usage.userGenerations >= limits.userDailyGenerations) {
-    return t('ops.budgetUserGenerations', { limit: limits.userDailyGenerations })
   }
   if (limits.userDailyTokens > 0 && usage.userTokens >= limits.userDailyTokens) {
     raiseAlert(

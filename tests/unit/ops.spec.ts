@@ -10,7 +10,12 @@ import { S3Client } from '#services/ops/s3'
 import { backupDeps, listBackups, pruneBackups, runBackup, storagePath } from '#services/ops/backup'
 import { dailyAt, every, registerTask, runDueTasks } from '#services/ops/scheduler'
 import { flushAlerts, raiseAlert, resetAlerts, sentAlerts } from '#services/ops/alerts'
-import { aiBudgetDenial, countGeneration, recordAiUsage, usageToday } from '#services/ops/ai_budget'
+import {
+  aiBudgetDenial,
+  claimGenerationSlot,
+  recordAiUsage,
+  usageToday,
+} from '#services/ops/ai_budget'
 import User from '#models/user'
 
 /** Atrapa S3 w pamięci: PUT/GET/DELETE obiektów i ListObjectsV2. */
@@ -178,9 +183,10 @@ test.group('Ops — harmonogram, alerty i limity AI', (group) => {
         dailyTokens: 0,
       })
       assert.isNull(await aiBudgetDenial(user.id))
-      await countGeneration(user.id)
-      await countGeneration(user.id)
-      assert.match(String(await aiBudgetDenial(user.id)), /2/)
+      assert.isNull(await claimGenerationSlot(user.id))
+      assert.isNull(await claimGenerationSlot(user.id))
+      assert.match(String(await claimGenerationSlot(user.id)), /2/)
+      assert.equal((await usageToday(user.id)).userGenerations, 2, 'odmowa nie zajmuje miejsca')
 
       Object.assign(ops.aiBudget, { userDailyGenerations: 0 })
       await recordAiUsage(user.id, { tokensIn: 700, tokensOut: 400 })

@@ -13,7 +13,7 @@ import {
 import { JOB_GENERATE_PREVIEW, enqueue } from '#services/queue'
 import { currentLocale, t } from '#services/i18n'
 import { trackFor } from '#services/analytics/events'
-import { aiBudgetDenial, countGeneration } from '#services/ops/ai_budget'
+import { aiBudgetDenial, claimGenerationSlot, releaseGenerationSlot } from '#services/ops/ai_budget'
 import { boardAccess, type BoardAction } from '#services/board_access'
 
 const previewValidator = vine.compile(
@@ -113,13 +113,14 @@ export default class DesignPreviewsController {
       return response.json({ data: this.serialize(latest, board.id, doc.version), reused: true })
     }
 
-    const denial = await aiBudgetDenial(user.id)
+    const denial = (await aiBudgetDenial(user.id)) ?? (await claimGenerationSlot(user.id))
     if (denial) return response.status(429).json({ message: denial, code: 'E_AI_BUDGET' })
 
     if (billing.enforced) {
       await ensureAutomaticGrants(board.userId)
       const balance = await balanceOf(board.userId)
       if (balance < costs.preview) {
+        await releaseGenerationSlot(user.id)
         return response.status(402).json({
           message: t('billing.insufficient', { needed: costs.preview, balance }),
           code: 'E_INSUFFICIENT_CREDITS',
@@ -134,6 +135,7 @@ export default class DesignPreviewsController {
       } catch (error) {
         await preview.delete()
         if (error instanceof InsufficientCreditsError) {
+          await releaseGenerationSlot(user.id)
           return response
             .status(402)
             .json({ message: error.message, code: 'E_INSUFFICIENT_CREDITS' })
@@ -141,7 +143,6 @@ export default class DesignPreviewsController {
         throw error
       }
     }
-    await countGeneration(user.id)
     const job = await enqueue(JOB_GENERATE_PREVIEW, {
       previewId: preview.id,
       boardId: board.id,
