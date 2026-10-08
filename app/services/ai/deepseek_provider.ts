@@ -201,6 +201,7 @@ export class DeepseekProvider implements AiProvider {
       {
         maxTokens: this.#limits.maxComposeOutputTokens,
         timeoutMs: this.#limits.composeTimeoutMs,
+        thinking: input.reasoning ? 'high' : undefined,
         retryInvalid: false,
       }
     )

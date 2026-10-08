@@ -20,7 +20,7 @@ import {
   computeInputFingerprint,
   type BoardContext,
 } from '#services/design/board_context'
-import { PROMPT_VERSION, SECTION_FIELDS } from '#services/design/prompts'
+import { ANALYSIS_PROMPT_VERSION, PROMPT_VERSION, SECTION_FIELDS } from '#services/design/prompts'
 import { renderDesignMd } from '#services/design/renderer'
 import type { Evidence } from '#services/design/verify'
 import type { AssetAnalysisData } from '#services/ai/types'
@@ -77,9 +77,15 @@ export async function prepareGeneration(
       filename: a.filename,
       userNote: a.userNote,
       usage: a.usage,
+      link:
+        a.kind === 'link'
+          ? ((a.position as { link?: { title?: string; description?: string } } | null)?.link ??
+            null)
+          : null,
     })),
     context,
     promptVersion: PROMPT_VERSION,
+    analysisPromptVersion: ANALYSIS_PROMPT_VERSION,
     models: [provider.name, provider.analysisModel, provider.compositionModel],
   })
 

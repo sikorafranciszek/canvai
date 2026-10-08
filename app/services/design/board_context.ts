@@ -277,6 +277,21 @@ export interface FingerprintAsset {
   userNote: string | null
   /** Rola i aspekty — zmiana kategorii wymaga nowej wersji dokumentu. */
   usage?: { role: string | null; aspects: string[] } | null
+  /** Metadane karty linku (tytuł, opis) — zmiana strony to zmiana wejścia. */
+  link?: { title?: string | null; description?: string | null } | null
+}
+
+/**
+ * Kontekst do odcisku (AI-13): bez surowych pozycji i rozmiarów — przesunięcie
+ * elementu nie jest zmianą, liczy się kolejność czytania, ramki i przepływy.
+ */
+function fingerprintContext(context: BoardContext) {
+  return {
+    items: context.items.map(({ x: _x, y: _y, width: _w, height: _h, ...rest }) => rest),
+    frames: context.frames.map(({ x: _x, y: _y, width: _w, height: _h, ...rest }) => rest),
+    flows: context.flows,
+    readingOrder: context.readingOrder,
+  }
 }
 
 /**
@@ -288,6 +303,8 @@ export function computeInputFingerprint(input: {
   assets: FingerprintAsset[]
   context: BoardContext
   promptVersion: string
+  /** Wersja promptu analizy materiałów (osobna od kompozycji). */
+  analysisPromptVersion?: string
   models: string[]
 }): string {
   const assets = [...input.assets]
@@ -300,12 +317,16 @@ export function computeInputFingerprint(input: {
       ...(a.usage && (a.usage.role || a.usage.aspects.length)
         ? [`${a.usage.role ?? ''}:${a.usage.aspects.join(',')}`]
         : []),
+      ...(a.link && (a.link.title || a.link.description)
+        ? [`${a.link.title ?? ''}|${a.link.description ?? ''}`]
+        : []),
     ])
   const payload = JSON.stringify({
     t: input.boardTitle,
     a: assets,
-    c: input.context,
+    c: fingerprintContext(input.context),
     p: input.promptVersion,
+    ap: input.analysisPromptVersion ?? null,
     m: input.models,
   })
   return createHash('sha256').update(payload).digest('hex')

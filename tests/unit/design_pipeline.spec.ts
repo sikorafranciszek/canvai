@@ -218,6 +218,59 @@ test.group('Design pipeline / board context', () => {
       fp,
       computeInputFingerprint({ ...input, assets: [{ ...input.assets[0], userNote: 'x' }] })
     )
+    // AI-13: wersja promptu analizy i metadane linku też są wejściem.
+    assert.notEqual(fp, computeInputFingerprint({ ...input, analysisPromptVersion: 'v9' }))
+    assert.notEqual(
+      fp,
+      computeInputFingerprint({
+        ...input,
+        assets: [{ ...input.assets[0], link: { title: 'Nowy tytuł strony' } }],
+      })
+    )
+  })
+
+  test('fingerprint (AI-13): przesunięcie elementu bez zmiany kolejności to nie zmiana', ({
+    assert,
+  }) => {
+    const base = { rotation: 0, opacity: 1 }
+    const doc = (dx: number, swap = false) =>
+      ({
+        elements: [
+          {
+            ...base,
+            id: 'a',
+            type: 'image',
+            assetId: '1',
+            x: 0 + dx,
+            y: 0,
+            width: 100,
+            height: 80,
+          },
+          {
+            ...base,
+            id: 'b',
+            type: 'image',
+            assetId: '2',
+            x: swap ? -400 : 300 + dx,
+            y: 0,
+            width: 100,
+            height: 80,
+          },
+        ],
+      }) as any
+    const fp = (d: any) =>
+      computeInputFingerprint({
+        boardTitle: 'T',
+        assets: [
+          { id: 1, sha256: 'a', filename: 'a.png', userNote: null },
+          { id: 2, sha256: 'b', filename: 'b.png', userNote: null },
+        ],
+        context: buildBoardContext(d),
+        promptVersion: 'v1',
+        models: ['mock'],
+      })
+    assert.equal(fp(doc(0)), fp(doc(37)), 'przesunięcie obu elementów')
+    assert.notEqual(fp(doc(0)), fp(doc(0, true)), 'zmiana kolejności czytania')
   })
 })
 
