@@ -5,6 +5,7 @@ import type Konva from 'konva'
 import type { SceneDocument, SceneElement, ScenePoint } from '@shared/scene'
 import { useSceneStore, createElementForTool, type Tool } from '~/lib/scene/store'
 import { getElementBounds, screenToWorld } from '~/lib/scene/geometry'
+import { intersects, prefersThumbnail, visibleWorldRect, wheelCamera } from '@shared/viewport'
 import { isHttpUrl } from '@shared/asset-utils'
 import { toolForKey, VIEW_TOOLS } from '@shared/tools'
 import { createElementId } from '@shared/scene-ops'
@@ -485,25 +486,19 @@ export function Canvas({ boardId, readOnly = false }: { boardId: number; readOnl
     useSceneStore.getState().selectOnly(ids)
   }
 
+  // Gładzik przesuwa, Ctrl/⌘ + kółko i szczypanie zoomują płynnie (UX-8).
   const handleWheel = (e: any) => {
     e.evt.preventDefault()
     const stage = stageRef.current
     if (!stage) return
-    const scaleBy = 1.05
-    const oldScale = camera.scale
     const pointer = stage.getPointerPosition() ?? { x: 0, y: 0 }
-    const mousePointTo = {
-      x: (pointer.x - camera.x) / oldScale,
-      y: (pointer.y - camera.y) / oldScale,
-    }
-    const direction = e.evt.deltaY > 0 ? -1 : 1
-    const next = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy
-    const scale = clamp(next, MIN_SCALE, MAX_SCALE)
-    const x = pointer.x - mousePointTo.x * scale
-    const y = pointer.y - mousePointTo.y * scale
-    stage.position({ x, y })
-    stage.scale({ x: scale, y: scale })
-    useSceneStore.getState().setCamera({ x, y, scale })
+    const next = wheelCamera(camera, pointer, e.evt as WheelEvent, {
+      min: MIN_SCALE,
+      max: MAX_SCALE,
+    })
+    stage.position({ x: next.x, y: next.y })
+    stage.scale({ x: next.scale, y: next.scale })
+    useSceneStore.getState().setCamera(next)
   }
 
   // Środkowy przycisk = pan.
@@ -571,19 +566,32 @@ export function Canvas({ boardId, readOnly = false }: { boardId: number; readOnl
     store.commitGesture(baseline, next)
   }
 
-  const stageChildren = document.elements.map((el) => (
-    <SceneElementNode
-      key={el.id}
-      el={el}
-      isSelected={selection.includes(el.id)}
-      listening={tool === 'select'}
-      registerNode={registerNode}
-      onSelect={handleSelect}
-      onDragStart={handleDragStart}
-      onDragEnd={handleNodeDragEnd}
-      onEdit={handleEdit}
-    />
-  ))
+  // Tylko elementy w (poszerzonym) widoku — duże tablice nie rysują setek obrazów
+  // poza ekranem; małe na ekranie obrazy biorą miniaturę zamiast oryginału (UX-8).
+  const view = visibleWorldRect(camera, stageSize)
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
+  const stageChildren = document.elements
+    .filter(
+      (el) =>
+        stageSize.width === 0 ||
+        selection.includes(el.id) ||
+        el.id === editingId ||
+        intersects(getElementBounds(el), view)
+    )
+    .map((el) => (
+      <SceneElementNode
+        key={el.id}
+        el={el}
+        lowRes={el.type === 'image' && prefersThumbnail(el.width, el.height, camera.scale, dpr)}
+        isSelected={selection.includes(el.id)}
+        listening={tool === 'select'}
+        registerNode={registerNode}
+        onSelect={handleSelect}
+        onDragStart={handleDragStart}
+        onDragEnd={handleNodeDragEnd}
+        onEdit={handleEdit}
+      />
+    ))
 
   // Drag & drop plików na płótno (wiele naraz, pozycja = miejsce upuszczenia).
   const handleDrop = (e: any) => {
@@ -1048,8 +1056,4 @@ function gridStep(scale: number) {
   while (step < 12) step *= 2
   while (step > 48) step /= 2
   return step
-}
-
-function clamp(v: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, v))
 }

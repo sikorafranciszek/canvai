@@ -18,6 +18,8 @@ export interface ElementNodeProps {
   onDragStart: (id: string) => void
   onDragEnd: (id: string, node: Konva.Node) => void
   onEdit?: (id: string) => void
+  /** Obraz mały na ekranie — wystarczy miniatura serwera (UX-8). */
+  lowRes?: boolean
 }
 
 type PointyElement = Extract<SceneElement, { points: { x: number; y: number }[] }>
@@ -26,8 +28,12 @@ function toFlatPoints(el: PointyElement): number[] {
   return el.points.flatMap((p) => [p.x, p.y])
 }
 
-/** Ładuje obraz z URL (bez dodatkowej zależności react-konva-utils). */
-function useLoadedImage(url: string) {
+/**
+ * Ładuje obraz z URL (bez dodatkowej zależności react-konva-utils). Przy zmianie
+ * URL (miniatura ↔ oryginał) poprzedni obraz zostaje do czasu załadowania
+ * nowego — bez migania; `fallback` przy błędzie (np. brak miniatury).
+ */
+function useLoadedImage(url: string, fallback?: string) {
   const [state, setState] = useState<{
     image: HTMLImageElement | null
     status: 'loading' | 'loaded' | 'failed'
@@ -37,24 +43,30 @@ function useLoadedImage(url: string) {
   })
   useEffect(() => {
     let cancelled = false
-    const img = new window.Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      if (!cancelled) setState({ image: img, status: 'loaded' })
+    const load = (src: string, next?: string) => {
+      const img = new window.Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        if (!cancelled) setState({ image: img, status: 'loaded' })
+      }
+      img.onerror = () => {
+        if (cancelled) return
+        if (next) load(next)
+        else setState((prev) => (prev.image ? prev : { image: null, status: 'failed' }))
+      }
+      img.src = src
     }
-    img.onerror = () => {
-      if (!cancelled) setState({ image: null, status: 'failed' })
-    }
-    img.src = url
+    load(url, fallback)
     return () => {
       cancelled = true
     }
-  }, [url])
+  }, [url, fallback])
   return state
 }
 
 function ImageNode({
   el,
+  lowRes,
   isSelected,
   listening,
   registerNode,
@@ -64,8 +76,11 @@ function ImageNode({
 }: {
   el: Extract<SceneElement, { type: 'image' }>
 } & Omit<ElementNodeProps, 'el'>) {
-  const url = resolveAssetUrl(el.assetId)
-  const { image, status } = useLoadedImage(url)
+  const full = resolveAssetUrl(el.assetId)
+  const { image, status } = useLoadedImage(
+    lowRes ? `/api/assets/${el.assetId}/thumb` : full,
+    lowRes ? full : undefined
+  )
 
   const common = {
     id: el.id,
