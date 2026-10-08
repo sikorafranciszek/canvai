@@ -76,7 +76,14 @@ interface SceneStore {
    * Zmiany innych uczestników (scalone z lokalnymi). Zachowuje zaznaczenie;
    * historia cofania jest czyszczona — cofnięcie nie może skasować cudzej pracy.
    */
-  applyRemoteDocument: (document: SceneDocument) => void
+  /**
+   * Scena po zmianach innych osób. `rebase` przelicza stany historii cofania na
+   * nowej bazie (DAT-7) — Cofnij działa dalej i nie cofa cudzej pracy.
+   */
+  applyRemoteDocument: (
+    document: SceneDocument,
+    rebase?: (snapshot: SceneDocument) => SceneDocument
+  ) => void
   /** Usuwa elementy o podanych id (używane przy kasowaniu assetu). */
   deleteElements: (ids: string[]) => void
   reset: () => void
@@ -105,9 +112,7 @@ export const useSceneStore = create<SceneStore>()((set, get) => ({
   toggleSelection: (id) => {
     const selection = get().selection
     set({
-      selection: selection.includes(id)
-        ? selection.filter((s) => s !== id)
-        : [...selection, id],
+      selection: selection.includes(id) ? selection.filter((s) => s !== id) : [...selection, id],
     })
   },
   clearSelection: () => set({ selection: [] }),
@@ -116,7 +121,10 @@ export const useSceneStore = create<SceneStore>()((set, get) => ({
   addElement: (element) => {
     const state = get()
     const next = addElementOp(state.document, element)
-    const hist = commitHistory({ document: state.document, past: state.past, future: state.future }, next)
+    const hist = commitHistory(
+      { document: state.document, past: state.past, future: state.future },
+      next
+    )
     set({
       document: hist.document,
       past: hist.past,
@@ -132,10 +140,7 @@ export const useSceneStore = create<SceneStore>()((set, get) => ({
   },
 
   commitGesture: (baseline, next) => {
-    const hist = commitHistory(
-      { document: baseline, past: get().past, future: get().future },
-      next
-    )
+    const hist = commitHistory({ document: baseline, past: get().past, future: get().future }, next)
     set({
       document: hist.document,
       past: hist.past,
@@ -149,7 +154,10 @@ export const useSceneStore = create<SceneStore>()((set, get) => ({
     const state = get()
     if (state.selection.length === 0) return
     const next = removeElements(state.document, state.selection)
-    const hist = commitHistory({ document: state.document, past: state.past, future: state.future }, next)
+    const hist = commitHistory(
+      { document: state.document, past: state.past, future: state.future },
+      next
+    )
     set({
       document: hist.document,
       selection: [],
@@ -164,7 +172,10 @@ export const useSceneStore = create<SceneStore>()((set, get) => ({
     const state = get()
     if (state.selection.length === 0) return
     const next = duplicateElements(state.document, state.selection)
-    const hist = commitHistory({ document: state.document, past: state.past, future: state.future }, next)
+    const hist = commitHistory(
+      { document: state.document, past: state.past, future: state.future },
+      next
+    )
     set({
       document: hist.document,
       past: hist.past,
@@ -178,7 +189,10 @@ export const useSceneStore = create<SceneStore>()((set, get) => ({
     const state = get()
     if (state.selection.length === 0) return
     const next = moveElements(state.document, state.selection, dx, dy)
-    const hist = commitHistory({ document: state.document, past: state.past, future: state.future }, next)
+    const hist = commitHistory(
+      { document: state.document, past: state.past, future: state.future },
+      next
+    )
     set({
       document: hist.document,
       past: hist.past,
@@ -192,7 +206,10 @@ export const useSceneStore = create<SceneStore>()((set, get) => ({
     const state = get()
     if (state.selection.length !== 1) return
     const next = reorderElement(state.document, state.selection[0], direction)
-    const hist = commitHistory({ document: state.document, past: state.past, future: state.future }, next)
+    const hist = commitHistory(
+      { document: state.document, past: state.past, future: state.future },
+      next
+    )
     set({
       document: hist.document,
       past: hist.past,
@@ -238,15 +255,19 @@ export const useSceneStore = create<SceneStore>()((set, get) => ({
       canRedo: false,
     }),
 
-  applyRemoteDocument: (document) =>
-    set((state) => ({
-      document,
-      selection: withSelection(document, state.selection),
-      past: [],
-      future: [],
-      canUndo: false,
-      canRedo: false,
-    })),
+  applyRemoteDocument: (document, rebase) =>
+    set((state) => {
+      const past = rebase ? state.past.map(rebase) : []
+      const future = rebase ? state.future.map(rebase) : []
+      return {
+        document,
+        selection: withSelection(document, state.selection),
+        past,
+        future,
+        canUndo: past.length > 0,
+        canRedo: future.length > 0,
+      }
+    }),
 
   deleteElements: (ids) => {
     const state = get()
@@ -283,20 +304,87 @@ export function createElementForTool(tool: Tool, x: number, y: number): SceneEle
   const base = { id: createElementId(), x, y, rotation: 0, opacity: 1 }
   switch (tool) {
     case 'rectangle':
-      return { ...base, type: 'rectangle', width: 160, height: 100, fill: DEFAULTS.shapeFill, stroke: DEFAULTS.shapeStroke, strokeWidth: 1.5, cornerRadius: 8 }
+      return {
+        ...base,
+        type: 'rectangle',
+        width: 160,
+        height: 100,
+        fill: DEFAULTS.shapeFill,
+        stroke: DEFAULTS.shapeStroke,
+        strokeWidth: 1.5,
+        cornerRadius: 8,
+      }
     case 'ellipse':
-      return { ...base, type: 'ellipse', width: 140, height: 100, fill: DEFAULTS.shapeFill, stroke: DEFAULTS.shapeStroke, strokeWidth: 1.5 }
+      return {
+        ...base,
+        type: 'ellipse',
+        width: 140,
+        height: 100,
+        fill: DEFAULTS.shapeFill,
+        stroke: DEFAULTS.shapeStroke,
+        strokeWidth: 1.5,
+      }
     case 'line':
-      return { ...base, type: 'line', points: [{ x: 0, y: 0 }, { x: 120, y: 0 }], stroke: DEFAULTS.line, strokeWidth: 2 }
+      return {
+        ...base,
+        type: 'line',
+        points: [
+          { x: 0, y: 0 },
+          { x: 120, y: 0 },
+        ],
+        stroke: DEFAULTS.line,
+        strokeWidth: 2,
+      }
     case 'arrow':
-      return { ...base, type: 'arrow', points: [{ x: 0, y: 0 }, { x: 120, y: 0 }], stroke: DEFAULTS.arrow, strokeWidth: 2, arrowHeadSize: 10 }
+      return {
+        ...base,
+        type: 'arrow',
+        points: [
+          { x: 0, y: 0 },
+          { x: 120, y: 0 },
+        ],
+        stroke: DEFAULTS.arrow,
+        strokeWidth: 2,
+        arrowHeadSize: 10,
+      }
     case 'freehand':
-      return { ...base, type: 'freehand', points: [{ x: 0, y: 0 }], stroke: DEFAULTS.freehand, strokeWidth: 2.5 }
+      return {
+        ...base,
+        type: 'freehand',
+        points: [{ x: 0, y: 0 }],
+        stroke: DEFAULTS.freehand,
+        strokeWidth: 2.5,
+      }
     case 'text':
-      return { ...base, type: 'text', text: translate('canvas.newText'), fontSize: 24, fontFamily: FONT_FAMILY, fill: DEFAULTS.text, align: 'left' }
+      return {
+        ...base,
+        type: 'text',
+        text: translate('canvas.newText'),
+        fontSize: 24,
+        fontFamily: FONT_FAMILY,
+        fill: DEFAULTS.text,
+        align: 'left',
+      }
     case 'sticky':
-      return { ...base, type: 'sticky', width: 200, height: 150, text: translate('canvas.newSticky'), fill: DEFAULTS.sticky, fontSize: 14 }
+      return {
+        ...base,
+        type: 'sticky',
+        width: 200,
+        height: 150,
+        text: translate('canvas.newSticky'),
+        fill: DEFAULTS.sticky,
+        fontSize: 14,
+      }
     default:
-      return { ...base, type: 'rectangle', width: 160, height: 100, fill: DEFAULTS.shapeFill, stroke: DEFAULTS.shapeStroke, strokeWidth: 1.5, cornerRadius: 8 }
+      return {
+        ...base,
+        type: 'rectangle',
+        width: 160,
+        height: 100,
+        fill: DEFAULTS.shapeFill,
+        stroke: DEFAULTS.shapeStroke,
+        strokeWidth: 1.5,
+        cornerRadius: 8,
+      }
   }
 }

@@ -169,11 +169,14 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
           onConflict: () => {},
           rebase: (fresh, pending) => {
             const local = useSceneStore.getState().document
-            const merged = mergeScenes(syncedDocument ?? fresh.document, local, fresh.document)
+            const base = syncedDocument ?? fresh.document
+            const merged = mergeScenes(base, local, fresh.document)
             syncedDocument = fresh.document
             if (merged !== local) {
               lastDocument = merged
-              useSceneStore.getState().applyRemoteDocument(merged)
+              useSceneStore
+                .getState()
+                .applyRemoteDocument(merged, (snap) => mergeScenes(base, snap, fresh.document))
             }
             return { document: merged, appState: pending.appState }
           },
@@ -225,12 +228,18 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       return
     }
     const local = useSceneStore.getState().document
-    const merged = mergeScenes(syncedDocument ?? fresh.document, local, fresh.document)
+    const base = syncedDocument ?? fresh.document
+    const merged = mergeScenes(base, local, fresh.document)
     syncedDocument = fresh.document
     engine.setVersion(fresh.version)
     set({ version: fresh.version })
     lastDocument = merged
-    if (merged !== local) useSceneStore.getState().applyRemoteDocument(merged)
+    if (merged !== local) {
+      // Historia cofania przeliczona na nowej bazie (DAT-7), zamiast czyszczona.
+      useSceneStore
+        .getState()
+        .applyRemoteDocument(merged, (snap) => mergeScenes(base, snap, fresh.document))
+    }
     // Lokalne zmiany, których serwer jeszcze nie ma, idą w zapisie z nową wersją;
     // bez nich zaplanowany zapis jest zbędny (zawierałby starą scenę).
     if (!get().readOnly && hasLocalChanges(fresh.document, merged)) {
