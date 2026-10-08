@@ -226,7 +226,31 @@ function AppShell({
           <Link route="boards.index">
             <Brand />
           </Link>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            <Link
+              route="brandKits.page"
+              className="btn btn--quiet btn--icon btn--sm"
+              aria-label={t('nav.brandKits')}
+              data-testid="mobile-nav-brand-kits"
+            >
+              <Palette />
+            </Link>
+            <Link
+              route="billing.show"
+              className="btn btn--quiet btn--icon btn--sm"
+              aria-label={t('nav.billing')}
+              data-testid="mobile-nav-billing"
+            >
+              <CreditCard />
+            </Link>
+            <Link
+              route="settings.show"
+              className="btn btn--quiet btn--icon btn--sm"
+              aria-label={t('nav.settings')}
+              data-testid="mobile-nav-settings"
+            >
+              <Settings />
+            </Link>
             <button type="button" className="btn btn--primary btn--sm" onClick={openCreateBoard}>
               <Plus />
               {t('nav.newShort')}

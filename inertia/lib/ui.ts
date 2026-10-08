@@ -10,7 +10,10 @@ interface UiState {
 }
 
 export const useUiStore = create<UiState>()((set) => ({
-  sidePanelOpen: true,
+  // Na telefonie panel jest arkuszem od dołu — startuje zamknięty, płótno widać całe (UX-12).
+  sidePanelOpen: !(
+    typeof window !== 'undefined' && window.matchMedia?.('(max-width: 720px)').matches
+  ),
   toggleSidePanel: () => set((s) => ({ sidePanelOpen: !s.sidePanelOpen })),
   createBoardOpen: false,
   openCreateBoard: () => set({ createBoardOpen: true }),

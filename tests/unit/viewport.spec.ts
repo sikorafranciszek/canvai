@@ -1,5 +1,11 @@
 import { test } from '@japa/runner'
-import { intersects, prefersThumbnail, visibleWorldRect, wheelCamera } from '#shared/viewport'
+import {
+  intersects,
+  pinchCamera,
+  prefersThumbnail,
+  visibleWorldRect,
+  wheelCamera,
+} from '#shared/viewport'
 
 const limits = { min: 0.1, max: 8 }
 const base = { deltaX: 0, deltaY: 0, deltaMode: 0, ctrlKey: false, metaKey: false, shiftKey: false }
@@ -57,5 +63,31 @@ test.group('Widok płótna (UX-8)', () => {
     assert.closeTo(wx, 100, 1e-9)
     const out = wheelCamera(cam, { x: 0, y: 0 }, { ...base, deltaY: 10_000, metaKey: true }, limits)
     assert.equal(out.scale, 0.1)
+  })
+})
+
+test.group('Szczypanie (UX-12)', () => {
+  test('rozsunięcie palców przybliża wokół środka, przesunięcie środka przesuwa widok', ({
+    assert,
+  }) => {
+    const start = { camera: { x: 0, y: 0, scale: 1 }, center: { x: 100, y: 100 }, distance: 100 }
+    const zoomed = pinchCamera(
+      start,
+      { center: { x: 100, y: 100 }, distance: 200 },
+      { min: 0.1, max: 4 }
+    )
+    assert.equal(zoomed.scale, 2)
+    // Punkt świata (100,100) zostaje pod palcami.
+    assert.equal((100 - zoomed.x) / zoomed.scale, 100)
+    const panned = pinchCamera(
+      start,
+      { center: { x: 150, y: 80 }, distance: 100 },
+      { min: 0.1, max: 4 }
+    )
+    assert.deepEqual(panned, { scale: 1, x: 50, y: -20 })
+    assert.equal(
+      pinchCamera(start, { center: start.center, distance: 10_000 }, { min: 0.1, max: 4 }).scale,
+      4
+    )
   })
 })

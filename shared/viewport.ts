@@ -81,3 +81,27 @@ export function wheelCamera(
   if (e.shiftKey && dx === 0) return { ...camera, x: camera.x - dy }
   return { ...camera, x: camera.x - dx, y: camera.y - dy }
 }
+
+export interface PinchStart {
+  camera: Camera
+  /** Środek dwóch palców (w pikselach płótna). */
+  center: { x: number; y: number }
+  /** Odległość między palcami na starcie gestu. */
+  distance: number
+}
+
+/**
+ * Szczypanie i przesuwanie dwoma palcami (UX-12): skala rośnie z odległością
+ * palców, a punkt świata pod środkiem gestu podąża za środkiem palców.
+ */
+export function pinchCamera(
+  start: PinchStart,
+  now: { center: { x: number; y: number }; distance: number },
+  limits: { min: number; max: number }
+): Camera {
+  const ratio = start.distance > 0 ? now.distance / start.distance : 1
+  const scale = Math.min(limits.max, Math.max(limits.min, start.camera.scale * ratio))
+  const wx = (start.center.x - start.camera.x) / start.camera.scale
+  const wy = (start.center.y - start.camera.y) / start.camera.scale
+  return { scale, x: now.center.x - wx * scale, y: now.center.y - wy * scale }
+}

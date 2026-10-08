@@ -5,7 +5,14 @@ import type Konva from 'konva'
 import type { SceneDocument, SceneElement, ScenePoint } from '@shared/scene'
 import { useSceneStore, createElementForTool, type Tool } from '~/lib/scene/store'
 import { getElementBounds, screenToWorld } from '~/lib/scene/geometry'
-import { intersects, prefersThumbnail, visibleWorldRect, wheelCamera } from '@shared/viewport'
+import {
+  intersects,
+  pinchCamera,
+  prefersThumbnail,
+  visibleWorldRect,
+  wheelCamera,
+  type PinchStart,
+} from '@shared/viewport'
 import { isHttpUrl } from '@shared/asset-utils'
 import { toolForKey, VIEW_TOOLS } from '@shared/tools'
 import { createElementId } from '@shared/scene-ops'
@@ -239,6 +246,69 @@ export function Canvas({ boardId, readOnly = false }: { boardId: number; readOnl
     if (!stage) return { x: 0, y: 0 }
     const p = stage.getRelativePointerPosition()
     return p ? { x: p.x, y: p.y } : { x: 0, y: 0 }
+  }, [])
+
+  // Szczypanie i przesuwanie dwoma palcami (UX-12). Natywne nasłuchy w fazie
+  // capture: Konva rozsyła dotyk palec po palcu i pierwszy zaczyna przeciąganie
+  // sceny, które połyka ruchy — tu gest dwóch palców przejmujemy w całości.
+  const pinch = useRef<PinchStart | null>(null)
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const geometry = (touches: TouchList) => {
+      const rect = el.getBoundingClientRect()
+      const [a, b] = [touches[0], touches[1]].map((t) => ({
+        x: t.clientX - rect.left,
+        y: t.clientY - rect.top,
+      }))
+      return {
+        center: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+        distance: Math.hypot(a.x - b.x, a.y - b.y),
+      }
+    }
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return
+      e.preventDefault()
+      e.stopPropagation()
+      const stage = stageRef.current
+      stage?.stopDrag()
+      stage?.draggable(false)
+      setDraft(null)
+      setMarquee(null)
+      pinch.current = { camera: useSceneStore.getState().camera, ...geometry(e.touches) }
+    }
+    const onMove = (e: TouchEvent) => {
+      if (!pinch.current || e.touches.length < 2) return
+      e.preventDefault()
+      e.stopPropagation()
+      const next = pinchCamera(pinch.current, geometry(e.touches), {
+        min: MIN_SCALE,
+        max: MAX_SCALE,
+      })
+      const stage = stageRef.current
+      stage?.position({ x: next.x, y: next.y })
+      stage?.scale({ x: next.scale, y: next.scale })
+      useSceneStore.getState().setCamera(next)
+    }
+    const onEnd = (e: TouchEvent) => {
+      if (!pinch.current) return
+      e.stopPropagation()
+      if (e.touches.length === 0) {
+        pinch.current = null
+        stageRef.current?.draggable(useSceneStore.getState().tool === 'pan')
+      }
+    }
+    const opts = { capture: true, passive: false } as const
+    el.addEventListener('touchstart', onStart, opts)
+    el.addEventListener('touchmove', onMove, opts)
+    el.addEventListener('touchend', onEnd, opts)
+    el.addEventListener('touchcancel', onEnd, opts)
+    return () => {
+      el.removeEventListener('touchstart', onStart, opts)
+      el.removeEventListener('touchmove', onMove, opts)
+      el.removeEventListener('touchend', onEnd, opts)
+      el.removeEventListener('touchcancel', onEnd, opts)
+    }
   }, [])
 
   // Wczytanie sceny + autosave + zapis przy beforeunload.
@@ -523,6 +593,27 @@ export function Canvas({ boardId, readOnly = false }: { boardId: number; readOnl
     useSceneStore.getState().setCamera(next)
   }
 
+  // Dotyk (UX-12): jeden palec na pustym płótnie przesuwa widok (zaznaczanie
+  // ramką nie ma sensu na telefonie); dwa palce obsługuje efekt niżej.
+  const handleTouchStart = (e: any) => {
+    const stage = stageRef.current
+    if (pinch.current) return
+    if (stage && (tool === 'select' || readOnly) && e.target === stage) {
+      stage.draggable(true)
+      stage.startDrag(e)
+      return
+    }
+    handleStageMouseDown(e)
+  }
+
+  const handleTouchMove = () => {
+    if (!pinch.current) handleStageMouseMove()
+  }
+
+  const handleTouchEnd = () => {
+    if (!pinch.current) handleStageMouseUp()
+  }
+
   // Środkowy przycisk = pan.
   const handleMouseDown = (e: any) => {
     if (e.evt.button === 1) {
@@ -679,8 +770,11 @@ export function Canvas({ boardId, readOnly = false }: { boardId: number; readOnl
         backgroundPosition: `${camera.x}px ${camera.y}px`,
         cursor:
           tool === 'pan' || isMiddlePan ? 'grab' : tool === 'select' ? 'default' : 'crosshair',
+        // Gesty przeglądarki (przewijanie, powiększanie strony) przejmuje płótno (UX-12).
+        touchAction: 'none',
       }}
       data-testid="canvas-root"
+
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -701,6 +795,9 @@ export function Canvas({ boardId, readOnly = false }: { boardId: number; readOnl
         }}
         onMouseMove={handleStageMouseMove}
         onMouseUp={handleStageMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         onWheel={handleWheel}
         onDragMove={handleDragMove}
         onDragEnd={handleDragEnd}
