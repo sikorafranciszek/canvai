@@ -385,3 +385,17 @@ async function recoverOne(job: Job): Promise<void> {
   if (retry) await handlers[job.type]?.onRetry?.(job, t('gen.interruptedRetry'))
   else await handlers[job.type]?.onFailed(job, t('gen.interrupted'))
 }
+
+/**
+ * Retencja (ARC-5): zakończone zadania (`done`/`failed`) starsze niż `days` dni.
+ * Dokumenty i podglądy trzymają własny status — wiersz zadania służy tylko
+ * do postępu i ponowień, więc po miesiącu jest zbędny.
+ */
+export async function purgeFinishedJobs(days = 30): Promise<number> {
+  const cutoff = DateTime.utc().minus({ days })
+  const affected = await Job.query()
+    .whereIn('status', ['done', 'failed'])
+    .where('updated_at', '<', cutoff.toSQL()!)
+    .delete()
+  return Number(Array.isArray(affected) ? affected[0] : affected)
+}

@@ -9,6 +9,7 @@ import {
   registerJobHandler,
   releaseOwnedJobs,
   runJob,
+  purgeFinishedJobs,
   runPendingJobs,
 } from '#services/queue'
 import { AiProviderError } from '#services/ai/types'
@@ -31,6 +32,26 @@ test.group('Kolejka: cykl życia i własność zadania (DAT-3)', (group) => {
     calls.retried = 0
     behaviour = async () => {}
     return testUtils.db().withGlobalTransaction()
+  })
+
+  test('retencja (ARC-5): usuwa tylko zakończone zadania starsze niż 30 dni', async ({
+    assert,
+  }) => {
+    const old = await enqueue('test_job', {})
+    const recent = await enqueue('test_job', {})
+    const waiting = await enqueue('test_job', {})
+    await runPendingJobs(2)
+    await db
+      .from('jobs')
+      .whereIn('id', [old.id, waiting.id])
+      .update({
+        updated_at: new Date(Date.now() - 31 * 24 * 3600_000),
+      })
+    await db.from('jobs').where('id', waiting.id).update({ status: 'queued' })
+    assert.equal(await purgeFinishedJobs(30), 1)
+    assert.isNull(await Job.find(old.id))
+    assert.isNotNull(await Job.find(recent.id))
+    assert.isNotNull(await Job.find(waiting.id))
   })
 
   test('udane zadanie kończy się done i zwalnia blokadę', async ({ assert }) => {

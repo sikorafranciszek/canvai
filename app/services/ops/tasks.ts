@@ -48,6 +48,16 @@ registerTask({
   },
 })
 
+/** Codzienna retencja zakończonych zadań kolejki (ARC-5). */
+registerTask({
+  name: 'jobs_purge',
+  due: every(24 * 60),
+  async run() {
+    const { purgeFinishedJobs } = await import('#services/queue')
+    return `purged ${await purgeFinishedJobs(30)} finished jobs`
+  },
+})
+
 /** Cotygodniowe sprzątanie plików bez wiersza w bazie (DAT-8). */
 registerTask({
   name: 'orphan_files',
