@@ -69,7 +69,8 @@ test.group('Account', (group) => {
 
       const boards = await client.get('/boards').headers({ cookie: cookies }).redirects(0)
       assert.equal(boards.header('location'), '/verify-email')
-      const api = await client.get('/api/boards/1/scene').headers({ cookie: cookies })
+      // Tablica inna niż własny przykład (UX-5) — zablokowana.
+      const api = await client.get('/api/boards/999999/scene').headers({ cookie: cookies })
       api.assertStatus(403)
       assert.equal(api.body().code, 'E_EMAIL_NOT_VERIFIED')
 
