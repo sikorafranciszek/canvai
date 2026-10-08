@@ -10,6 +10,7 @@ import { ulid } from 'ulid'
 import Asset from '#models/asset'
 import BoardScene from '#models/board_scene'
 import {
+  allowedFileMimes,
   analysis,
   dangerousMimes,
   imageMimes,
@@ -67,17 +68,19 @@ const MIME_ALIASES: Record<string, string> = {
   'image/svg': 'image/svg+xml',
 }
 
-/** Klasyfikuje MIME na rodzaj assetu. Rzuca 422 dla typów zakazanych. */
+/**
+ * Klasyfikuje MIME na rodzaj assetu. Lista dozwolonych typów: obrazy, PDF,
+ * fonty i zwykły tekst; wszystko inne (np. XML/XHTML, które przeglądarka
+ * wykonałaby jako stronę) kończy się 422.
+ */
 export function classifyMime(mime: string): 'image' | 'pdf' | 'file' {
   if (imageMimes.includes(mime)) return 'image'
   if (pdfMimes.includes(mime)) return 'pdf'
-  if (dangerousMimes.includes(mime)) {
-    throw new Exception(t('asset.forbiddenMime', { mime }), {
-      status: 422,
-      code: 'E_ASSET_MIME_FORBIDDEN',
-    })
-  }
-  return 'file'
+  if (allowedFileMimes.includes(mime) && !dangerousMimes.includes(mime)) return 'file'
+  throw new Exception(t('asset.forbiddenMime', { mime }), {
+    status: 422,
+    code: 'E_ASSET_MIME_FORBIDDEN',
+  })
 }
 
 /** Rozszerzenie pliku do klucza storage. Sanityzowane (bez ścieżek). */

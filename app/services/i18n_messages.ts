@@ -28,7 +28,8 @@ export const pl = {
   // Assety
   'asset.noFiles': 'Brak plików w polu „files”',
   'asset.urlRequired': 'Podaj adres URL linku',
-  'asset.forbiddenMime': 'Niedozwolony typ pliku: {mime}',
+  'asset.forbiddenMime':
+    'Niedozwolony typ pliku: {mime}. Dozwolone: obrazy, PDF, fonty i pliki tekstowe.',
   'asset.readFailed': 'Nie udało się odczytać przesłanego pliku',
   'asset.tooLarge': 'Plik „{name}” przekracza limit rozmiaru',
   'asset.mismatch':
@@ -291,7 +292,8 @@ export const en: Record<ServerMessageKey, string> = {
 
   'asset.noFiles': 'No files in the “files” field',
   'asset.urlRequired': 'Enter the link URL',
-  'asset.forbiddenMime': 'File type not allowed: {mime}',
+  'asset.forbiddenMime':
+    'File type not allowed: {mime}. Allowed: images, PDF, fonts and text files.',
   'asset.readFailed': 'Could not read the uploaded file',
   'asset.tooLarge': 'File “{name}” exceeds the size limit',
   'asset.mismatch': 'The content of “{name}” does not match the declared type {mime} ({detail})',

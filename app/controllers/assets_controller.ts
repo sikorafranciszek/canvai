@@ -11,14 +11,20 @@ import {
   storeUploadedFile,
 } from '#services/assets_service'
 import { t } from '#services/i18n'
+import { rasterMimes } from '#config/assets'
 import { entitlementsFor } from '#services/billing/plans'
 import { trackFor } from '#services/analytics/events'
 import { boardAccess, boardAccessOrStatus, type BoardAction } from '#services/board_access'
 import { publish } from '#services/board_events'
 
-/** Czyści nazwę pliku pod nagłówek Content-Disposition. */
-function safeAttachmentName(name: string | null | undefined, fallback: string): string {
-  return (name ?? fallback).replace(/["\\\r\n]/g, '_')
+/**
+ * Nagłówek Content-Disposition dla załącznika: wersja ASCII (stare klienty)
+ * i `filename*` w UTF-8 (RFC 5987) — polskie znaki nie wywracają odpowiedzi.
+ */
+export function attachmentHeader(name: string | null | undefined, fallback: string): string {
+  const raw = (name ?? '').replace(/[\r\n"\\]/g, '_').trim() || fallback
+  const ascii = raw.normalize('NFKD').replace(/[^\x20-\x7e]/g, '_')
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(raw)}`
 }
 
 export default class AssetsController {
@@ -128,26 +134,45 @@ export default class AssetsController {
     return response.status(204)
   }
 
-  /** GET /assets/:id/raw — oryginał (SVG: attachment + CSP, bez inline). */
+  /**
+   * Wysyła zapisany plik. Inline TYLKO zweryfikowane obrazy rastrowe (bajty
+   * sprawdzone przez sharp przy uploadzie). Wszystko inne — SVG, PDF, fonty,
+   * tekst, stare pliki o dowolnym MIME — jako załącznik z CSP `sandbox`:
+   * przeglądarka nie wykona go na domenie aplikacji (ochrona przed XSS).
+   */
+  private sendStored(
+    response: HttpContext['response'],
+    asset: Asset,
+    key: string,
+    opts: { mime?: string; size?: number | null } = {}
+  ) {
+    const mime = opts.mime ?? asset.mime ?? 'application/octet-stream'
+    const inline = asset.kind === 'image' && rasterMimes.includes(mime)
+    response.header('X-Content-Type-Options', 'nosniff')
+    response.header('Cache-Control', 'private, max-age=31536000, immutable')
+    if (opts.size != null) response.header('Content-Length', String(opts.size))
+    if (inline) {
+      response.header('Content-Type', mime)
+    } else {
+      // PDF zostaje rozpoznawalny po typie; inne typy jako surowe bajty.
+      response.header(
+        'Content-Type',
+        mime === 'application/pdf' ? mime : 'application/octet-stream'
+      )
+      response.header('Content-Disposition', attachmentHeader(asset.filename, 'asset'))
+      response.header('Content-Security-Policy', "default-src 'none'; sandbox")
+    }
+    return drive
+      .use()
+      .getStream(key)
+      .then((stream) => response.stream(stream))
+  }
+
+  /** GET /assets/:id/raw — oryginał (inline tylko obrazy rastrowe). */
   async raw({ auth, params, response }: HttpContext) {
     const asset = await this.findAccessible(auth.user!.id, params.id, 'view')
     if (!asset || !asset.storageKey) return response.notFound()
-
-    const stream = await drive.use().getStream(asset.storageKey)
-    response.header('Content-Type', asset.mime ?? 'application/octet-stream')
-    if (asset.size != null) response.header('Content-Length', String(asset.size))
-    response.header('Cache-Control', 'private, max-age=31536000, immutable')
-
-    if (asset.mime === 'image/svg+xml') {
-      // SVG nigdy nie jest serwowany inline — attachment + CSP niweluje XSS.
-      response.header(
-        'Content-Disposition',
-        `attachment; filename="${safeAttachmentName(asset.filename, 'asset.svg')}"`
-      )
-      response.header('Content-Security-Policy', "default-src 'none'; sandbox")
-    }
-
-    response.stream(stream)
+    await this.sendStored(response, asset, asset.storageKey, { size: asset.size })
   }
 
   /** GET /assets/:id/thumb — miniatura webp (max 512px). */
@@ -173,28 +198,12 @@ export default class AssetsController {
     if (asset.kind === 'link') return response.notFound()
 
     if (asset.kind === 'image' && asset.mime === 'image/svg+xml' && asset.thumbKey) {
-      const stream = await drive.use().getStream(asset.thumbKey)
-      response.header('Content-Type', 'image/webp')
-      response.header('Cache-Control', 'private, max-age=31536000, immutable')
-      response.stream(stream)
+      await this.sendStored(response, asset, asset.thumbKey, { mime: 'image/webp' })
       return
     }
 
     if (!asset.storageKey) return response.notFound()
-
-    const stream = await drive.use().getStream(asset.storageKey)
-    response.header('Content-Type', asset.mime ?? 'application/octet-stream')
-    if (asset.size != null) response.header('Content-Length', String(asset.size))
-    response.header('Cache-Control', 'private, max-age=31536000, immutable')
-
-    if (asset.kind !== 'image') {
-      response.header(
-        'Content-Disposition',
-        `attachment; filename="${safeAttachmentName(asset.filename, 'asset')}"`
-      )
-    }
-
-    response.stream(stream)
+    await this.sendStored(response, asset, asset.storageKey, { size: asset.size })
   }
 
   /** POST /api/boards/:id/assets/prune — usuwa assety, których nie ma na płótnie. */

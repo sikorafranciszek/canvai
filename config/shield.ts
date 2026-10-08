@@ -8,14 +8,30 @@ const shieldConfig = defineConfig({
    */
   csp: {
     /**
-     * Enable the Content-Security-Policy header.
+     * Content-Security-Policy w produkcji (obrona w głąb przed XSS). W dev Vite
+     * wstrzykuje skrypty inline (HMR, React Refresh), więc tam jest wyłączona.
+     * Odpowiedzi plików i podglądu UI ustawiają własne, ostrzejsze CSP.
      */
-    enabled: false,
+    enabled: env.get('NODE_ENV') === 'production',
 
     /**
      * Per-resource CSP directives.
      */
-    directives: {},
+    directives: {
+      defaultSrc: [`'self'`],
+      // Skrypty tylko z własnej domeny (bundle Vite) + Microsoft Clarity po zgodzie.
+      scriptSrc: [`'self'`, 'https://www.clarity.ms', 'https://*.clarity.ms'],
+      // React i biblioteki UI ustawiają style inline.
+      styleSrc: [`'self'`, `'unsafe-inline'`],
+      imgSrc: [`'self'`, 'data:', 'blob:', 'https:'],
+      fontSrc: [`'self'`, 'data:'],
+      connectSrc: [`'self'`, 'https://*.clarity.ms'],
+      frameSrc: [`'self'`],
+      frameAncestors: [`'self'`],
+      objectSrc: [`'none'`],
+      baseUri: [`'self'`],
+      formAction: [`'self'`],
+    },
 
     /**
      * Report violations without blocking resources.

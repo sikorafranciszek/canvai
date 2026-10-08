@@ -16,6 +16,32 @@ export const imageMimes: readonly string[] = [
   'image/svg+xml',
 ]
 
+/**
+ * Obrazy rastrowe — jedyne pliki serwowane inline (bajty weryfikowane przez
+ * sharp przy uploadzie). SVG i wszystko inne idzie jako załącznik z CSP sandbox.
+ */
+export const rasterMimes: readonly string[] = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
+
+/**
+ * Pozostałe dozwolone pliki (kind: file): fonty marki i zwykły tekst.
+ * Lista DOZWOLONYCH — każdy inny typ (np. text/xml, application/xml, *+xml,
+ * pliki wykonywalne) jest odrzucany przy uploadzie.
+ */
+export const allowedFileMimes: readonly string[] = [
+  'font/ttf',
+  'font/otf',
+  'font/woff',
+  'font/woff2',
+  'font/collection',
+  'application/font-woff',
+  'application/x-font-ttf',
+  'application/x-font-otf',
+  'application/vnd.ms-fontobject',
+  'text/plain',
+  'text/markdown',
+  'text/csv',
+]
+
 /** Typy MIME klasyfikowane jako PDF (kind: pdf). */
 export const pdfMimes: readonly string[] = ['application/pdf']
 

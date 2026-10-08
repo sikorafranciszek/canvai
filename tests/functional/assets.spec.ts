@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon'
 import { test } from '@japa/runner'
+import drive from '@adonisjs/drive/services/main'
 import testUtils from '@adonisjs/core/services/test_utils'
 import app from '@adonisjs/core/services/app'
 import { rm } from 'node:fs/promises'
@@ -16,7 +17,8 @@ test.group('Assets API', (group) => {
 
   async function login(client: any) {
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    const user = await User.create({ emailVerifiedAt: DateTime.utc(),
+    const user = await User.create({
+      emailVerifiedAt: DateTime.utc(),
       email: `asset-test-${suffix}@test.com`,
       password: 'password123',
     })
@@ -117,6 +119,59 @@ test.group('Assets API', (group) => {
 
     const stored = await Asset.query().where('board_id', board.id)
     assert.lengthOf(stored, 0)
+  })
+
+  test('SEC-1: XML/XHTML ze skryptem odrzucany; tylko rastry serwowane inline', async ({
+    client,
+    assert,
+  }) => {
+    const { user, cookies } = await login(client)
+    const board = await createBoard(user)
+    const xhtml =
+      '<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><script>alert(1)</script></html>'
+    for (const contentType of ['text/xml', 'application/xml', 'application/rss+xml']) {
+      const res = await client
+        .post(`/api/boards/${board.id}/assets`)
+        .headers({ cookie: cookies, accept: 'application/json' })
+        .file('files', Buffer.from(xhtml), { filename: 'evil.xml', contentType })
+      res.assertStatus(422)
+    }
+    assert.lengthOf(await Asset.query().where('board_id', board.id), 0)
+
+    // Stary plik o niebezpiecznym typie (sprzed allowlisty) — tylko jako załącznik w piaskownicy.
+    await drive.use().put(`boards/${board.id}/assets/legacy.xml`, xhtml)
+    const legacy = await Asset.create({
+      boardId: board.id,
+      kind: 'file',
+      filename: 'Projekt łódź.xml',
+      mime: 'text/xml',
+      size: xhtml.length,
+      sha256: 'legacy',
+      storageKey: `boards/${board.id}/assets/legacy.xml`,
+      source: 'upload',
+    } as any)
+    for (const path of ['raw', 'content']) {
+      const res = await client.get(`/api/assets/${legacy.id}/${path}`).headers({ cookie: cookies })
+      res.assertStatus(200)
+      assert.equal(res.header('content-type'), 'application/octet-stream')
+      assert.match(res.header('content-disposition') ?? '', /^attachment; filename="Projekt/)
+      assert.include(
+        res.header('content-disposition') ?? '',
+        "filename*=UTF-8''Projekt%20%C5%82%C3%B3d%C5%BA.xml"
+      )
+      assert.equal(res.header('content-security-policy'), "default-src 'none'; sandbox")
+      assert.equal(res.header('x-content-type-options'), 'nosniff')
+    }
+
+    // Font jest dozwolony (kind: file), ale też tylko jako załącznik.
+    const font = await client
+      .post(`/api/boards/${board.id}/assets`)
+      .headers({ cookie: cookies })
+      .file('files', Buffer.from('wOF2fake'), {
+        filename: 'Brand.woff2',
+        contentType: 'font/woff2',
+      })
+    font.assertStatus(201)
   })
 
   /**
