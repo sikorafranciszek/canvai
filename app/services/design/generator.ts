@@ -20,8 +20,9 @@ import {
 } from '#services/design/board_context'
 import { PROMPT_VERSION } from '#services/design/prompts'
 import { renderDesignMd } from '#services/design/renderer'
-import { enforceUsage, groundSpec, verifyColorEvidence } from '#services/design/spec'
-import { allowsAspect } from '#shared/asset-usage'
+import { groundSpec } from '#services/design/spec'
+import { verifySpec, type Evidence } from '#services/design/verify'
+import type { AssetAnalysisData } from '#services/ai/types'
 import type { SceneDocument } from '#shared/scene'
 import { runWithLocale, t } from '#services/i18n'
 import { entitlementsFor } from '#services/billing/plans'
@@ -82,6 +83,23 @@ export async function prepareGeneration(
   })
 
   return { board, assets, context, fingerprint, provider }
+}
+
+/** Materiał dowodowy dla `verifySpec`: analizy, role materiałów i teksty ludzi. */
+export function evidenceFor(
+  board: Board,
+  assets: Asset[],
+  analyses: Map<number, AssetAnalysisData>,
+  context: BoardContext
+): Evidence {
+  return {
+    assets: assets.map((a) => ({ id: a.id, usage: a.usage, analysis: analyses.get(a.id) })),
+    notes: [
+      board.title,
+      ...assets.map((a) => a.userNote ?? ''),
+      ...context.items.map((it) => it.text ?? ''),
+    ].filter(Boolean),
+  }
 }
 
 /** Czy tablica ma cokolwiek, z czego da się napisać dokument. */
@@ -192,18 +210,8 @@ async function generate(
   if (!spec) {
     throw new InvalidModelOutputError(t('gen.notGrounded', { errors: previousErrors.join('; ') }))
   }
-  // Kategorie materiałów: z inspiracji „tylko typografia” nie wolno brać kolorów itd.
-  const usages = new Map(assets.map((a) => [a.id, a.usage]))
-  enforceUsage(spec, usages)
-  // Kolory, których nie widać w materiałach dozwolonych dla kolorów, to propozycje → †.
-  verifyColorEvidence(
-    spec,
-    new Map(
-      assets
-        .filter((a) => allowsAspect(a.usage, 'colors'))
-        .map((a) => [a.id, (analyses.get(a.id)?.palette ?? []).map((p) => p.hex)])
-    )
-  )
+  // Kod sprawdza model: role materiałów, kolory, cytaty, marki (wspólne z ewaluacją).
+  verifySpec(spec, evidenceFor(board, assets, analyses, context))
 
   // Render
   await onProgress({ stage: 'render', done: 0, total: 1 })

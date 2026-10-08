@@ -1,3 +1,4 @@
+import { isProposed, stripProposed } from '#services/design/verify'
 import { specReferences, type DesignSpec } from '#services/design/spec'
 import { contrastChecks } from '#services/design/quality'
 import { describeUsage, isDefaultUsage, usageGuideLine, type AssetUsage } from '#shared/asset-usage'
@@ -386,8 +387,7 @@ export function renderDesignMd(
     spec.voice.examples
       .map((e) => {
         // Propozycje modelu odróżnione od tekstu z materiałów.
-        const proposed = e.match(/^\s*proposed\s*:\s*(.+)$/i)
-        return proposed ? `- „${inline(proposed[1])}” _(proposed)_` : `- „${inline(e)}”`
+        return isProposed(e) ? `- „${inline(stripProposed(e))}” _(proposed)_` : `- „${inline(e)}”`
       })
       .join('\n')
   )

@@ -1,3 +1,4 @@
+import { isProposed } from '#services/design/verify'
 import type { DesignSpec } from '#services/design/spec'
 import { contrastRatio, fixContrast, wcagLevel, type WcagLevel } from '#shared/color'
 
@@ -132,7 +133,7 @@ export function assessQuality(spec: DesignSpec, materials: number): QualityRepor
   if (spec.spacing.assumed) add('spacing_assumed', 'low')
   if (spec.screens.length === 0) add('no_screens', 'medium')
   else if (spec.screens.length > 1 && spec.flows.length === 0) add('no_flows', 'low')
-  if (!spec.voice.examples.some((e) => !/^\s*proposed\s*:/i.test(e))) add('no_microcopy', 'low')
+  if (!spec.voice.examples.some((e) => !isProposed(e))) add('no_microcopy', 'low')
 
   const contrast = contrastChecks(spec)
   const failing = contrast.filter((c) => c.ratio < 4.5)

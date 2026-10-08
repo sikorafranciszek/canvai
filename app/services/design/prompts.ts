@@ -21,11 +21,15 @@ import type { AnalyzeAssetInput, ComposeInput, PreviewInput } from '#services/ai
  * v5: opisy z analiz (pisane przez model, sterowalne treścią obrazu) w ogrodzonym
  * bloku; w zaufanym JSON-ie tylko id, role i hexy; obraz analizowany bez nazwy pliku.
  *
+ * v6: bez celów liczbowych („5-12 kolorów”) — tylko tyle pozycji, ile wspierają
+ * materiały; niezbędne braki jako założenia; podobne marki tylko wymienione
+ * przez klienta (AI-1).
+ *
  * Bezpieczeństwo (lens 7): wszystko, co pochodzi z tablicy — nazwy plików,
  * notatki, tekst z obrazów, metadane linków — trafia do bloku `<untrusted>`
  * i jest opisane w prompcie systemowym jako DANE, nigdy instrukcje.
  */
-export const PROMPT_VERSION = 'v5'
+export const PROMPT_VERSION = 'v6'
 
 /**
  * Wersja promptu ANALIZY materiału (etap 1) — klucz cache analiz. Osobna od
@@ -149,6 +153,7 @@ export const COMPOSE_SYSTEM_PROMPT = [
   "- Colors: cite an asset only if the color appears in that asset's analysed palette or text colors. Status colors",
   '  (error/warning/success), hover/pressed shades and other colors not visible in the materials are proposals:',
   '  "assumed": true, empty sources.',
+  '- "similarBrands": only brands the client names in the board title or notes; otherwise an empty list.',
   '- Never import knowledge of a recognisable product (e.g. a screenshot of YouTube, Slack, Stripe): describe only',
   '  icons, badges, states and flows visible in the materials. Invisible states (hover, focus, error, empty) may be',
   '  proposed, but write them as "hover (proposed): …" and mark the component "assumed" if most of it is proposed.',
@@ -171,8 +176,11 @@ export const COMPOSE_SYSTEM_PROMPT = [
   '  copy → voice and microcopy. Empty aspects = everything. Cite an asset in "sources" only for aspects it allows.',
   '- When references disagree, "own" wins; otherwise combine: e.g. fonts from the typography reference, layout',
   '  from the layout reference, colors from the color reference. Say in the overview which reference drives what.',
-  'Target sizes: 5-12 colors, 1-3 font families with a 4-8 row type scale, 6-14 components, 5-8 dos and donts,',
-  '3-5 agent component prompts. No field may be empty except where there is genuinely nothing to say.',
+  'SIZE: include only as many colors, fonts, components, screens and copy examples as the materials actually',
+  'support — one screenshot yields a short document, and that is correct. Never pad lists to look complete.',
+  'Essentials the UI cannot work without (error/success colors, focus ring, disabled state, a body font) may be',
+  'added as assumptions ("assumed": true, empty sources, an entry in "openQuestions") — nothing else.',
+  'Fields with nothing to say stay empty ([] or "").',
   `Reply ONLY with a JSON object of exactly this shape:\n${SPEC_SHAPE}`,
 ].join('\n')
 
