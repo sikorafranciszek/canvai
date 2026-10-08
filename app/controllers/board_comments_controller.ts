@@ -6,6 +6,8 @@ import User from '#models/user'
 import { boardAccess } from '#services/board_access'
 import { colorFor, publish } from '#services/board_events'
 import { trackFor } from '#services/analytics/events'
+import { hitAll } from '#services/rate_limit'
+import { t } from '#services/i18n'
 
 const createValidator = vine.compile(
   vine.object({
@@ -78,6 +80,17 @@ export default class BoardCommentsController {
     const access = await boardAccess(auth.user!.id, params.id, 'view')
     if (!access) return response.notFound()
     const input = await request.validateUsing(createValidator)
+    // SEC-9: także rola podglądu może komentować — limit chroni przed zasypaniem tablicy.
+    const limit = await hitAll([
+      { key: `comment:min:${auth.user!.id}`, max: 30, windowMs: 60_000 },
+      { key: `comment:day:${auth.user!.id}`, max: 500, windowMs: 24 * 3600_000 },
+    ])
+    if (!limit.allowed) {
+      return response.status(429).json({
+        message: t('comments.rateLimited', { seconds: limit.retryAfterSec }),
+        code: 'E_RATE_LIMIT',
+      })
+    }
     let parentId: number | null = null
     if (input.parentId) {
       const parent = await BoardComment.query()

@@ -114,6 +114,44 @@ test.group('Współpraca: członkowie, uprawnienia, komentarze, zdarzenia', (gro
     ;(await put(viewer.cookies, 2)).assertStatus(200)
   })
 
+  test('SEC-8/SEC-9: limit ponownych zaproszeń, bezpieczny temat maila, limit komentarzy', async ({
+    client,
+    assert,
+  }) => {
+    billing.enforced = false
+    const { messages } = mail.fake()
+    const owner = await account(client, 'spam')
+    const board = await Board.create({
+      title: 'Wygrałeś!\nOdbierz na https://evil.example/win teraz',
+      slug: `s-${seq}`,
+      userId: owner.user.id,
+    })
+    ;(await invite(client, owner.cookies, board.id, 'target@else.test', 'viewer')).assertStatus(201)
+    const again = await invite(client, owner.cookies, board.id, 'target@else.test', 'viewer')
+    again.assertStatus(429)
+    assert.equal(again.body().code, 'E_RATE_LIMIT')
+    assert.lengthOf(messages.sent(), 1)
+    const subject = messages.sent()[0].toJSON().message.subject as string
+    assert.notInclude(subject, 'evil.example')
+    assert.notInclude(subject, 'https://')
+    assert.notInclude(subject, '\n')
+
+    // Komentarze: 30 na minutę, potem 429.
+    for (let i = 0; i < 30; i++) {
+      ;(
+        await client
+          .post(`/api/boards/${board.id}/comments`)
+          .headers({ cookie: owner.cookies })
+          .json({ body: `c${i}`, x: i, y: 0 })
+      ).assertStatus(201)
+    }
+    const flood = await client
+      .post(`/api/boards/${board.id}/comments`)
+      .headers({ cookie: owner.cookies })
+      .json({ body: 'too many', x: 0, y: 0 })
+    flood.assertStatus(429)
+  })
+
   test('plan Free nie zaprasza; limit miejsc zależy od planu właściciela', async ({
     client,
     assert,

@@ -48,6 +48,8 @@ export const pl = {
   'doc.revisionNoBase':
     'Wersja, którą chcesz poprawić, nie ma specyfikacji — wygeneruj DESIGN.md ponownie.',
   'doc.revisionNotReady': 'Poprawiać można tylko gotową wersję DESIGN.md.',
+  'members.rateLimited': 'Za dużo zaproszeń — spróbuj ponownie za {minutes} min.',
+  'comments.rateLimited': 'Za dużo komentarzy naraz — spróbuj ponownie za {seconds} s.',
   'github.planOnly': 'Synchronizacja z GitHubem jest dostępna w planach płatnych.',
   'github.tokenRequired': 'Podaj token GitHub dla tego repozytorium.',
   'github.notConnected': 'Tablica nie ma połączonego repozytorium.',
@@ -334,6 +336,8 @@ export const en: Record<ServerMessageKey, string> = {
   'doc.cancelled': 'Generation cancelled — your credits were returned',
   'doc.revisionNoBase': 'The version you want to revise has no spec — generate DESIGN.md again.',
   'doc.revisionNotReady': 'Only a ready DESIGN.md version can be revised.',
+  'members.rateLimited': 'Too many invitations — try again in {minutes} min.',
+  'comments.rateLimited': 'Too many comments at once — try again in {seconds} s.',
   'github.planOnly': 'GitHub sync is available on paid plans.',
   'github.tokenRequired': 'Provide a GitHub token for this repository.',
   'github.notConnected': 'This board has no connected repository.',

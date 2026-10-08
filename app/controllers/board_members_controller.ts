@@ -13,6 +13,12 @@ import { appUrl } from '#services/lifecycle_mail'
 import { currentLocale, t } from '#services/i18n'
 import { trackFor } from '#services/analytics/events'
 import { disconnectUser, publish } from '#services/board_events'
+import { hitAll, rateKey } from '#services/rate_limit'
+import { mailSafe } from '#services/mail_safe'
+
+/** SEC-8: ponowna wysyłka na ten sam adres i dzienny limit zaproszeń konta. */
+const RESEND_WINDOW_MS = 10 * 60_000
+const DAILY_INVITES = 30
 
 const inviteValidator = vine.compile(
   vine.object({
@@ -99,6 +105,20 @@ export default class BoardMembersController {
       }
     }
 
+    // Limity tylko dla faktycznej wysyłki maila (zmiana roli przyjętego członka jest bez maila).
+    if (!existing?.acceptedAt) {
+      const limit = await hitAll([
+        { key: rateKey(`invite:${board.id}`, email), max: 1, windowMs: RESEND_WINDOW_MS },
+        { key: `invite:user:${user.id}`, max: DAILY_INVITES, windowMs: 24 * 3600_000 },
+      ])
+      if (!limit.allowed) {
+        return response.status(429).json({
+          message: t('members.rateLimited', { minutes: Math.ceil(limit.retryAfterSec / 60) }),
+          code: 'E_RATE_LIMIT',
+        })
+      }
+    }
+
     const member =
       existing ??
       new BoardMember().merge({ boardId: board.id, email, invitedById: user.id, acceptedAt: null })
@@ -108,21 +128,22 @@ export default class BoardMembersController {
 
     if (!member.acceptedAt) {
       const url = appUrl(`/invites/${member.token}`)
-      const inviter = user.fullName?.trim() || user.email
+      const inviter = mailSafe(user.fullName?.trim() || user.email.split('@')[0], 40)
+      const title = mailSafe(board.title, 60)
       try {
         await mail.send((message) => {
           message
             .to(email)
-            .subject(t('members.mail.subject', { name: inviter, title: board.title }))
+            .subject(t('members.mail.subject', { name: inviter, title }))
             .htmlView('emails/lifecycle', {
               locale: currentLocale(),
-              subject: t('members.mail.subject', { name: inviter, title: board.title }),
-              heading: t('members.mail.heading', { title: board.title }),
+              subject: t('members.mail.subject', { name: inviter, title }),
+              heading: t('members.mail.heading', { title }),
               greeting: t('mail.greeting', { name: '' }),
               paragraphs: [
                 t('members.mail.p1', {
                   name: inviter,
-                  title: board.title,
+                  title,
                   role: t(role === 'editor' ? 'members.role.editor' : 'members.role.viewer'),
                 }),
                 t('members.mail.p2'),
@@ -134,7 +155,7 @@ export default class BoardMembersController {
               unsubscribe: '',
               unsubscribeUrl: url,
             })
-            .text(`${t('members.mail.p1', { name: inviter, title: board.title, role })}\n\n${url}`)
+            .text(`${t('members.mail.p1', { name: inviter, title, role })}\n\n${url}`)
         })
       } catch (error) {
         logger.warn({ err: error, boardId: board.id }, 'invite email failed')
