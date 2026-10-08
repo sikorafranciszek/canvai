@@ -2,9 +2,11 @@ import { versionVisible } from '#services/design/access'
 import type { HttpContext } from '@adonisjs/core/http'
 import DesignDoc from '#models/design_doc'
 import { startGeneration } from '#services/design/generation_service'
+import { diffDocs, previousReady } from '#services/design/spec_diff'
 import Job from '#models/job'
 import { prepareGeneration } from '#services/design/generator'
 import {
+  changesValidator,
   designDocVersionValidator,
   editDesignDocValidator,
   estimateValidator,
@@ -273,6 +275,36 @@ export default class DesignDocsController {
         .json({ message: t('billing.versionLocked'), code: 'E_PLAN_LIMIT' })
     }
     return response.json({ data: doc ? await this.serialize(doc, true) : null })
+  }
+
+  /**
+   * GET /api/boards/:id/design-doc/changes?version=&from= — zmiany „po ludzku”
+   * między wersjami (FEAT-1): tokeny było → jest i przyczyny z danych tablicy.
+   * Domyślnie najnowsza gotowa wersja wobec poprzedniej gotowej.
+   */
+  async changes({ auth, params, request, response }: HttpContext) {
+    const board = await accessibleBoard(auth.user!.id, params.id)
+    if (!board) return response.notFound()
+    const { version, from } = await changesValidator.validate(request.qs())
+    const ready = DesignDoc.query().where('board_id', board.id).where('status', 'ready')
+    const to = version
+      ? await ready.clone().where('version', version).first()
+      : await ready.clone().orderBy('version', 'desc').first()
+    if (!to) return response.notFound()
+    const base = from
+      ? await ready.clone().where('version', from).first()
+      : await previousReady(board.id, to.version)
+    if (!base) return response.json({ data: null })
+    for (const v of [to.version, base.version]) {
+      if (!(await versionVisible(board.userId, board.id, v))) {
+        return response
+          .status(403)
+          .json({ message: t('billing.versionLocked'), code: 'E_PLAN_LIMIT' })
+      }
+    }
+    return response.json({
+      data: { from: base.version, to: to.version, changes: diffDocs(base, to) },
+    })
   }
 
   /** GET /api/boards/:id/design-docs — historia wersji (bez treści). */

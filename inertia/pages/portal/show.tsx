@@ -1,3 +1,5 @@
+import { SpecChanges } from '~/components/design/SpecChanges'
+import type { SpecChangesDto } from '~/lib/board/api'
 import { Form } from '@adonisjs/inertia/react'
 import { Head } from '@inertiajs/react'
 import { CheckCircle2, FileUp, MessageSquareWarning, Send, ThumbsUp } from 'lucide-react'
@@ -18,7 +20,12 @@ interface PortalProps {
   allowUpload: boolean
   maxFiles: number
   submitted: number
-  doc: { version: number; contentMd: string | null; generatedAt: string | null } | null
+  doc: {
+    version: number
+    contentMd: string | null
+    generatedAt: string | null
+    changes?: (SpecChangesDto & { from: number }) | null
+  } | null
   decision: { decision: 'approved' | 'changes'; name: string; createdAt: string | null } | null
 }
 
@@ -247,6 +254,14 @@ export default function Portal({ portal }: { portal: PortalProps }) {
                     }
                   )}
                 </div>
+              ) : null}
+              {portal.doc.changes ? (
+                <SpecChanges
+                  changes={portal.doc.changes}
+                  from={portal.doc.changes.from}
+                  to={portal.doc.version}
+                  audience="client"
+                />
               ) : null}
               <div className="portal__md">
                 <MarkdownView source={portal.doc.contentMd} />

@@ -33,6 +33,8 @@ export interface SourceRow {
   filename: string
   kind: string
   sections: string[]
+  /** Rola i aspekty w chwili generacji — do opisu zmian między wersjami (FEAT-1). */
+  usage?: AssetUsage
 }
 
 export const ASSUMED = '†'
@@ -252,6 +254,7 @@ export function buildSources(spec: DesignSpec, assets: SourceAsset[]): SourceRow
     filename: a.filename,
     kind: a.kind,
     sections: [...(refsMap.get(a.id) ?? [])],
+    ...(a.usage && !isDefaultUsage(a.usage) ? { usage: a.usage } : {}),
   }))
 }
 

@@ -22,6 +22,7 @@ export interface DesignDocSource {
   filename: string
   kind: string
   sections: string[]
+  usage?: import('#shared/asset-usage').AssetUsage
 }
 
 export default class DesignDoc extends BaseModel {

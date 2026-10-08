@@ -19,6 +19,14 @@ export const designDocVersionValidator = vine.compile(
   })
 )
 
+/** GET /api/boards/:id/design-doc/changes?version=&from= */
+export const changesValidator = vine.compile(
+  vine.object({
+    version: vine.number().withoutDecimals().positive().optional(),
+    from: vine.number().withoutDecimals().positive().optional(),
+  })
+)
+
 /** GET /api/boards/:id/design-doc/estimate?pro=1 */
 export const estimateValidator = vine.compile(
   vine.object({

@@ -186,6 +186,7 @@ router
     router.get('/boards/:id/design-doc', [controllers.DesignDocs, 'show'])
     router.get('/boards/:id/design-doc/download', [controllers.DesignDocs, 'download'])
     router.get('/boards/:id/design-docs', [controllers.DesignDocs, 'index'])
+    router.get('/boards/:id/design-doc/changes', [controllers.DesignDocs, 'changes'])
     router.get('/boards/:id/design-doc/estimate', [controllers.DesignDocs, 'estimate'])
     router.get('/boards/:id/design-doc/export', [controllers.DesignDocs, 'export'])
     router.post('/boards/:id/design-doc/edit', [controllers.DesignDocs, 'edit'])

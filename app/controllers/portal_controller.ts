@@ -1,3 +1,4 @@
+import { diffDocs, previousReady } from '#services/design/spec_diff'
 import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import Asset from '#models/asset'
@@ -97,6 +98,9 @@ export default class PortalController {
           .orderBy('id', 'desc')
           .first()
       : null
+    // Co się zmieniło od poprzedniej wersji (FEAT-1) — klient widzi to samo co zespół.
+    const previous = doc ? await previousReady(board.id, doc.version) : null
+    const changes = doc && previous ? diffDocs(previous, doc) : null
     const sent = await Asset.query()
       .where('board_id', board.id)
       .whereNotNull('submitted_by')
@@ -118,6 +122,7 @@ export default class PortalController {
                 version: doc.version,
                 contentMd: doc.contentMd,
                 generatedAt: doc.generatedAt?.toISO() ?? null,
+                changes: changes && !changes.empty ? { from: previous!.version, ...changes } : null,
               }
             : null,
           decision: decision

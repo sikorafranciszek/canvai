@@ -398,6 +398,26 @@ test.group('Design doc API', (group) => {
     assert.equal(v2.editedFromVersion, v1.version)
     assert.include(v2.contentMd, '#123456')
     assert.notInclude(v2.contentMd.toLowerCase(), color.hex)
+
+    // FEAT-1: zmiany „po ludzku” między v1 a v2 — kolor i font było → jest, przyczyna: edycja.
+    const changes = await client
+      .get(`/api/boards/${board.id}/design-doc/changes`)
+      .headers({ cookie: cookies })
+    changes.assertStatus(200)
+    const c = changes.body().data
+    assert.equal(c.from, v1.version)
+    assert.equal(c.to, v2.version)
+    assert.deepInclude(c.changes.colors.changed, {
+      name: color.name,
+      from: color.hex,
+      to: '#123456',
+    })
+    assert.deepInclude(c.changes.fonts.changed, {
+      name: family.token,
+      from: family.name,
+      to: 'Fraunces',
+    })
+    assert.deepInclude(c.changes.reasons, { type: 'edited' })
     assert.include(v2.contentMd, '### Fraunces')
     const edited = v2.tokens.colors.find((c: any) => c.token === color.token)
     assert.isTrue(edited.confirmed)

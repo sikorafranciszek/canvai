@@ -3,7 +3,7 @@
  * spisem sekcji, wybór wersji, diff z poprzednią wersją, pobieranie, kopiowanie
  * i ponowna generacja.
  */
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
   AlertCircle,
@@ -36,7 +36,13 @@ import { QualityView, TokenEditor } from '~/components/design/DocInsights'
 import { AiToolsDialog } from '~/components/design/AiToolsDialog'
 import { createBrandKit, useBrandKitStore } from '~/lib/brand_kits'
 import { diffLines, diffStats } from '@shared/line-diff'
-import { designDocDownloadUrl, type DesignDocDto } from '~/lib/board/api'
+import {
+  designDocDownloadUrl,
+  getDesignDocChanges,
+  type DesignDocDto,
+  type SpecChangesDto,
+} from '~/lib/board/api'
+import { SpecChanges } from '~/components/design/SpecChanges'
 import { progressLabel, progressRatio, useDesignStore } from '~/lib/board/design'
 import { useBoardStore, useCanEdit, useCanvasAssets } from '~/lib/board/session'
 import { MarkdownView, sectionTitles } from '~/components/design/MarkdownView'
@@ -106,6 +112,24 @@ export function DesignDocPanel() {
     () => (showDiff && canDiff ? diffLines(previous!.contentMd!, content) : null),
     [showDiff, canDiff, previous, content]
   )
+  // Zmiany „po ludzku” (FEAT-1): tokeny było → jest i przyczyny; linie na życzenie.
+  const [diffMode, setDiffMode] = useState<'changes' | 'lines'>('changes')
+  const [specChanges, setSpecChanges] = useState<{
+    from: number
+    to: number
+    changes: SpecChangesDto
+  } | null>(null)
+  useEffect(() => {
+    setSpecChanges(null)
+    if (!showDiff || boardId == null || !current || !previous) return
+    let alive = true
+    getDesignDocChanges(boardId, current.version, previous.version)
+      .then((data) => alive && setSpecChanges(data))
+      .catch(() => alive && setSpecChanges(null))
+    return () => {
+      alive = false
+    }
+  }, [showDiff, boardId, current?.version, previous?.version])
 
   const copy = async () => {
     try {
@@ -439,11 +463,35 @@ export function DesignDocPanel() {
             ) : view === 'tokens' && current.tokens && !diff ? (
               <TokenEditor key={current.version} doc={current} />
             ) : diff ? (
-              <DiffView
-                lines={diff}
-                previousVersion={previous!.version}
-                currentVersion={current.version}
-              />
+              <>
+                <div
+                  className="segmented segmented--text"
+                  role="group"
+                  aria-label={t('doc.diff')}
+                  style={{ margin: '12px 16px 0' }}
+                >
+                  {(['changes', 'lines'] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      aria-pressed={diffMode === m}
+                      data-testid={`design-doc-diff-${m}`}
+                      onClick={() => setDiffMode(m)}
+                    >
+                      {t(m === 'changes' ? 'doc.changesView' : 'doc.linesView')}
+                    </button>
+                  ))}
+                </div>
+                {diffMode === 'changes' && specChanges ? (
+                  <SpecChanges {...specChanges} />
+                ) : (
+                  <DiffView
+                    lines={diff}
+                    previousVersion={previous!.version}
+                    currentVersion={current.version}
+                  />
+                )}
+              </>
             ) : (
               <>
                 {sections.length ? (

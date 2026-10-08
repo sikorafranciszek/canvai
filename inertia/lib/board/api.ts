@@ -474,6 +474,49 @@ export async function getDesignDoc(
   return body.data
 }
 
+/** Zmiany między wersjami (FEAT-1) — kształt jak `SpecChanges` na serwerze. */
+export interface SpecChangesDto {
+  colors: ChangeGroupDto
+  fonts: ChangeGroupDto
+  radii: ChangeGroupDto
+  spacing: ChangeGroupDto
+  components: { added: string[]; removed: string[] }
+  screens: { added: string[]; removed: string[] }
+  reasons: ChangeReasonDto[]
+  empty: boolean
+}
+export interface ChangeGroupDto {
+  added: { name: string; value: string }[]
+  removed: { name: string; value: string }[]
+  changed: { name: string; from: string; to: string }[]
+}
+export type ChangeReasonDto =
+  | { type: 'asset_added'; assetId: number; filename: string; usage?: AssetUsage }
+  | { type: 'asset_removed'; assetId: number; filename: string }
+  | { type: 'usage_changed'; assetId: number; filename: string; from?: AssetUsage; to?: AssetUsage }
+  | { type: 'edited' }
+  | { type: 'pro_mode'; on: boolean }
+  | { type: 'prompt_version'; from: string; to: string }
+
+export async function getDesignDocChanges(
+  boardId: number,
+  version: number,
+  from?: number
+): Promise<{ from: number; to: number; changes: SpecChangesDto } | null> {
+  const qs = new URLSearchParams({
+    version: String(version),
+    ...(from ? { from: String(from) } : {}),
+  })
+  const res = await fetch(`/api/boards/${boardId}/design-doc/changes?${qs}`, {
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) throw await httpError(res, translate('api.docLoad'))
+  return (
+    await parseJson<{ data: { from: number; to: number; changes: SpecChangesDto } | null }>(res)
+  ).data
+}
+
 export async function listDesignDocs(
   boardId: number
 ): Promise<{ versions: DesignDocDto[]; hiddenVersions: number }> {
