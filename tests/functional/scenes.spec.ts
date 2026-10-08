@@ -10,7 +10,8 @@ test.group('Scene API', (group) => {
 
   async function login(client: any) {
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    const user = await User.create({ emailVerifiedAt: DateTime.utc(),
+    const user = await User.create({
+      emailVerifiedAt: DateTime.utc(),
       email: `scene-test-${suffix}@test.com`,
       password: 'password123',
     })
@@ -172,4 +173,50 @@ test.group('Scene API', (group) => {
       .json({ version: 1, document, appState: {} })
     res.assertStatus(422)
   })
+})
+
+/** DAT-1: prawdziwa współbieżność (bez globalnej transakcji); dane sprzątane po teście. */
+test.group('Scene API — równoległe zapisy', () => {
+  test('dwa równoległe PUT z tą samą wersją → jeden 200, reszta 409', async ({
+    client,
+    assert,
+    cleanup,
+  }) => {
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const user = await User.create({
+      emailVerifiedAt: DateTime.utc(),
+      email: `scene-race-${suffix}@test.com`,
+      password: 'password123',
+    })
+    cleanup(async () => {
+      await User.query().where('id', user.id).delete()
+    })
+    const board = await Board.create({ title: 'Race', slug: `race-${suffix}`, userId: user.id })
+    const login = await client
+      .post('/login')
+      .json({ email: user.email, password: 'password123' })
+      .redirects(0)
+    const cookies = login.headers()['set-cookie']
+
+    // Równoległe pierwsze otwarcie tablicy nie zakłada dwóch scen.
+    await Promise.all(
+      Array.from({ length: 4 }, () =>
+        client.get(`/api/boards/${board.id}/scene`).headers({ cookie: cookies })
+      )
+    )
+    assert.lengthOf(await BoardScene.query().where('board_id', board.id), 1)
+
+    const put = (label: string) =>
+      client
+        .put(`/api/boards/${board.id}/scene`)
+        .headers({ cookie: cookies })
+        .json({ version: 1, document: { elements: [], metadata: { label } }, appState: {} })
+    const results = await Promise.all(['a', 'b', 'c', 'd', 'e'].map(put))
+    const statuses = results.map((r) => r.status()).sort()
+    assert.deepEqual(statuses, [200, 409, 409, 409, 409])
+    const scene = await BoardScene.findByOrFail('board_id', board.id)
+    assert.equal(scene.version, 2)
+    const winner = results.find((r) => r.status() === 200)!
+    assert.deepEqual(scene.document, winner.body().data.document)
+  }).timeout(30_000)
 })
