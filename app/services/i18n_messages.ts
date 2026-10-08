@@ -48,6 +48,13 @@ export const pl = {
   'doc.revisionNoBase':
     'Wersja, którą chcesz poprawić, nie ma specyfikacji — wygeneruj DESIGN.md ponownie.',
   'doc.revisionNotReady': 'Poprawiać można tylko gotową wersję DESIGN.md.',
+  'github.planOnly': 'Synchronizacja z GitHubem jest dostępna w planach płatnych.',
+  'github.tokenRequired': 'Podaj token GitHub dla tego repozytorium.',
+  'github.notConnected': 'Tablica nie ma połączonego repozytorium.',
+  'github.error.token': 'GitHub odrzucił token (401).',
+  'github.error.access':
+    'Brak dostępu do {what} ({status}). Token potrzebuje uprawnień Contents i Pull requests (odczyt i zapis) do tego repozytorium.',
+  'github.error.readOnly': 'Token nie ma prawa zapisu do {repo}.',
   'doc.overApproved':
     'Wersja {version} jest zaakceptowana — potwierdź, że chcesz utworzyć nową (API i MCP dalej serwują zaakceptowaną).',
   'doc.emptyBoard': 'Tablica jest pusta — dodaj zrzuty ekranu, obrazy, linki albo notatki',
@@ -327,6 +334,13 @@ export const en: Record<ServerMessageKey, string> = {
   'doc.cancelled': 'Generation cancelled — your credits were returned',
   'doc.revisionNoBase': 'The version you want to revise has no spec — generate DESIGN.md again.',
   'doc.revisionNotReady': 'Only a ready DESIGN.md version can be revised.',
+  'github.planOnly': 'GitHub sync is available on paid plans.',
+  'github.tokenRequired': 'Provide a GitHub token for this repository.',
+  'github.notConnected': 'This board has no connected repository.',
+  'github.error.token': 'GitHub rejected the token (401).',
+  'github.error.access':
+    'No access to {what} ({status}). The token needs Contents and Pull requests (read & write) for this repository.',
+  'github.error.readOnly': 'The token cannot write to {repo}.',
   'doc.overApproved':
     'Version {version} is approved — confirm that you want a new one (the API and MCP keep serving the approved version).',
   'doc.emptyBoard': 'The board is empty — add screenshots, images, links or notes',

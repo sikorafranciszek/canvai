@@ -5043,3 +5043,22 @@ li[data-done='true'] .sample-checklist__mark {
   pointer-events: none;
   white-space: nowrap;
 }
+
+/* Repozytorium GitHub (FEAT-5) */
+.github-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.github-panel__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.github-panel__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}

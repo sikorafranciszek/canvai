@@ -10,8 +10,9 @@ import { Dialog } from '~/components/ui/Dialog'
 import { exportUrl, type ExportFormat } from '~/lib/billing'
 import { designDocDownloadUrl } from '~/lib/board/api'
 import { useT, type MessageKey } from '~/i18n'
+import { GithubRepoPanel } from '~/components/design/GithubRepoPanel'
 
-type Tool = 'cursor' | 'claude' | 'codex' | 'builder' | 'mcp'
+type Tool = 'cursor' | 'claude' | 'codex' | 'builder' | 'mcp' | 'github'
 
 const TOOLS: { id: Tool; label: string; format?: ExportFormat; file?: string }[] = [
   { id: 'cursor', label: 'Cursor', format: 'cursor', file: '.cursor/rules/design-system.mdc' },
@@ -19,6 +20,7 @@ const TOOLS: { id: Tool; label: string; format?: ExportFormat; file?: string }[]
   { id: 'codex', label: 'Codex / AGENTS.md', format: 'agents', file: 'AGENTS.md' },
   { id: 'builder', label: 'v0 · Lovable · Bolt', format: 'prompt' },
   { id: 'mcp', label: 'MCP' },
+  { id: 'github', label: 'GitHub' },
 ]
 
 export function AiToolsDialog({
@@ -103,7 +105,9 @@ export function AiToolsDialog({
         })}
       </ol>
 
-      {tool === 'mcp' ? (
+      {tool === 'github' ? (
+        <GithubRepoPanel boardId={boardId} allowed={allowed} />
+      ) : tool === 'mcp' ? (
         <>
           <pre className="code-snippet">{`claude mcp add --transport http canvai ${endpoint} --header "Authorization: Bearer cvai_…"`}</pre>
           <a className="btn btn--sm" href="/settings#api">

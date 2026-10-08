@@ -1,6 +1,8 @@
 import { DateTime } from 'luxon'
 import type Board from '#models/board'
 import { publish } from '#services/board_events'
+import BoardRepo from '#models/board_repo'
+import { enqueue, JOB_GITHUB_SYNC } from '#services/queue'
 
 /**
  * Zaakceptowana („kontraktowa”) wersja DESIGN.md (FEAT-4). Akceptuje klient
@@ -30,4 +32,11 @@ export async function setApproval(board: Board, version: number | null, by: stri
   await board.save()
   // Inni na tablicy widzą zmianę bez odświeżania (lista wersji pobiera stan od nowa).
   publish(board.id, 'doc', { version: version ?? 0, status: 'approval' })
+  // Repozytorium z automatycznym PR (FEAT-5): zaakceptowana wersja trafia do repo.
+  if (version != null) {
+    const repo = await BoardRepo.findBy('boardId', board.id)
+    if (repo?.autoOnApprove && repo.lastVersion !== version) {
+      await enqueue(JOB_GITHUB_SYNC, { boardId: board.id, version })
+    }
+  }
 }

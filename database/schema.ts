@@ -171,6 +171,37 @@ export class BoardMemberSchema extends BaseModel {
   declare userId: number | null
 }
 
+export class BoardRepoSchema extends BaseModel {
+  static $columns = ['autoOnApprove', 'baseBranch', 'boardId', 'createdAt', 'directory', 'id', 'lastError', 'lastPrUrl', 'lastSyncedAt', 'lastVersion', 'repo', 'token', 'updatedAt'] as const
+  $columns = BoardRepoSchema.$columns
+  @column()
+  declare autoOnApprove: boolean
+  @column()
+  declare baseBranch: string
+  @column()
+  declare boardId: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare directory: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare lastError: string | null
+  @column()
+  declare lastPrUrl: string | null
+  @column.dateTime()
+  declare lastSyncedAt: DateTime | null
+  @column()
+  declare lastVersion: number | null
+  @column()
+  declare repo: string
+  @column()
+  declare token: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class BoardSceneSchema extends BaseModel {
   static $columns = ['appState', 'boardId', 'createdAt', 'document', 'id', 'updatedAt', 'version'] as const
   $columns = BoardSceneSchema.$columns

@@ -44,8 +44,20 @@ export interface JobHandler {
 
 export const JOB_GENERATE_DESIGN_DOC = 'generate_design_doc'
 export const JOB_GENERATE_PREVIEW = 'generate_preview'
+/** Pull request do repozytorium GitHub tablicy (FEAT-5). */
+export const JOB_GITHUB_SYNC = 'github_sync'
 
 const handlers: Record<string, JobHandler> = {
+  [JOB_GITHUB_SYNC]: {
+    async run(job) {
+      const { syncBoardToGitHub } = await import('#services/github_sync')
+      await syncBoardToGitHub(job.payload.boardId as number, job.payload.version as number)
+    },
+    async onFailed(job, message) {
+      const { recordSyncError } = await import('#services/github_sync')
+      await recordSyncError(job.payload.boardId as number, message)
+    },
+  },
   [JOB_GENERATE_DESIGN_DOC]: {
     async run(job, ctx) {
       const doc = await DesignDoc.findOrFail(job.payload.designDocId as number)
