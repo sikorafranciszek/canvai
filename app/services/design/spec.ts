@@ -1,7 +1,7 @@
 import { InvalidModelOutputError } from '#services/ai/types'
 import { normalizeHex } from '#services/ai/schemas'
 import { t } from '#services/i18n'
-import { colorDistance } from '#shared/color'
+import { colorDistance, hexToOklab } from '#shared/color'
 import { allowsAspect, type AssetUsage } from '#shared/asset-usage'
 
 /**
@@ -558,11 +558,13 @@ export function enforceUsage(spec: DesignSpec, usages: Map<number, AssetUsage>):
     for (const id of sources) if (!kept.includes(id)) stripped.push(`${where}: A${id}`)
     return kept
   }
-  for (const c of spec.colors) {
+  // Kolor wyłącznie z materiału „unikaj” albo bez aspektu „colors” nie trafia do
+  // tokenów — oznaczenie † nie wystarczy, bo narzędzia i tak użyłyby hexa (AI-4).
+  spec.colors = spec.colors.filter((c) => {
     const before = c.sources.length
     c.sources = filter(`color ${c.name}`, c.sources, (u) => allowsAspect(u, 'colors'))
-    if (before && !c.sources.length) c.assumed = true
-  }
+    return c.confirmed || !before || c.sources.length > 0
+  })
   for (const f of spec.typography.families) {
     const before = f.sources.length
     f.sources = filter(`font ${f.name}`, f.sources, (u) => allowsAspect(u, 'typography'))
@@ -584,36 +586,114 @@ export function enforceUsage(spec: DesignSpec, usages: Map<number, AssetUsage>):
 }
 
 // ---------------------------------------------------------------------------
+// Podmiana wartości w tekstach specyfikacji
+// ---------------------------------------------------------------------------
+
+/**
+ * Zmienia (w miejscu) każdy tekst specyfikacji — poza nazwami tokenów, które
+ * są stabilnymi identyfikatorami (edycje i eksporty adresują token).
+ */
+export function rewriteSpecStrings(spec: DesignSpec, fn: (text: string) => string): void {
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      node.forEach((v, i) => {
+        if (typeof v === 'string') node[i] = fn(v)
+        else walk(v)
+      })
+    } else if (node && typeof node === 'object') {
+      const obj = node as Record<string, unknown>
+      for (const [k, v] of Object.entries(obj)) {
+        if (k === 'token') continue
+        if (typeof v === 'string') obj[k] = fn(v)
+        else walk(v)
+      }
+    }
+  }
+  walk(spec)
+}
+
+const escapeRe = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * Hex z granicą: `#1a2b3c` nie trafia w środek `#1a2b3cff`; zapis skrócony
+ * (`#abc` dla `#aabbcc`) też jest podmieniany.
+ */
+export function replaceHexInSpec(spec: DesignSpec, from: string, to: string): void {
+  if (from === to) return
+  const forms = [from]
+  const m = from.match(/^#([0-9a-f])\1([0-9a-f])\2([0-9a-f])\3$/i)
+  if (m) forms.push(`#${m[1]}${m[2]}${m[3]}`)
+  const pattern = new RegExp(`(?:${forms.map(escapeRe).join('|')})(?![0-9a-f])`, 'gi')
+  rewriteSpecStrings(spec, (text) => text.replace(pattern, to))
+}
+
+// ---------------------------------------------------------------------------
 // Kolory a materiały
 // ---------------------------------------------------------------------------
 
-/** Próg podobieństwa (OKLab): odcień z materiału ± drobne przybliżenie modelu. */
-const SAME_COLOR = 0.06
+/**
+ * Progi podobieństwa (OKLab, AI-4): odcień z materiału ± drobne przybliżenie
+ * modelu. Szarości są ciaśniej — sąsiednie szarości to różne role (tekst/tło).
+ */
+const SAME_COLOR = 0.03
+const SAME_GRAY = 0.02
+
+function chroma(hex: string): number {
+  const [, a, b] = hexToOklab(hex)
+  return Math.hypot(a, b)
+}
+
+/** Czy dwa hexy to „ten sam” kolor w sensie materiałów (próg zależny od nasycenia). */
+export function sameColor(a: string, b: string): boolean {
+  const gray = chroma(a) < 0.03 && chroma(b) < 0.03
+  return colorDistance(a, b) <= (gray ? SAME_GRAY : SAME_COLOR)
+}
 
 /**
- * Kolor cytujący materiał musi być widoczny w palecie odczytanej z tego materiału
- * w etapie 1 (albo w innym materiale — wtedy źródło jest poprawiane). Kolor, którego
- * nie ma w żadnej palecie, to propozycja modelu (np. „typowy” czerwony błędu) —
- * dostaje flagę założenia †, żeby nie udawał faktu z materiałów.
+ * Kolor cytujący materiał musi być widoczny w palecie albo kolorach tekstu
+ * odczytanych z tego materiału w etapie 1 (albo w innym materiale — wtedy
+ * źródło jest poprawiane) i jest przyciągany do obserwowanego hexa. Kolor,
+ * którego nie ma w żadnej palecie, to propozycja modelu (np. „typowy” czerwony
+ * błędu) — dostaje flagę założenia †. Źródło bez palety (link, PDF) nie
+ * potwierdza koloru — też †, choć cytat zostaje.
  * `palettes`: assetId → kolory hex z analizy. Zwraca nazwy oznaczonych kolorów.
  */
 export function verifyColorEvidence(spec: DesignSpec, palettes: Map<number, string[]>): string[] {
   const flagged: string[] = []
-  const near = (id: number, hex: string) =>
-    (palettes.get(id) ?? []).some((p) => colorDistance(p, hex) <= SAME_COLOR)
-  for (const c of spec.colors) {
-    if (c.assumed || c.sources.length === 0) continue
-    // Źródła bez palety (link, notatka, PDF bez obrazu) — nie ma z czym porównać.
-    if (c.sources.every((id) => !(palettes.get(id) ?? []).length)) continue
-    if (c.sources.some((id) => near(id, c.hex))) continue
-    const elsewhere = [...palettes.keys()].filter((id) => near(id, c.hex))
-    if (elsewhere.length) {
-      c.sources = elsewhere
+  const nearest = (ids: number[], hex: string) => {
+    let best: { hex: string; d: number } | null = null
+    for (const id of ids) {
+      for (const p of palettes.get(id) ?? []) {
+        if (!sameColor(p, hex)) continue
+        const d = colorDistance(p, hex)
+        if (!best || d < best.d) best = { hex: p, d }
+      }
+    }
+    return best
+  }
+  for (const c of [...spec.colors]) {
+    if (c.confirmed || c.assumed || c.sources.length === 0) continue
+    let match = nearest(c.sources, c.hex)
+    if (!match) {
+      const elsewhere = [...palettes.keys()].filter((id) => nearest([id], c.hex))
+      if (elsewhere.length) {
+        c.sources = elsewhere
+        match = nearest(elsewhere, c.hex)
+      }
+    }
+    if (!match) {
+      if (c.sources.every((id) => !(palettes.get(id) ?? []).length)) {
+        // Nie ma z czym porównać (link, notatka, PDF) — niezweryfikowane.
+        c.assumed = true
+      } else {
+        c.assumed = true
+        c.sources = []
+      }
+      flagged.push(c.name)
       continue
     }
-    c.assumed = true
-    c.sources = []
-    flagged.push(c.name)
+    // Przybliżenie modelu → dokładny hex z materiału, w całym dokumencie.
+    if (match.hex !== c.hex) replaceHexInSpec(spec, c.hex, match.hex)
   }
   return flagged
 }

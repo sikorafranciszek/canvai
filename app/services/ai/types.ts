@@ -32,8 +32,19 @@ export interface PaletteColor {
 export interface TypographySample {
   usage: string
   family?: string
+  /** `named` — nazwa kroju odczytana/rozpoznana; `inferred` — tylko kategoria (AI-2). */
+  evidence?: 'named' | 'inferred'
+  /** Kategoria kroju, np. „geometric sans-serif”. */
+  category?: string
   size?: string
   weight?: string
+  lineHeight?: string
+}
+
+/** Kolor konkretnego rodzaju tekstu (AI-4). */
+export interface TextColor {
+  hex: string
+  usage: string
 }
 
 /** Wynik etapu 1 — opis jednego assetu. */
@@ -42,6 +53,8 @@ export interface AssetAnalysisData {
   summary: string
   ocrText: string
   palette: PaletteColor[]
+  /** Kolory tekstów (nagłówki, treść, linki…). Brak w analizach sprzed v4. */
+  textColors?: TextColor[]
   typography: TypographySample[]
   components: string[]
   layoutPatterns: string[]

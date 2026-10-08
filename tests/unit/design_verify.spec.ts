@@ -104,3 +104,108 @@ test.group('Podobne marki (AI-1)', () => {
     assert.sameMembers(removed, ['Slack', 'X'])
   })
 })
+
+const analysis = (extra: Record<string, unknown> = {}) => ({
+  role: 'screen' as const,
+  summary: 's',
+  ocrText: '',
+  palette: [],
+  typography: [],
+  components: [],
+  layoutPatterns: [],
+  styleHints: [],
+  mood: '',
+  tags: [],
+  ...extra,
+})
+
+test.group('Fonty (AI-2)', () => {
+  test('schemat: font bez „named” to przypuszczenie z kategorią', async ({ assert }) => {
+    const { validateAssetAnalysis } = await import('#services/ai/schemas')
+    const a = validateAssetAnalysis({
+      summary: 's',
+      typography: [
+        { usage: 'H1', family: 'Inter', category: 'neo-grotesque sans', lineHeight: '1.2' },
+        { usage: 'body', family: 'Fraunces', evidence: 'named' },
+        { usage: 'caption', category: 'humanist sans-serif', evidence: 'named' },
+      ],
+      textColors: [
+        { hex: '#333', usage: 'body text' },
+        { hex: 'nope', usage: 'x' },
+      ],
+    })
+    assert.equal(a.typography[0].evidence, 'inferred')
+    assert.equal(a.typography[0].lineHeight, '1.2')
+    assert.equal(a.typography[1].evidence, 'named')
+    assert.equal(a.typography[2].evidence, 'inferred', 'bez nazwy nie ma „named”')
+    assert.deepEqual(a.textColors, [{ hex: '#333333', usage: 'body text' }])
+  })
+
+  test('font nienazwany w materiałach staje się założeniem z pytaniem', ({ assert }) => {
+    const s = spec({
+      typography: {
+        families: [
+          { name: 'Inter', sources: [1] },
+          { name: 'Fraunces', sources: [1] },
+          { name: 'Space Grotesk', sources: [1] },
+          { name: 'system-ui', sources: [1] },
+        ],
+        scale: [],
+      },
+    })
+    const report = verifySpec(s, {
+      assets: [
+        {
+          id: 1,
+          analysis: analysis({
+            typography: [
+              {
+                usage: 'H1',
+                family: 'Inter',
+                evidence: 'inferred',
+                category: 'neo-grotesque sans',
+              },
+              { usage: 'body', family: 'Fraunces', evidence: 'named' },
+            ],
+          }),
+        },
+        { id: 2, analysis: analysis({ ocrText: 'Font: Space Grotesk 600' }) },
+      ],
+      notes: [],
+    })
+    const [inter, fraunces, grotesk, system] = s.typography.families
+    assert.deepEqual(report.fontsFlagged, ['Inter'])
+    assert.isTrue(inter.assumed)
+    assert.deepEqual(inter.sources, [])
+    assert.isFalse(fraunces.assumed)
+    assert.deepEqual(grotesk.sources, [2], 'źródło poprawione na materiał z nazwą')
+    assert.isFalse(system.assumed)
+    assert.match(s.openQuestions.join(' '), /"Inter" is not named.*neo-grotesque sans/)
+  })
+
+  test('font wymieniony w notatce (np. style z Figmy) zostaje', ({ assert }) => {
+    const s = spec({ typography: { families: [{ name: 'Manrope', sources: [1] }], scale: [] } })
+    verifySpec(s, {
+      assets: [{ id: 1, analysis: analysis() }],
+      notes: ['Figma styles: Manrope 400/600'],
+    })
+    assert.isFalse(s.typography.families[0].assumed)
+  })
+})
+
+test.group('Hexy w opisach (AI-4)', () => {
+  test('hex spoza tabeli kolorów trafia do Open Questions', ({ assert }) => {
+    const s = spec({
+      colors: [{ name: 'Canvas', hex: '#0f0f0f', sources: [1] }],
+      components: [
+        { name: 'Btn', description: 'bg #0f0f0f text #fafafa border #123456', sources: [1] },
+      ],
+    })
+    const report = verifySpec(s, {
+      assets: [{ id: 1, analysis: analysis({ palette: [{ hex: '#0f0f0f' }] }) }],
+      notes: [],
+    })
+    assert.sameMembers(report.strayHexes, ['#fafafa', '#123456'])
+    assert.match(s.openQuestions.at(-1)!, /#fafafa \(Btn\)/)
+  })
+})

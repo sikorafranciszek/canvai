@@ -36,7 +36,7 @@ test.group('Rola i aspekty materiałów', () => {
     assert.match(usageGuideLine(typo)!, /take typography; ignore its colors, layout/)
   })
 
-  test('kod zdejmuje źródła niezgodne z aspektami (kolor z inspiracji „typografia” → założenie)', ({
+  test('kod zdejmuje źródła niezgodne z aspektami (kolor tylko z inspiracji „typografia” → usunięty)', ({
     assert,
   }) => {
     const s = spec()
@@ -48,8 +48,11 @@ test.group('Rola i aspekty materiałów', () => {
     const stripped = enforceUsage(s, usages)
     assert.deepEqual(s.colors[0].sources, [1])
     assert.isFalse(s.colors[0].assumed)
-    assert.deepEqual(s.colors[1].sources, [])
-    assert.isTrue(s.colors[1].assumed, 'akcent tylko z referencji typografii')
+    assert.deepEqual(
+      s.colors.map((c) => c.name),
+      ['Ink'],
+      'akcent tylko z referencji typografii nie trafia do tokenów (AI-4)'
+    )
     assert.deepEqual(s.typography.families[0].sources, [2], 'font z referencji typografii zostaje')
     assert.isTrue(s.typography.families[1].assumed, 'nic z anty-wzoru')
     assert.isTrue(s.components[0].assumed)

@@ -4,6 +4,7 @@ import {
   type AssetAnalysisData,
   type AssetRole,
   type PaletteColor,
+  type TextColor,
   type TypographySample,
 } from '#services/ai/types'
 import { t } from '#services/i18n'
@@ -76,10 +77,31 @@ function typography(value: unknown): TypographySample[] {
     const family = str(item.family, 80)
     const size = str(item.size, 20)
     const weight = str(item.weight, 20)
+    const category = str(item.category, 60)
+    const lineHeight = str(item.lineHeight, 20)
+    const evidence = str(item.evidence, 20).toLowerCase()
     if (family) sample.family = family
+    if (category) sample.category = category
+    // Bez jawnego „named” nazwa kroju jest przypuszczeniem.
+    if (family || category) sample.evidence = evidence === 'named' && family ? 'named' : 'inferred'
     if (size) sample.size = size
     if (weight) sample.weight = weight
+    if (lineHeight) sample.lineHeight = lineHeight
     out.push(sample)
+    if (out.length >= 12) break
+  }
+  return out
+}
+
+function textColors(value: unknown): TextColor[] {
+  if (!Array.isArray(value)) return []
+  const out: TextColor[] = []
+  for (const item of value) {
+    if (!isObject(item)) continue
+    const hex = normalizeHex(item.hex)
+    const usage = str(item.usage, 80)
+    if (!hex || !usage) continue
+    out.push({ hex, usage })
     if (out.length >= 12) break
   }
   return out
@@ -119,6 +141,7 @@ export function validateAssetAnalysis(value: unknown): AssetAnalysisData {
     summary,
     ocrText: str(value.ocrText, MAX_TEXT),
     palette: palette(value.palette),
+    textColors: textColors(value.textColors),
     typography: typography(value.typography),
     components: strList(value.components),
     layoutPatterns: strList(value.layoutPatterns),

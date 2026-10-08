@@ -7,7 +7,12 @@ import { lockBoard } from '#services/design/board_lock'
 import { normalizeHex } from '#services/ai/schemas'
 import { whiteLabelName, withPlanFooter } from '#services/design/generator'
 import { renderDesignMd } from '#services/design/renderer'
-import { cssLength, type DesignSpec } from '#services/design/spec'
+import {
+  cssLength,
+  replaceHexInSpec,
+  rewriteSpecStrings,
+  type DesignSpec,
+} from '#services/design/spec'
 
 /**
  * Ręczna edycja tokenów: zmiana koloru, fontu albo promienia (i potwierdzenie
@@ -25,50 +30,23 @@ export interface SpecEdits {
 
 export class SpecEditError extends Error {}
 
-/**
- * Zastępuje teksty we wszystkich wartościach tekstowych specyfikacji — poza
- * kluczami i nazwami tokenów (`--font-inter` zostaje: edycje adresują token).
- */
-function mapStrings<T>(value: T, fn: (text: string) => string): T {
-  if (typeof value === 'string') return fn(value) as T
-  if (Array.isArray(value)) return value.map((v) => mapStrings(v, fn)) as T
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value).map(([k, v]) => [k, k === 'token' ? v : mapStrings(v, fn)])
-    ) as T
-  }
-  return value
-}
-
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-/**
- * Hex z granicą: `#1a2b3c` nie trafia w środek `#1a2b3cff`. Krótki zapis
- * (`#abc` dla `#aabbcc`) też jest podmieniany.
- */
-function replaceHex(spec: DesignSpec, from: string, to: string): DesignSpec {
-  const forms = [from]
-  const m = from.match(/^#([0-9a-f])\1([0-9a-f])\2([0-9a-f])\3$/i)
-  if (m) forms.push(`#${m[1]}${m[2]}${m[3]}`)
-  const pattern = new RegExp(`(?:${forms.map(escape).join('|')})(?![0-9a-f])`, 'gi')
-  return mapStrings(spec, (text) => text.replace(pattern, to))
-}
-
 /** Nazwa fontu jako całe słowo („Inter” nie trafia w „Interface”). */
-function replaceFontName(spec: DesignSpec, from: string, to: string): DesignSpec {
+function replaceFontName(spec: DesignSpec, from: string, to: string): void {
   const pattern = new RegExp(`(?<![\\p{L}\\p{N}])${escape(from)}(?![\\p{L}\\p{N}])`, 'giu')
-  return mapStrings(spec, (text) => text.replace(pattern, to))
+  rewriteSpecStrings(spec, (text) => text.replace(pattern, to))
 }
 
 /**
  * Promień w opisach: tylko wartość w kontekście zaokrąglenia („radius 8px”,
  * „8px corners”, „rounded-8px”) — inne „8px” (np. padding) zostają.
  */
-function replaceRadius(spec: DesignSpec, from: string, to: string): DesignSpec {
+function replaceRadius(spec: DesignSpec, from: string, to: string): void {
   const v = `${escape(from)}(?![\\d.])`
   const before = new RegExp(`((?:radius|rounded|corners?)[^.,;\\n\\d]{0,14})${v}`, 'gi')
   const after = new RegExp(`(?<![\\d.])${v}(\\s*(?:corner|radius|rounded))`, 'gi')
-  return mapStrings(spec, (text) =>
+  rewriteSpecStrings(spec, (text) =>
     text.replace(before, (_, lead) => `${lead}${to}`).replace(after, (_, tail) => `${to}${tail}`)
   )
 }
@@ -77,7 +55,7 @@ export function applySpecEdits(
   input: DesignSpec,
   edits: SpecEdits
 ): { spec: DesignSpec; changes: number } {
-  let spec: DesignSpec = structuredClone(input)
+  const spec: DesignSpec = structuredClone(input)
   let changes = 0
 
   for (const e of edits.colors ?? []) {
@@ -87,7 +65,7 @@ export function applySpecEdits(
       const hex = normalizeHex(e.hex)
       if (!hex) throw new SpecEditError(`Invalid color ${e.hex}`)
       if (hex !== color.hex) {
-        spec = replaceHex(spec, color.hex, hex)
+        replaceHexInSpec(spec, color.hex, hex)
         changes++
       }
     }
@@ -106,7 +84,7 @@ export function applySpecEdits(
     if (e.name !== undefined && !name) throw new SpecEditError('Invalid font name')
     if (name && name !== family.name) {
       // Nazwa w tabeli, skali, opisach komponentów, promptach i Quick Start.
-      spec = replaceFontName(spec, family.name, name)
+      replaceFontName(spec, family.name, name)
       changes++
     }
     const target = spec.typography.families.find((f) => f.token === e.token)!
@@ -125,7 +103,7 @@ export function applySpecEdits(
     if (value !== radius.value) {
       const old = radius.value
       radius.value = value
-      spec = replaceRadius(spec, old, value)
+      replaceRadius(spec, old, value)
       changes++
     }
   }

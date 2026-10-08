@@ -25,7 +25,8 @@ import { renderCssVariables } from '#services/design/renderer'
  *
  * v6: bez celów liczbowych („5-12 kolorów”) — tylko tyle pozycji, ile wspierają
  * materiały; niezbędne braki jako założenia; podobne marki tylko wymienione
- * przez klienta (AI-1).
+ * przez klienta (AI-1). Fonty cytowane tylko, gdy nazwane w materiale (AI-2);
+ * kolory tekstów w zaufanym JSON-ie (AI-4).
  *
  * Bezpieczeństwo (lens 7): wszystko, co pochodzi z tablicy — nazwy plików,
  * notatki, tekst z obrazów, metadane linków — trafia do bloku `<untrusted>`
@@ -38,7 +39,7 @@ export const PROMPT_VERSION = 'v6'
  * wersji dokumentu: zmiana zasad kompozycji nie unieważnia analiz (i nie
  * kosztuje użytkownika ponownej analizy materiałów).
  */
-export const ANALYSIS_PROMPT_VERSION = 'v3'
+export const ANALYSIS_PROMPT_VERSION = 'v4'
 
 /** Neutralizuje próbę zamknięcia ogrodzenia z wnętrza treści. */
 export function fenceUntrusted(label: string, content: string): string {
@@ -60,8 +61,10 @@ export const ANALYZE_SYSTEM_PROMPT = [
   'You are a senior UI/UX designer. You analyse ONE item from a client inspiration board so that a',
   'DESIGN.md style reference can later be written for an AI that will generate the interface.',
   UNTRUSTED_RULE,
-  'Describe only what is actually visible or implied. Do not guess brands, fonts or values you cannot read —',
-  'if a font is uncertain, give its category (e.g. "geometric sans-serif", "transitional serif").',
+  'Describe only what is actually visible or implied. Do not guess brands, fonts or values you cannot read.',
+  'FONTS: give "family" ONLY when the typeface is written in the material (a font name in text, a style guide,',
+  'a type specimen) or unmistakable — then "evidence": "named". Otherwise omit "family", give the "category"',
+  '(e.g. "geometric sans-serif", "transitional serif", "humanist sans-serif") and "evidence": "inferred".',
   'Measure what you can: corner radii, border weights, shadow softness, spacing rhythm, density.',
   'Note the actual color of each kind of text (e.g. "usernames #aaaaaa, one member name green #2ba640, message text #ffffff")',
   'and of every badge/icon — never generalise ("each user has its own color") unless several examples really show it.',
@@ -73,7 +76,8 @@ export const ANALYZE_SYSTEM_PROMPT = [
   ' "summary": "2-4 sentences in English: what this is and what it implies for the design",',
   ' "ocrText": "visible UI text copied EXACTLY character by character (labels, headings, buttons, placeholders) — no corrections, no translation; empty if none",',
   ' "palette": [{"hex": "#rrggbb", "role": "primary"}],',
-  ' "typography": [{"usage": "H1 heading", "family": "…", "size": "32px", "weight": "600"}],',
+  ' "textColors": [{"hex": "#rrggbb", "usage": "body text|headings|links|muted|on-primary button|…"}],',
+  ' "typography": [{"usage": "H1 heading", "family": "only if named", "category": "geometric sans-serif", "evidence": "named|inferred", "size": "32px", "weight": "600", "lineHeight": "1.2"}],',
   ' "components": ["e.g. filled primary button, ~8px radius, 44px tall"],',
   ' "layoutPatterns": ["e.g. 12-column grid, 240px sidebar, centered 900px column"],',
   ' "styleHints": ["e.g. cards 16px radius", "hairline 1px warm-gray borders", "single soft 1px shadow"],',
@@ -156,6 +160,9 @@ export const COMPOSE_SYSTEM_PROMPT = [
   '  (error/warning/success), hover/pressed shades and other colors not visible in the materials are proposals:',
   '  "assumed": true, empty sources.',
   '- "similarBrands": only brands the client names in the board title or notes; otherwise an empty list.',
+  '- Fonts: cite an asset for a font family only if its analysis names that family ("evidence": "named") or the',
+  '  family is written in its text or the notes. A typeface known only by category is a proposal: pick a fitting',
+  '  family, set "assumed": true, empty sources, a matching "substitute", and ask about it in "openQuestions".',
   '- Never import knowledge of a recognisable product (e.g. a screenshot of YouTube, Slack, Stripe): describe only',
   '  icons, badges, states and flows visible in the materials. Invisible states (hover, focus, error, empty) may be',
   '  proposed, but write them as "hover (proposed): …" and mark the component "assumed" if most of it is proposed.',
@@ -196,6 +203,7 @@ export function buildComposeUserText(input: ComposeInput): string {
     onCanvas: a.onCanvas,
     role: a.analysis.role,
     paletteHex: a.analysis.palette.map((p) => p.hex),
+    textColorHex: (a.analysis.textColors ?? []).map((c) => c.hex),
     use:
       a.usage && (a.usage.role || a.usage.aspects.length)
         ? {

@@ -75,7 +75,9 @@ test.group('DesignSpec — kolory a materiały', () => {
     assert.deepEqual(spec.colors[1].sources, [])
   })
 
-  test('kolor z innego materiału — poprawione źródło; brak palet — bez zmian', ({ assert }) => {
+  test('kolor z innego materiału — poprawione źródło; brak palet — niezweryfikowany', ({
+    assert,
+  }) => {
     const spec = validateDesignSpec(minimalSpec())
     verifyColorEvidence(
       spec,
@@ -87,7 +89,30 @@ test.group('DesignSpec — kolory a materiały', () => {
     assert.deepEqual(spec.colors[1].sources, [2])
     assert.isFalse(spec.colors[1].assumed)
 
+    // Źródło bez palety (link, PDF) nie potwierdza koloru: †, ale cytat zostaje (AI-4).
     const noPalette = validateDesignSpec(minimalSpec())
-    assert.deepEqual(verifyColorEvidence(noPalette, new Map([[1, []]])), [])
+    assert.deepEqual(verifyColorEvidence(noPalette, new Map([[1, []]])), ['Ink', 'Alert Red'])
+    assert.isTrue(noPalette.colors[0].assumed)
+    assert.deepEqual(noPalette.colors[0].sources, [1])
+  })
+
+  test('progi AI-4: bliski kolor przyciągany do hexa z materiału, sąsiednie szarości osobno', ({
+    assert,
+  }) => {
+    const spec = validateDesignSpec(
+      minimalSpec({
+        colors: [
+          { name: 'Red', hex: '#dc2626', sources: [1] },
+          { name: 'Gray', hex: '#777777', sources: [1] },
+          { name: 'Tailwind Red', hex: '#ef4444', sources: [1] },
+        ],
+        components: [{ name: 'Btn', description: 'bg #dc2626, border #777', sources: [1] }],
+      })
+    )
+    const flagged = verifyColorEvidence(spec, new Map([[1, ['#d93025', '#6e6e6e']]]))
+    assert.equal(spec.colors[0].hex, '#d93025', 'przyciągnięty do obserwowanego')
+    assert.include(spec.components[0].description, 'bg #d93025')
+    assert.sameMembers(flagged, ['Gray', 'Tailwind Red'])
+    assert.equal(spec.colors[0].token, '--color-red')
   })
 })

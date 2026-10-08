@@ -1,6 +1,7 @@
 import type { AssetAnalysisData, DesignSpec } from '#services/ai/types'
 import { allowsAspect, type AssetUsage } from '#shared/asset-usage'
-import { enforceUsage, verifyColorEvidence } from '#services/design/spec'
+import { normalizeHex } from '#services/ai/schemas'
+import { enforceUsage, sameColor, verifyColorEvidence } from '#services/design/spec'
 
 /**
  * Weryfikacja specyfikacji po kompozycji — wspólna dla produkcji i ewaluacji
@@ -32,6 +33,10 @@ export interface VerifyReport {
   microcopyProposed: string[]
   /** Usunięte „podobne marki” (niewymienione przez klienta). */
   brandsRemoved: string[]
+  /** Fonty niewymienione w materiałach → założenia. */
+  fontsFlagged: string[]
+  /** Hexy z opisów, których nie ma w tabeli kolorów. */
+  strayHexes: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -114,6 +119,101 @@ export function filterSimilarBrands(spec: DesignSpec, notes: string[]): string[]
 }
 
 // ---------------------------------------------------------------------------
+// Fonty (AI-2)
+// ---------------------------------------------------------------------------
+
+const GENERIC_FAMILY = /^(system-ui|sans-serif|serif|monospace|cursive|ui-[a-z-]+|-apple-system)$/i
+
+const fold = (text: string) => text.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim()
+
+function mentions(text: string | undefined, name: string): boolean {
+  if (!text) return false
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'u').test(fold(text))
+}
+
+/**
+ * Font cytujący materiał musi być w nim NAZWANY: w analizie z `evidence:
+ * named`, w tekście z obrazu albo w notatkach (np. style z Figmy). Krój
+ * „rozpoznany” tylko z wyglądu to propozycja — † i pytanie z kategorią.
+ */
+export function verifyFontEvidence(spec: DesignSpec, evidence: Evidence): string[] {
+  const flagged: string[] = []
+  const allowed = evidence.assets.filter((a) => allowsAspect(a.usage ?? undefined, 'typography'))
+  const notes = evidence.notes.join('\n')
+  const namedIn = (a: EvidenceAsset, name: string) =>
+    (a.analysis?.typography ?? []).some(
+      (t) => t.family && t.evidence !== 'inferred' && mentions(t.family, name)
+    ) || mentions(a.analysis?.ocrText, name)
+
+  for (const f of spec.typography.families) {
+    if (f.confirmed || f.assumed || GENERIC_FAMILY.test(f.name.trim())) continue
+    const name = fold(f.name)
+    const cited = allowed.filter((a) => f.sources.includes(a.id))
+    if (cited.some((a) => namedIn(a, name))) continue
+    const elsewhere = allowed.filter((a) => namedIn(a, name))
+    if (elsewhere.length) {
+      f.sources = elsewhere.map((a) => a.id)
+      continue
+    }
+    if (mentions(notes, name)) continue
+
+    const category = cited
+      .flatMap((a) => a.analysis?.typography ?? [])
+      .map((t) => t.category)
+      .find(Boolean)
+    f.assumed = true
+    f.sources = []
+    flagged.push(f.name)
+    spec.openQuestions.push(
+      `Typeface: "${f.name}" is not named in the materials — it is a proposal${category ? ` for a ${category}` : ''}. Confirm the real font family.`
+    )
+  }
+  return flagged
+}
+
+// ---------------------------------------------------------------------------
+// Hexy w opisach (AI-4)
+// ---------------------------------------------------------------------------
+
+/**
+ * Hexy wpisane w opisy komponentów, prompty i ściągawki, których nie ma w tabeli
+ * kolorów — narzędzie do kodu użyłoby ich jako tokenów. Pytanie w Open Questions.
+ */
+export function scanStrayHexes(spec: DesignSpec): string[] {
+  const known = spec.colors.map((c) => c.hex)
+  const places: [string, string][] = [
+    ...spec.components.flatMap((c) =>
+      [c.description, ...c.states].map((t): [string, string] => [c.name, t])
+    ),
+    ...spec.agentGuide.componentPrompts.map((t): [string, string] => ['component prompts', t]),
+    ...spec.agentGuide.quickColors.map((q): [string, string] => ['quick colors', q.value]),
+    ...spec.surfaces.map((x): [string, string] => [`surface ${x.name}`, x.value]),
+    ['overview', spec.overview],
+    ['elevation', spec.elevation],
+  ]
+  const stray = new Map<string, Set<string>>()
+  for (const [where, text] of places) {
+    for (const m of text.matchAll(/#[0-9a-f]{3,8}\b/gi)) {
+      const hex = normalizeHex(m[0])
+      if (!hex || known.some((k) => sameColor(k, hex))) continue
+      if (!stray.has(hex)) stray.set(hex, new Set())
+      stray.get(hex)!.add(where)
+    }
+  }
+  if (stray.size) {
+    const list = [...stray]
+      .slice(0, 12)
+      .map(([hex, where]) => `${hex} (${[...where].slice(0, 3).join(', ')})`)
+      .join('; ')
+    spec.openQuestions.push(
+      `These colors appear in descriptions but not in the color tokens — confirm them or replace with a token: ${list}.`
+    )
+  }
+  return [...stray.keys()]
+}
+
+// ---------------------------------------------------------------------------
 // Całość
 // ---------------------------------------------------------------------------
 
@@ -124,14 +224,22 @@ export function verifySpec(spec: DesignSpec, evidence: Evidence): VerifyReport {
   // Kategorie materiałów: z inspiracji „tylko typografia” nie wolno brać kolorów itd.
   const usageStripped = enforceUsage(spec, usages)
   // Kolory, których nie widać w materiałach dozwolonych dla kolorów, to propozycje → †.
+  // Paleta + kolory tekstów (AI-4).
   const colorsFlagged = verifyColorEvidence(
     spec,
     new Map(
       evidence.assets
         .filter((a) => allowsAspect(a.usage ?? undefined, 'colors'))
-        .map((a) => [a.id, (a.analysis?.palette ?? []).map((p) => p.hex)])
+        .map((a) => [
+          a.id,
+          [
+            ...(a.analysis?.palette ?? []).map((p) => p.hex),
+            ...(a.analysis?.textColors ?? []).map((c) => c.hex),
+          ],
+        ])
     )
   )
+  const fontsFlagged = verifyFontEvidence(spec, evidence)
   // Cytaty mikrocopy tylko z materiałów dozwolonych dla tekstów i z notatek.
   const copyCorpus = [
     ...evidence.notes,
@@ -141,5 +249,13 @@ export function verifySpec(spec: DesignSpec, evidence: Evidence): VerifyReport {
   ]
   const microcopyProposed = verifyMicrocopy(spec, copyCorpus)
   const brandsRemoved = filterSimilarBrands(spec, evidence.notes)
-  return { usageStripped, colorsFlagged, microcopyProposed, brandsRemoved }
+  const strayHexes = scanStrayHexes(spec)
+  return {
+    usageStripped,
+    colorsFlagged,
+    microcopyProposed,
+    brandsRemoved,
+    fontsFlagged,
+    strayHexes,
+  }
 }
