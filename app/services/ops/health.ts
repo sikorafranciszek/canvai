@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { statfs } from 'node:fs/promises'
 import db from '@adonisjs/lucid/services/db'
 import env from '#start/env'
@@ -85,7 +87,11 @@ export async function deepHealth(now = Date.now()) {
   })
 
   checks.disk = await check(async () => {
-    const fs = await statfs(storagePath())
+    // Katalog plików może jeszcze nie istnieć (świeża instalacja) — mierzymy
+    // miejsce na najbliższym istniejącym katalogu nadrzędnym (ten sam dysk).
+    let target = storagePath()
+    while (!existsSync(target) && dirname(target) !== target) target = dirname(target)
+    const fs = await statfs(target)
     const free = fs.bavail * fs.bsize
     const total = fs.blocks * fs.bsize
     const pct = total ? (free / total) * 100 : 100
