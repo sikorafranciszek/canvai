@@ -76,6 +76,8 @@
     "@adonisjs/shield": "^9.0.0",
     "@adonisjs/static": "^2.0.1",
     "@adonisjs/vite": "^6.0.1",
+    "@aws-sdk/client-s3": "^3.1148.0",
+    "@aws-sdk/s3-request-presigner": "^3.1148.0",
     "@clickhouse/client": "^1.23.1",
     "@fontsource-variable/inter": "^5.3.0",
     "@inertiajs/react": "^3.7.0",

@@ -103,10 +103,19 @@ export default await Env.create(new URL('../', import.meta.url), {
   // Produkcja: trwałe ścieżki na wolumenie i zaufanie do reverse proxy.
   SQLITE_PATH: Env.schema.string.optional(),
   STORAGE_PATH: Env.schema.string.optional(),
+  /** ARC-4: `s3` = pliki w S3/R2 (wspólne dla wielu instancji), inaczej dysk lokalny. */
+  STORAGE_DRIVER: Env.schema.enum.optional(['fs', 's3'] as const),
+  STORAGE_S3_ENDPOINT: Env.schema.string.optional(),
+  STORAGE_S3_REGION: Env.schema.string.optional(),
+  STORAGE_S3_BUCKET: Env.schema.string.optional(),
+  STORAGE_S3_ACCESS_KEY_ID: Env.schema.string.optional(),
+  STORAGE_S3_SECRET_ACCESS_KEY: Env.schema.string.optional(),
   TRUST_PROXY: Env.schema.boolean.optional(),
 
   // Kolejka: worker in-process w `node ace serve` (domyślnie włączony).
   QUEUE_INLINE_WORKER: Env.schema.boolean.optional(),
+  /** ARC-4: `postgres` = zdarzenia na żywo między instancjami przez LISTEN/NOTIFY. */
+  LIVE_EVENTS_BUS: Env.schema.enum.optional(['local', 'postgres'] as const),
   /** Liczba równoległych generacji w workerze (ARC-1); podglądy mają osobny tor. */
   QUEUE_CONCURRENCY: Env.schema.number.optional(),
 

@@ -27,6 +27,15 @@ export function productionConfigProblems(get: (key: string) => string | undefine
   if (provider === 'deepseek' && !get('DEEPSEEK_API_KEY')) {
     problems.push('AI_PROVIDER=deepseek without DEEPSEEK_API_KEY')
   }
+  if (get('STORAGE_DRIVER') === 's3') {
+    for (const key of [
+      'STORAGE_S3_BUCKET',
+      'STORAGE_S3_ACCESS_KEY_ID',
+      'STORAGE_S3_SECRET_ACCESS_KEY',
+    ]) {
+      if (!get(key)) problems.push(`STORAGE_DRIVER=s3 without ${key}`)
+    }
+  }
   const url = get('APP_URL') ?? ''
   if (!/^https:\/\//.test(url) || /localhost|127\.0\.0\.1/.test(url)) {
     problems.push(`APP_URL must be the public https address (got "${url}")`)

@@ -26,4 +26,25 @@ test.group('Konfiguracja produkcji (REL-3)', () => {
       []
     )
   })
+
+  test('pliki w S3 (ARC-4) wymagają bucketa i kluczy', ({ assert }) => {
+    const base = {
+      AI_PROVIDER: 'deepseek',
+      DEEPSEEK_API_KEY: 'k',
+      APP_URL: 'https://app.canvai.dev',
+    }
+    assert.lengthOf(productionConfigProblems(env({ ...base, STORAGE_DRIVER: 's3' })), 3)
+    assert.deepEqual(
+      productionConfigProblems(
+        env({
+          ...base,
+          STORAGE_DRIVER: 's3',
+          STORAGE_S3_BUCKET: 'b',
+          STORAGE_S3_ACCESS_KEY_ID: 'a',
+          STORAGE_S3_SECRET_ACCESS_KEY: 's',
+        })
+      ),
+      []
+    )
+  })
 })

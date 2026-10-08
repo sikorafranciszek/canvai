@@ -526,7 +526,7 @@ export class SchedulerRunSchema extends BaseModel {
 }
 
 export class SubscriptionSchema extends BaseModel {
-  static $columns = ['createdAt', 'customerId', 'endsAt', 'externalId', 'id', 'plan', 'productId', 'provider', 'renewsAt', 'status', 'updatedAt', 'userId'] as const
+  static $columns = ['createdAt', 'customerId', 'endsAt', 'externalId', 'id', 'plan', 'productId', 'provider', 'renewsAt', 'sourceModifiedAt', 'status', 'updatedAt', 'userId'] as const
   $columns = SubscriptionSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -546,6 +546,8 @@ export class SubscriptionSchema extends BaseModel {
   declare provider: string
   @column.dateTime()
   declare renewsAt: DateTime | null
+  @column.dateTime()
+  declare sourceModifiedAt: DateTime | null
   @column()
   declare status: string
   @column.dateTime({ autoCreate: true, autoUpdate: true })
@@ -574,7 +576,7 @@ export class UserTokenSchema extends BaseModel {
 }
 
 export class UserSchema extends BaseModel {
-  static $columns = ['billingCompany', 'billingTaxId', 'brandAccent', 'brandLogoKey', 'brandName', 'createdAt', 'crmTags', 'disabledAt', 'email', 'emailVerifiedAt', 'figmaToken', 'fullName', 'id', 'locale', 'marketingEmails', 'password', 'portalDomain', 'referralCode', 'referredById', 'updatedAt'] as const
+  static $columns = ['billingCompany', 'billingTaxId', 'brandAccent', 'brandLogoKey', 'brandName', 'createdAt', 'crmTags', 'disabledAt', 'email', 'emailVerifiedAt', 'figmaToken', 'fullName', 'id', 'locale', 'marketingEmails', 'password', 'portalDomain', 'portalDomainToken', 'portalDomainVerifiedAt', 'referralCode', 'referredById', 'sessionVersion', 'updatedAt'] as const
   $columns = UserSchema.$columns
   @column()
   declare billingCompany: string | null
@@ -611,9 +613,15 @@ export class UserSchema extends BaseModel {
   @column()
   declare portalDomain: string | null
   @column()
+  declare portalDomainToken: string | null
+  @column.dateTime()
+  declare portalDomainVerifiedAt: DateTime | null
+  @column()
   declare referralCode: string | null
   @column()
   declare referredById: number | null
+  @column()
+  declare sessionVersion: number
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 }

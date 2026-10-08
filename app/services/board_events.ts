@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { PassThrough } from 'node:stream'
+import { sendBus, type BusMessage } from '#services/live_bus'
 
 /**
  * Zdarzenia tablicy na żywo (Server-Sent Events) w pamięci procesu:
@@ -10,8 +11,9 @@ import { PassThrough } from 'node:stream'
  * - `presence` — kto jest na tablicy,
  * - `cursor`   — pozycja kursora uczestnika (w układzie sceny).
  *
- * Jedna instancja aplikacji (tak działa wdrożenie) — przy wielu instancjach
- * hub trzeba przenieść na Redis pub/sub albo Postgres LISTEN/NOTIFY.
+ * Wiele instancji (ARC-4): przy `LIVE_EVENTS_BUS=postgres` zdarzenia idą też
+ * przez Postgres LISTEN/NOTIFY (`live_bus.ts`) — każda instancja doręcza je
+ * swoim połączeniom; obecność z innych instancji jest scalana i wygasa.
  */
 
 export interface Participant {
@@ -47,8 +49,15 @@ const COLORS = [
   '#4b5aa8',
 ]
 
-const g = globalThis as unknown as { __canvaiBoardHub?: Map<number, Map<string, Connection>> }
+const g = globalThis as unknown as {
+  __canvaiBoardHub?: Map<number, Map<string, Connection>>
+  __canvaiRemotePresence?: Map<number, Map<string, { participants: Participant[]; at: number }>>
+}
 const boards: Map<number, Map<string, Connection>> = (g.__canvaiBoardHub ??= new Map())
+/** Obecność z innych instancji: tablica → instancja → uczestnicy (ARC-4). */
+const remotePresence = (g.__canvaiRemotePresence ??= new Map())
+/** Po tylu ms bez odświeżenia obecność innej instancji wygasa (padnięta instancja). */
+export const REMOTE_PRESENCE_TTL = 90_000
 
 function write(conn: Connection, event: string, data: unknown) {
   const buffered = conn.stream.writableLength
@@ -77,6 +86,17 @@ export function publish(
   exceptClientId?: string | null,
   senderUserId?: number | null
 ) {
+  deliverLocal(boardId, event, data, exceptClientId, senderUserId)
+  sendBus({ k: 'pub', b: boardId, e: event, d: data, x: exceptClientId, u: senderUserId })
+}
+
+function deliverLocal(
+  boardId: number,
+  event: string,
+  data: Record<string, unknown>,
+  exceptClientId?: string | null,
+  senderUserId?: number | null
+) {
   const conns = boards.get(boardId)
   if (!conns) return
   for (const conn of [...conns.values()]) {
@@ -85,10 +105,26 @@ export function publish(
   }
 }
 
+/** Uczestnicy połączeni z TĄ instancją (bez obecności z innych). */
+function localParticipants(boardId: number): Participant[] {
+  return [...(boards.get(boardId)?.values() ?? [])].map((c) => ({
+    clientId: c.clientId,
+    userId: c.userId,
+    name: c.name,
+    initials: c.initials,
+    color: c.color,
+    role: c.role,
+  }))
+}
+
 export function participants(boardId: number): Participant[] {
   const seen = new Set<number>()
   const out: Participant[] = []
-  for (const c of boards.get(boardId)?.values() ?? []) {
+  const now = Date.now()
+  const remote = [...(remotePresence.get(boardId)?.values() ?? [])]
+    .filter((r) => now - r.at < REMOTE_PRESENCE_TTL)
+    .flatMap((r) => r.participants)
+  for (const c of [...localParticipants(boardId), ...remote]) {
     if (seen.has(c.userId)) continue
     seen.add(c.userId)
     out.push({
@@ -104,7 +140,48 @@ export function participants(boardId: number): Participant[] {
 }
 
 function broadcastPresence(boardId: number) {
-  publish(boardId, 'presence', { participants: participants(boardId) })
+  deliverLocal(boardId, 'presence', { participants: participants(boardId) })
+  sendBus({ k: 'presence', b: boardId, p: localParticipants(boardId) })
+}
+
+/** Okresowe odświeżenie obecności dla innych instancji i wygaszenie martwych. */
+export function refreshPresence() {
+  const now = Date.now()
+  for (const boardId of boards.keys()) {
+    sendBus({ k: 'presence', b: boardId, p: localParticipants(boardId) })
+  }
+  for (const [boardId, byInstance] of remotePresence) {
+    let changed = false
+    for (const [origin, entry] of byInstance) {
+      if (now - entry.at >= REMOTE_PRESENCE_TTL) {
+        byInstance.delete(origin)
+        changed = true
+      }
+    }
+    if (byInstance.size === 0) remotePresence.delete(boardId)
+    if (changed) deliverLocal(boardId, 'presence', { participants: participants(boardId) })
+  }
+}
+
+/** Wiadomość od innej instancji (ARC-4). */
+export function handleBusMessage(message: BusMessage, origin: string) {
+  switch (message.k) {
+    case 'pub':
+      deliverLocal(message.b, message.e, message.d, message.x, message.u)
+      return
+    case 'presence': {
+      const byInstance = remotePresence.get(message.b) ?? new Map()
+      if (message.p.length)
+        byInstance.set(origin, { participants: message.p as Participant[], at: Date.now() })
+      else byInstance.delete(origin)
+      if (byInstance.size) remotePresence.set(message.b, byInstance)
+      else remotePresence.delete(message.b)
+      deliverLocal(message.b, 'presence', { participants: participants(message.b) })
+      return
+    }
+    case 'disconnect':
+      disconnectLocal(message.u, message.b)
+  }
 }
 
 function connectionsOf(userId: number): Connection[] {
@@ -167,6 +244,11 @@ export function connect(boardId: number, requested: Participant) {
 
 /** Zamyka strumienie użytkownika (usunięcie z tablicy, blokada konta) — SEC-6. */
 export function disconnectUser(userId: number, boardId?: number): number {
+  sendBus({ k: 'disconnect', u: userId, b: boardId })
+  return disconnectLocal(userId, boardId)
+}
+
+function disconnectLocal(userId: number, boardId?: number): number {
   let n = 0
   for (const [id, conns] of boards) {
     if (boardId != null && id !== boardId) continue

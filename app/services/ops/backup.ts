@@ -8,6 +8,7 @@ import app from '@adonisjs/core/services/app'
 import env from '#start/env'
 import { backupConfigured, ops } from '#config/ops'
 import { S3Client } from '#services/ops/s3'
+import { storageDriver } from '#config/drive'
 
 /**
  * Kopie zapasowe: `pg_dump` (format custom, skompresowany) → `<prefix><id>/`
@@ -114,7 +115,8 @@ export async function runBackup(): Promise<BackupResult> {
   }
 
   const storage = storagePath()
-  const local = existsSync(storage) ? await walk(storage) : []
+  // Pliki w S3/R2 (ARC-4) chroni wersjonowanie bucketa — kopia obejmuje samą bazę.
+  const local = storageDriver() === 's3' || !existsSync(storage) ? [] : await walk(storage)
   const remote = new Map((await s3.list(filesPrefix())).map((o) => [o.key, o.size]))
   let uploaded = 0
   let uploadedBytes = 0

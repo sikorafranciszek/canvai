@@ -154,8 +154,21 @@ export default class DbImportSqlite extends BaseCommand {
     const report: { table: string; rows: number; dropped: number; nulled: number }[] = []
     /** Identyfikatory zaimportowanych wierszy — do sprawdzania odwołań. */
     const kept = new Map<string, Set<number>>()
+    let importedElsewhere = false
     const run = async (trx: any) => {
       await trx.rawQuery("SET LOCAL TIME ZONE 'UTC'")
+      if (!this.dryRun) {
+        // ARC-4: kilka instancji startuje naraz — importuje tylko pierwsza, reszta
+        // czeka na blokadę i po ponownym sprawdzeniu pomija import.
+        await trx.rawQuery("select pg_advisory_xact_lock(hashtext('canvai_sqlite_import'))")
+        if (this.ifEmpty) {
+          const [{ n }] = await trx.from('users').count('* as n')
+          if (Number(n) > 0) {
+            importedElsewhere = true
+            return
+          }
+        }
+      }
       for (const table of tables) {
         const cols = types.get(table)!
         const all = (await lite.from(table).select('*')) as Record<string, unknown>[]
@@ -205,6 +218,10 @@ export default class DbImportSqlite extends BaseCommand {
       else await pg.transaction(run)
     } finally {
       await db.manager.close('sqlite_import')
+    }
+    if (importedElsewhere) {
+      this.logger.info('Import wykonała inna instancja — pominięty.')
+      return
     }
 
     for (const r of report) {

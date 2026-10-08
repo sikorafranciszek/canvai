@@ -18,7 +18,12 @@ import { runDueTasks } from '#services/ops/scheduler'
 import { flushAlerts } from '#services/ops/alerts'
 import '#services/ops/tasks'
 import { workerPulse } from '#services/ops/health'
-import { closeAll as closeLiveStreams } from '#services/board_events'
+import {
+  closeAll as closeLiveStreams,
+  handleBusMessage,
+  refreshPresence,
+} from '#services/board_events'
+import { startLiveBus, stopLiveBus } from '#services/live_bus'
 
 const POLL_MS = 1000
 const RECOVER_EVERY_MS = 60_000
@@ -74,6 +79,19 @@ if (isHttpServer) {
     app.terminating(async () => {
       clearInterval(scheduler)
       await flushAlerts(true).catch(() => {})
+    })
+  }
+
+  // Wiele instancji (ARC-4): zdarzenia na żywo przez Postgres LISTEN/NOTIFY.
+  if (env.get('LIVE_EVENTS_BUS', 'local') === 'postgres') {
+    void startLiveBus(handleBusMessage).catch((error) =>
+      logger.error({ err: error }, 'live bus failed to start — events stay local')
+    )
+    const presence = setInterval(refreshPresence, 30_000)
+    presence.unref()
+    app.terminating(async () => {
+      clearInterval(presence)
+      await stopLiveBus()
     })
   }
 
