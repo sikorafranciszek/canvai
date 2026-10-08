@@ -49,7 +49,11 @@ const handlers: Record<string, JobHandler> = {
   [JOB_GENERATE_DESIGN_DOC]: {
     async run(job, ctx) {
       const doc = await DesignDoc.findOrFail(job.payload.designDocId as number)
-      await runGeneration(doc, (p) => ctx.progress(p as unknown as Record<string, unknown>))
+      await runGeneration(doc, async (p) => {
+        await ctx.progress(p as unknown as Record<string, unknown>)
+        // Postęp na żywo (UX-7) — klient nie musi odpytywać co 1,5 s.
+        publish(doc.boardId, 'doc', { version: doc.version, status: 'running', progress: p })
+      })
     },
     async onFailed(job, message) {
       const docId = job.payload.designDocId as number
@@ -69,7 +73,10 @@ const handlers: Record<string, JobHandler> = {
       raiseAlert('design_doc_failed', `DESIGN.md generation failed (doc ${docId}): ${message}`, {
         threshold: 3,
       })
-      if (board) publish(board.id, 'doc', { status: 'failed' })
+      if (board) {
+        const failed = await DesignDoc.find(docId)
+        publish(board.id, 'doc', { version: failed?.version, status: 'failed' })
+      }
     },
     async onRetry(job, message) {
       await DesignDoc.query()

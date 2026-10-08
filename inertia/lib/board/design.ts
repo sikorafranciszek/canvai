@@ -1,6 +1,8 @@
 /**
  * Store generacji DESIGN.md: aktywna zakładka panelu, historia wersji,
- * wybrana wersja z treścią, stan generacji i polling statusu (co 1,5 s).
+ * wybrana wersja z treścią i stan generacji. Postęp i wynik przychodzą
+ * zdarzeniami na żywo (SSE); odpytywanie to tylko zapas (UX-7) — rzadkie przy
+ * działającym połączeniu, wstrzymane w ukrytej karcie.
  */
 import { useEffect } from 'react'
 import { create } from 'zustand'
@@ -15,13 +17,21 @@ import {
   listDesignDocs,
   type DesignDocDto,
 } from '~/lib/board/api'
-import { useBoardStore } from '~/lib/board/session'
+import { useBoardStore, useCanvasAssets } from '~/lib/board/session'
 import { translate } from '~/i18n'
 import { notifyError } from '~/lib/errors'
 
 export type SidePanelTab = 'assets' | 'design'
 
 const POLL_MS = 1500
+/** Zapasowe odpytywanie, gdy zdarzenia na żywo działają. */
+const POLL_LIVE_MS = 10_000
+
+export interface DocEvent {
+  version?: number
+  status?: string
+  progress?: DesignDocDto['progress']
+}
 
 interface DesignState {
   boardId: number | null
@@ -54,6 +64,10 @@ interface DesignState {
   refreshRemote: () => Promise<void>
   /** Ręczna edycja tokenów bieżącej wersji → nowa wersja. Zwraca `true` po sukcesie. */
   applyEdits: (edits: DocEdits) => Promise<boolean>
+  /** Czy działa strumień zdarzeń (ustawia `live.ts`). */
+  liveConnected: boolean
+  /** Zdarzenie `doc` z serwera: postęp / koniec mojej generacji albo nowa wersja współpracownika. */
+  onDocEvent: (event: DocEvent) => void
 }
 
 let pollTimer: ReturnType<typeof setTimeout> | null = null
@@ -83,31 +97,48 @@ export const useDesignStore = create<DesignState>()((set, get) => {
     if (get().boardId === boardId) set({ previous })
   }
 
-  function schedulePoll(boardId: number, version: number, mySeq: number) {
+  function schedulePoll(boardId: number, version: number, mySeq: number, delay?: number) {
     stopPolling()
-    pollTimer = setTimeout(async () => {
-      if (mySeq !== seq) return
-      try {
-        const doc = await getDesignDoc(boardId, version)
-        if (mySeq !== seq || !doc) return
-        if (isPending(doc)) {
-          set({ active: doc })
+    pollTimer = setTimeout(
+      async () => {
+        if (mySeq !== seq) return
+        // Ukryta karta nie odpytuje; po powrocie (visibilitychange) sprawdzamy od razu.
+        if (typeof document !== 'undefined' && document.hidden) {
           schedulePoll(boardId, version, mySeq)
           return
         }
+        try {
+          const doc = await getDesignDoc(boardId, version)
+          if (mySeq !== seq || !doc) return
+          if (isPending(doc)) {
+            set({ active: doc })
+            schedulePoll(boardId, version, mySeq)
+            return
+          }
 
-        set({ active: null, current: doc })
-        // Saldo zmienia się po rozliczeniu (albo zwrocie) generacji.
-        void useBillingStore.getState().load()
-        await refreshVersions(boardId)
-        await loadPrevious(boardId, doc)
-        if (doc.status === 'ready') toast.success(translate('doc.ready', { version: doc.version }))
-        else toast.error(doc.error ?? translate('doc.failedToast'))
-      } catch {
-        // Chwilowy błąd sieci — próbujemy dalej.
-        if (mySeq === seq) schedulePoll(boardId, version, mySeq)
-      }
-    }, POLL_MS)
+          set({ active: null, current: doc })
+          // Saldo zmienia się po rozliczeniu (albo zwrocie) generacji.
+          void useBillingStore.getState().load()
+          await refreshVersions(boardId)
+          await loadPrevious(boardId, doc)
+          if (doc.status === 'ready')
+            toast.success(translate('doc.ready', { version: doc.version }))
+          else toast.error(doc.error ?? translate('doc.failedToast'))
+        } catch {
+          // Chwilowy błąd sieci — próbujemy dalej.
+          if (mySeq === seq) schedulePoll(boardId, version, mySeq)
+        }
+      },
+      delay ?? (get().liveConnected ? POLL_LIVE_MS : POLL_MS)
+    )
+  }
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      const { boardId, active } = get()
+      if (!document.hidden && boardId != null && active)
+        schedulePoll(boardId, active.version, seq, 0)
+    })
   }
 
   return {
@@ -123,6 +154,33 @@ export const useDesignStore = create<DesignState>()((set, get) => {
     loading: false,
     starting: false,
     reusedNotice: false,
+    liveConnected: false,
+
+    onDocEvent(event) {
+      const { boardId, active } = get()
+      if (boardId == null) return
+      if (active && event.version === active.version) {
+        if (event.status === 'queued' || event.status === 'running') {
+          set({
+            active: {
+              ...active,
+              status: event.status,
+              progress: event.progress ?? active.progress,
+            },
+          })
+        } else {
+          // Moja generacja się skończyła — wynik od razu, bez czekania na odpytanie.
+          schedulePoll(boardId, active.version, seq, 0)
+        }
+        return
+      }
+      if (event.status === 'ready') {
+        void get().refreshRemote()
+        if (event.version) toast.info(translate('live.docReady', { version: event.version }))
+      } else if (event.status === 'failed' || event.status === 'running') {
+        void get().refreshRemote()
+      }
+    },
 
     async init(boardId) {
       stopPolling()
@@ -276,22 +334,27 @@ export function useEstimateSync() {
   const boardId = useDesignStore((s) => s.boardId)
   const proMode = useDesignStore((s) => s.proMode)
   const versionKey = useDesignStore((s) => `${s.current?.version ?? 0}:${s.active?.status ?? ''}`)
-  const assetsKey = useBoardStore((s) =>
-    s.assets.map((a) => `${a.id}:${a.userNote ?? ''}`).join(',')
-  )
-  const saved = useBoardStore((s) => s.saveStatus === 'saved')
+  // Materiały NA PŁÓTNIE (i ich notatki/role) — to one zmieniają koszt, nie każdy
+  // zapis sceny (UX-7). Odświeżenie z opóźnieniem, po ustaniu zmian.
+  const canvasAssets = useCanvasAssets()
+  const assetsKey = canvasAssets
+    .map(
+      (a) =>
+        `${a.id}:${a.userNote ?? ''}:${a.usage?.role ?? ''}:${a.usage?.aspects?.join('+') ?? ''}`
+    )
+    .join(',')
 
   useEffect(() => {
-    if (boardId == null || !saved) return
+    if (boardId == null) return
     let alive = true
     const timer = setTimeout(async () => {
       const estimate = await fetchEstimate(boardId, proMode)
       if (alive && useDesignStore.getState().boardId === boardId)
         useDesignStore.setState({ estimate })
-    }, 400)
+    }, 1500)
     return () => {
       alive = false
       clearTimeout(timer)
     }
-  }, [boardId, proMode, versionKey, assetsKey, saved])
+  }, [boardId, proMode, versionKey, assetsKey])
 }

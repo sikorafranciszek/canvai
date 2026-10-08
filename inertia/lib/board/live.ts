@@ -4,12 +4,10 @@
  * sceny (scalanie w `session.pullRemote`), materiałów, DESIGN.md i komentarzy.
  */
 import { create } from 'zustand'
-import { toast } from 'sonner'
 import { CLIENT_ID, csrfHeaders } from '~/lib/board/api'
 import { useBoardStore } from '~/lib/board/session'
-import { useDesignStore } from '~/lib/board/design'
+import { useDesignStore, type DocEvent } from '~/lib/board/design'
 import { useCommentsStore } from '~/lib/board/comments'
-import { translate } from '~/i18n'
 
 export interface LiveParticipant {
   clientId: string
@@ -70,8 +68,14 @@ export const useLiveStore = create<LiveState>()((set, get) => ({
         return {}
       }
     }
-    es.addEventListener('open', () => set({ connected: true }))
-    es.addEventListener('error', () => set({ connected: false }))
+    es.addEventListener('open', () => {
+      set({ connected: true })
+      useDesignStore.setState({ liveConnected: true })
+    })
+    es.addEventListener('error', () => {
+      set({ connected: false })
+      useDesignStore.setState({ liveConnected: false })
+    })
     es.addEventListener('hello', (e) => {
       set({ connected: true, participants: json(e as MessageEvent).participants ?? [] })
       // Po (ponownym) połączeniu mogliśmy przegapić zmiany — dociągamy stan.
@@ -98,11 +102,7 @@ export const useLiveStore = create<LiveState>()((set, get) => ({
     es.addEventListener('comments', () => void useCommentsStore.getState().load(boardId))
     es.addEventListener('members', () => membersListener?.())
     es.addEventListener('doc', (e) => {
-      const data = json(e as MessageEvent) as { version?: number; status?: string }
-      void useDesignStore.getState().refreshRemote()
-      if (data.status === 'ready' && data.version) {
-        toast.info(translate('live.docReady', { version: data.version }))
-      }
+      useDesignStore.getState().onDocEvent(json(e as MessageEvent) as DocEvent)
     })
   },
 

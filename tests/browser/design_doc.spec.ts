@@ -59,6 +59,10 @@ test.group('Design doc e2e', (group) => {
 
     const content = page.locator('[data-testid=design-doc-content]')
     await content.waitFor({ timeout: 10_000 })
+    // Autor generacji dostaje jedno powiadomienie, nie drugie „od współpracownika” (UX-7).
+    await page.getByText('DESIGN.md v1 gotowy').first().waitFor({ timeout: 10_000 })
+    await page.waitForTimeout(500)
+    assert.equal(await page.getByText('od współpracownika').count(), 0)
     assert.include(await content.innerText(), 'Tokens — Colors')
     assert.isAbove(await page.locator('[data-testid^=design-ref-]').count(), 0)
 

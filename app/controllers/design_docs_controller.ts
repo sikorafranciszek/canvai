@@ -148,7 +148,14 @@ export default class DesignDocsController {
         },
         { boardId: board.id }
       )
-      publish(board.id, 'doc', { version: doc.version, status: 'ready' })
+      // Autor edycji ma już nową wersję — powiadomienie tylko dla pozostałych (UX-7).
+      publish(
+        board.id,
+        'doc',
+        { version: doc.version, status: 'ready' },
+        request.header('x-client-id'),
+        auth.user!.id
+      )
       return response.status(201).json({ data: await this.serialize(doc, true) })
     } catch (error) {
       if (error instanceof SpecEditError) {
