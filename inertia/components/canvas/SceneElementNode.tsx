@@ -193,6 +193,46 @@ function ElementNodeInner(props: ElementNodeProps) {
 
   switch (el.type) {
     case 'rectangle':
+      if (el.frameName !== undefined) {
+        // Ramka ekranu (FEAT-7): nazwa nad prostokątem; całość przesuwana razem.
+        return (
+          <Group
+            id={el.id}
+            x={el.x}
+            y={el.y}
+            rotation={el.rotation}
+            opacity={el.opacity}
+            listening={props.listening}
+            draggable={props.isSelected}
+            onClick={(e: any) => {
+              e.cancelBubble = true
+              props.onSelect(el.id, e.evt.shiftKey)
+            }}
+            onTap={() => props.onSelect(el.id, false)}
+            onDragStart={() => props.onDragStart(el.id)}
+            onDragEnd={(e: any) => props.onDragEnd(el.id, e.target)}
+            ref={(node) => props.registerNode(el.id, node)}
+          >
+            <Text
+              text={el.frameName}
+              x={0}
+              y={-22}
+              fontSize={14}
+              fontStyle="500"
+              fill="#72706b"
+              listening={false}
+            />
+            <Rect
+              width={el.width}
+              height={el.height}
+              fill={el.fill}
+              stroke={el.stroke}
+              strokeWidth={el.strokeWidth}
+              cornerRadius={el.cornerRadius ?? 0}
+            />
+          </Group>
+        )
+      }
       return (
         <Rect
           id={el.id}

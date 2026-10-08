@@ -314,6 +314,18 @@ export function createElementForTool(tool: Tool, x: number, y: number): SceneEle
         strokeWidth: 1.5,
         cornerRadius: 8,
       }
+    case 'frame':
+      return {
+        ...base,
+        type: 'rectangle',
+        width: 390,
+        height: 640,
+        fill: 'rgba(255, 255, 255, 0)',
+        stroke: '#9b998f',
+        strokeWidth: 1.5,
+        cornerRadius: 12,
+        frameName: translate('canvas.newFrame'),
+      }
     case 'ellipse':
       return {
         ...base,

@@ -436,6 +436,20 @@ function buildMockSpec(input: ComposeInput): Record<string, unknown> {
         sources: [a.id],
       }
     })
+  // Nazwane ramki (narzędzie ramki, FEAT-7) to ekrany narysowane przez klienta.
+  for (const f of context.frames) {
+    if (!f.name) continue
+    const inside = f.contains
+      .map((ref) => assets.find((x) => `A${x.id}` === ref))
+      .filter((x): x is ComposeAssetInput => Boolean(x))
+    refName.set(f.ref, f.name)
+    screenSpecs.push({
+      name: f.name,
+      purpose: `Screen drawn on the board as a frame${inside.length ? ` with ${inside.length} material(s)` : ''}.`,
+      elements: inside.flatMap((x) => x.analysis.components).slice(0, 8),
+      sources: inside.map((x) => x.id),
+    })
+  }
   const label = (ref: string) => {
     const known = refName.get(ref)
     if (known) return `${known} [${ref}]`

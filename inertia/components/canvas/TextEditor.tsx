@@ -100,7 +100,12 @@ export function TextEditor({
         // Ręczna zmiana rozmiaru uchwytem textarea.
         const ta = ref.current
         const start = initialSize.current
-        if (ta && start && (Math.abs(ta.offsetWidth - start.width) > 2 || Math.abs(ta.offsetHeight - start.height) > 2)) {
+        if (
+          ta &&
+          start &&
+          (Math.abs(ta.offsetWidth - start.width) > 2 ||
+            Math.abs(ta.offsetHeight - start.height) > 2)
+        ) {
           ta.dataset.resized = '1'
         }
       }}

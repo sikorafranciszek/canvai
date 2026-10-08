@@ -448,11 +448,18 @@ export function Canvas({ boardId, readOnly = false }: { boardId: number; readOnl
     const height = p1.y - p0.y
     if (Math.abs(width) < 3 && Math.abs(height) < 3) return
 
-    if (d.kind === 'rectangle' || d.kind === 'ellipse') {
+    if (d.kind === 'rectangle' || d.kind === 'ellipse' || d.kind === 'frame') {
       const el = createElementForTool(d.kind, Math.min(p0.x, p1.x), Math.min(p0.y, p1.y))
       if (el.type === 'rectangle' || el.type === 'ellipse') {
         el.width = Math.abs(width)
         el.height = Math.abs(height)
+      }
+      if (el.type === 'rectangle' && el.frameName) {
+        // Kolejny numer ramki: „Ekran 1”, „Ekran 2”…
+        const frames = useSceneStore
+          .getState()
+          .document.elements.filter((x) => x.type === 'rectangle' && x.frameName).length
+        el.frameName = `${el.frameName} ${frames + 1}`
       }
       finishCreate(el)
       return
@@ -855,7 +862,8 @@ export function Canvas({ boardId, readOnly = false }: { boardId: number; readOnl
       )}
 
       {/* Empty state — jak zacząć. */}
-      {document.elements.length === 0 && pendingUploads.length === 0 && (
+      {/* Przy narzędziu rysowania karta znika — inaczej przechwytuje koniec przeciągania. */}
+      {document.elements.length === 0 && pendingUploads.length === 0 && tool === 'select' && (
         <div data-testid="canvas-empty-state" className="canvas-empty">
           <div className="card canvas-empty__card">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -949,6 +957,7 @@ function DraftShape({ draft }: { draft: { kind: Tool; start: ScenePoint; points:
   const height = Math.abs(p1.y - p0.y)
 
   switch (draft.kind) {
+    case 'frame':
     case 'rectangle':
       return (
         <Rect

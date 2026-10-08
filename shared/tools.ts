@@ -6,7 +6,16 @@
  * `SceneDocument` — to konfiguracja UI silnika.
  */
 export type Tool =
-  'select' | 'pan' | 'rectangle' | 'ellipse' | 'line' | 'arrow' | 'freehand' | 'text' | 'sticky'
+  | 'select'
+  | 'pan'
+  | 'frame'
+  | 'rectangle'
+  | 'ellipse'
+  | 'line'
+  | 'arrow'
+  | 'freehand'
+  | 'text'
+  | 'sticky'
 
 export interface ToolDef {
   id: Tool
@@ -18,6 +27,7 @@ export interface ToolDef {
 export const TOOLS: ToolDef[] = [
   { id: 'select', label: 'Zaznacz', shortcut: 'V' },
   { id: 'pan', label: 'Pan', shortcut: 'H' },
+  { id: 'frame', label: 'Ramka (ekran)', shortcut: 'F' },
   { id: 'rectangle', label: 'Prostokąt', shortcut: 'R' },
   { id: 'ellipse', label: 'Elipsa', shortcut: 'O' },
   { id: 'line', label: 'Linia', shortcut: 'L' },

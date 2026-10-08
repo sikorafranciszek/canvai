@@ -21,14 +21,7 @@
 
 /** Typy elementów obsługiwane przez silnik płótna (M2a). */
 export type SceneElementType =
-  | 'rectangle'
-  | 'ellipse'
-  | 'line'
-  | 'arrow'
-  | 'freehand'
-  | 'text'
-  | 'sticky'
-  | 'image'
+  'rectangle' | 'ellipse' | 'line' | 'arrow' | 'freehand' | 'text' | 'sticky' | 'image'
 
 /** Lista typów elementów — do walidacji i paska narzędzi. */
 export const SCENE_ELEMENT_TYPES: readonly SceneElementType[] = [
@@ -75,6 +68,11 @@ export interface SceneRectangleElement extends SceneShapeBase {
   strokeWidth: number
   /** Zaokrąglenie rogów w px. Brak = ostre rogi. */
   cornerRadius?: number
+  /**
+   * Ramka ekranu (FEAT-7): nazwa wyświetlana nad prostokątem. AI traktuje nazwane
+   * ramki jako ekrany (Screens & Flows), a elementy w środku — jako ich treść.
+   */
+  frameName?: string
 }
 
 export interface SceneEllipseElement extends SceneShapeBase {

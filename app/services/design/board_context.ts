@@ -31,6 +31,8 @@ export interface ContextItem {
 export interface ContextFrame {
   ref: string
   shape: 'rectangle' | 'ellipse'
+  /** Nazwa ekranu: z narzędzia ramki albo etykiety szablonu nad ramką (FEAT-7). */
+  name?: string
   x: number
   y: number
   width: number
@@ -176,10 +178,25 @@ export function buildBoardContext(document: SceneDocument | null | undefined): B
   const frames: (ContextFrame & { box: Box })[] = []
   let frameCounter = 0
   for (const { el, box } of shapeCandidates) {
-    if (!items.some((it) => contains(box, it.box) && area(box) > area(it.box))) continue
+    const named = typeof (el as { frameName?: unknown }).frameName === 'string'
+    // Nazwana ramka (narzędzie ramki) jest ekranem także wtedy, gdy jest pusta.
+    if (!named && !items.some((it) => contains(box, it.box) && area(box) > area(it.box))) continue
+    const frameName = named ? String((el as { frameName: string }).frameName).trim() : ''
+    // Etykieta szablonu tuż nad ramką („Hero (pierwszy ekran)”) też nazywa ekran.
+    const label = items.find(
+      (it) =>
+        it.label &&
+        it.text &&
+        it.box.y + it.box.height <= box.y + 8 &&
+        it.box.y + it.box.height >= box.y - 80 &&
+        it.box.x < box.x + box.width &&
+        it.box.x + it.box.width > box.x
+    )
+    const name = (frameName || label?.text || '').slice(0, 80)
     frames.push({
       ref: `F${++frameCounter}`,
       shape: el.type as 'rectangle' | 'ellipse',
+      ...(name ? { name } : {}),
       ...roundBox(box),
       contains: [],
       box,

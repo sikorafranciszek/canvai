@@ -608,3 +608,58 @@ test.group('Design pipeline / deepseek provider', () => {
     )
   })
 })
+
+test.group('Ramki ekranów (FEAT-7)', () => {
+  test('nazwane ramki są ekranami; strzałki między nimi to przepływy; nazwa w ogrodzeniu', async ({
+    assert,
+  }) => {
+    const { buildComposeUserText } = await import('#services/design/prompts')
+    const frame = (id: string, x: number, name?: string) =>
+      ({
+        id,
+        type: 'rectangle',
+        x,
+        y: 0,
+        width: 390,
+        height: 640,
+        rotation: 0,
+        opacity: 1,
+        fill: 'rgba(255,255,255,0)',
+        stroke: '#999',
+        strokeWidth: 1.5,
+        ...(name ? { frameName: name } : {}),
+      }) as SceneElement
+    const context = buildBoardContext({
+      version: 1,
+      metadata: {},
+      elements: [
+        frame('f1', 0, 'Logowanie'),
+        frame('f2', 600, 'Koszyk'),
+        frame('plain', 1200),
+        {
+          id: 'arr',
+          type: 'arrow',
+          x: 395,
+          y: 300,
+          points: [
+            { x: 0, y: 0 },
+            { x: 200, y: 0 },
+          ],
+          rotation: 0,
+          opacity: 1,
+          stroke: '#000',
+          strokeWidth: 2,
+        } as SceneElement,
+      ],
+    } as SceneDocument)
+    assert.deepEqual(
+      context.frames.map((f) => f.name),
+      ['Logowanie', 'Koszyk'],
+      'pusta nienazwana ramka to nie ekran'
+    )
+    assert.deepEqual(context.flows, [{ from: 'F1', to: 'F2' }])
+    const text = buildComposeUserText({ boardTitle: 'B', assets: [], context })
+    const fence = text.indexOf('<untrusted source="canvas-notes">')
+    assert.isAbove(text.indexOf('Logowanie'), fence)
+  })
+})

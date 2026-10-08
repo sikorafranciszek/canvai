@@ -200,7 +200,8 @@ export const COMPOSE_SYSTEM_PROMPT = [
   '  marked defaults. Name spacing steps semantically (xs, sm, md, lg, xl…), never by their pixel value.',
   '- Token values (sizes, radii, spacing, shadows, layout) must be valid CSS only — e.g. "50%", "8px", "9999px",',
   '  "rgba(0, 0, 0, 0.08) 0px 1px 2px 0px". Put explanations in names/descriptions, never inside the value.',
-  '- Use arrows (flows) and frames from the board structure for "screens" and "flows".',
+  '- Use arrows (flows) and frames from the board structure for "screens" and "flows". A frame with a screenName',
+  '  is a screen the client drew: use that name for the screen and its contents as the screen elements.',
   'MATERIAL USAGE (the "use" field of each asset, set by the client — it overrides your own judgement):',
   '- role "own": the product\'s own brand/UI — the source of truth for whatever it shows.',
   '- role "inspiration": a reference the client likes ONLY for the listed aspects. Take nothing else from it',
@@ -306,6 +307,10 @@ function composeText(input: ComposeInput, level: CompactLevel): string {
   const notes = input.context.items
     .filter((it) => it.text)
     .map((it) => ({ ref: it.ref, text: cut(it.text!, level.noteChars) }))
+  // Nazwy ekranów (ramki) pisze użytkownik — tekst niezaufany, w ogrodzeniu.
+  const screens = input.context.frames
+    .filter((f) => f.name)
+    .map((f) => ({ ref: f.ref, screenName: f.name }))
 
   // Struktura bez współrzędnych — kolejność czytania i ramki niosą układ.
   const structure = {
@@ -326,7 +331,7 @@ function composeText(input: ComposeInput, level: CompactLevel): string {
     `ASSETS (JSON; trusted ids, roles, palette and text color hex values, usage):\n${JSON.stringify(assets)}`,
     `ASSET ANALYSES (descriptions extracted from each asset by an earlier pass):\n${fenceUntrusted('asset-analyses', JSON.stringify(analysisText))}`,
     `ASSET TEXT AND CLIENT NOTES:\n${fenceUntrusted('asset-text', JSON.stringify(userText))}`,
-    `NOTES AND TEXT ON THE CANVAS:\n${fenceUntrusted('canvas-notes', JSON.stringify(notes))}`,
+    `NOTES AND TEXT ON THE CANVAS (and names of screen frames):\n${fenceUntrusted('canvas-notes', JSON.stringify(screens.length ? { notes, screens } : notes))}`,
     `CANVAS STRUCTURE (JSON; A<id> = asset, N<n> = note, F<n> = frame; reading order = layout):\n${JSON.stringify(structure)}`,
   ]
   if (input.previousErrors?.length) {

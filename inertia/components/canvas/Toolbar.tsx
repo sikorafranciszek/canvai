@@ -26,6 +26,7 @@ import {
   Trash2,
   Type,
   Undo2,
+  Frame,
 } from 'lucide-react'
 import type { SceneElement } from '@shared/scene'
 import { TOOLS, toolTestId, type Tool } from '@shared/tools'
@@ -38,6 +39,7 @@ import { useT, type MessageKey } from '~/i18n'
 const TOOL_ICONS: Record<Tool, React.ComponentType> = {
   select: MousePointer2,
   pan: Hand,
+  frame: Frame,
   rectangle: Square,
   ellipse: Circle,
   line: Slash,
@@ -320,8 +322,36 @@ function SelectionBar() {
     { type: 'text' }
   >[]
   const store = useSceneStore.getState()
+  const frame =
+    selected.length === 1 && selected[0].type === 'rectangle' && selected[0].frameName !== undefined
+      ? selected[0]
+      : null
 
   const groups: React.ReactNode[] = []
+  if (frame) {
+    groups.push(
+      <label key="frame-name" className="props-frame-name">
+        <span className="sr-only">{t('props.frameName')}</span>
+        <input
+          key={frame.id}
+          className="input input--sm"
+          defaultValue={frame.frameName}
+          maxLength={60}
+          placeholder={t('props.frameName')}
+          data-testid="props-frame-name"
+          onBlur={(e) => {
+            const name = e.target.value.trim() || t('canvas.newFrame')
+            if (name !== frame.frameName) {
+              applyToSelection((el) => (el.type === 'rectangle' ? { frameName: name } : null))
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          }}
+        />
+      </label>
+    )
+  }
   if (strokeEls.length) {
     groups.push(
       <Swatches
