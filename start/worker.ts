@@ -13,7 +13,7 @@
 import app from '@adonisjs/core/services/app'
 import logger from '@adonisjs/core/services/logger'
 import env from '#start/env'
-import { recoverStaleJobs, runPendingJobs } from '#services/queue'
+import { recoverStaleJobs, releaseOwnedJobs, runPendingJobs } from '#services/queue'
 import { runDueTasks } from '#services/ops/scheduler'
 import { flushAlerts } from '#services/ops/alerts'
 import '#services/ops/tasks'
@@ -22,6 +22,8 @@ import { workerPulse } from '#services/ops/health'
 const POLL_MS = 1000
 const RECOVER_EVERY_MS = 60_000
 const SCHEDULER_EVERY_MS = 60_000
+/** Ile czekać na bieżące zadanie przy zamykaniu (krócej niż stop_grace_period). */
+const SHUTDOWN_GRACE_MS = 20_000
 
 if (env.get('QUEUE_INLINE_WORKER', true)) {
   let busy = false
@@ -49,7 +51,14 @@ if (env.get('QUEUE_INLINE_WORKER', true)) {
 
   const timer = setInterval(() => void tick(), POLL_MS)
   timer.unref()
-  app.terminating(() => clearInterval(timer))
+  // Zamykanie (deploy): czekamy chwilę na bieżące zadanie, resztę oddajemy do kolejki.
+  app.terminating(async () => {
+    clearInterval(timer)
+    const deadline = Date.now() + SHUTDOWN_GRACE_MS
+    while (busy && Date.now() < deadline) await new Promise((r) => setTimeout(r, 250))
+    const released = await releaseOwnedJobs().catch(() => 0)
+    if (released) logger.info({ released }, 'jobs returned to queue on shutdown')
+  })
 }
 
 /**

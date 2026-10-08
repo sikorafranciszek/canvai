@@ -83,6 +83,8 @@ services:
       - CLARITY_PROJECT_ID=${CLARITY_PROJECT_ID:-yqij10mk35}
     volumes:
       - canvai-data:/app/data
+    # Czas na dokończenie / oddanie bieżącej generacji przy wdrożeniu.
+    stop_grace_period: 30s
     depends_on:
       postgres:
         condition: service_healthy

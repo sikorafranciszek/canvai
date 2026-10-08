@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
@@ -33,7 +34,7 @@ export interface JobContext {
   progress(progress: Record<string, unknown>): Promise<void>
 }
 
-interface JobHandler {
+export interface JobHandler {
   run(job: Job, ctx: JobContext): Promise<void>
   /** Wywoływane, gdy zadanie ostatecznie się nie powiodło. */
   onFailed(job: Job, message: string): Promise<void>
@@ -103,6 +104,11 @@ const handlers: Record<string, JobHandler> = {
   },
 }
 
+/** Rejestracja typu zadania (testy, przyszłe zadania). */
+export function registerJobHandler(type: string, handler: JobHandler) {
+  handlers[type] = handler
+}
+
 function sqlTime(dt: DateTime): string {
   return dt.toUTC().toFormat(db.connection().dialect.dateTimeFormat)
 }
@@ -119,6 +125,12 @@ export async function enqueue(
   )
 }
 
+/** Co ile odświeżana jest blokada trwającego zadania (heartbeat). */
+const HEARTBEAT_MS = 30_000
+
+/** Zadania trzymane przez ten proces (token → id) — do zwolnienia przy zamykaniu. */
+const owned = new Map<string, number>()
+
 export async function claimNext(): Promise<Job | null> {
   const now = DateTime.utc()
   const candidates = await Job.query()
@@ -128,6 +140,7 @@ export async function claimNext(): Promise<Job | null> {
     .limit(5)
 
   for (const candidate of candidates) {
+    const token = randomUUID()
     const affected = await db
       .from('jobs')
       .where('id', candidate.id)
@@ -135,12 +148,27 @@ export async function claimNext(): Promise<Job | null> {
       .update({
         status: 'running',
         locked_at: sqlTime(now),
+        locked_by: token,
         attempts: candidate.attempts + 1,
       })
     const count = Array.isArray(affected) ? Number(affected[0]) : Number(affected)
     if (count === 1) return Job.find(candidate.id)
   }
   return null
+}
+
+/**
+ * Zmiana stanu zadania tylko przez proces, który je trzyma (DAT-3). Zwraca
+ * `false`, gdy zadanie zostało w międzyczasie odzyskane przez inny proces —
+ * wtedy wynik tego wykonania jest porzucany (bez podwójnych zwrotów/opłat).
+ */
+async function updateOwned(job: Job, token: string, fields: Record<string, unknown>) {
+  const affected = await db
+    .from('jobs')
+    .where('id', job.id)
+    .where('locked_by', token)
+    .update({ ...fields, updated_at: new Date() })
+  return (Array.isArray(affected) ? Number(affected[0]) : Number(affected)) === 1
 }
 
 /** Zadanie wykonuje się w języku użytkownika, który je zlecił (payload.locale). */
@@ -151,48 +179,110 @@ export async function runJob(job: Job): Promise<void> {
 
 async function runJobInner(job: Job): Promise<void> {
   const handler = handlers[job.type]
+  const token = job.lockedBy ?? ''
   if (!handler) {
-    job.merge({ status: 'failed', lastError: `Unknown job type: ${job.type}` })
-    await job.save()
+    await updateOwned(job, token, {
+      status: 'failed',
+      last_error: `Unknown job type: ${job.type}`,
+      locked_by: null,
+    })
     return
   }
+
+  owned.set(token, job.id)
+  // Heartbeat: długie wywołanie modelu (kilka minut) nie wygląda na porzucone.
+  const heartbeat = setInterval(() => {
+    void updateOwned(job, token, { locked_at: sqlTime(DateTime.utc()) }).catch(() => {})
+  }, HEARTBEAT_MS)
+  heartbeat.unref()
 
   const ctx: JobContext = {
     async progress(progress) {
       job.payload = { ...job.payload, progress }
-      job.lockedAt = DateTime.utc()
-      await job.save()
+      await updateOwned(job, token, {
+        payload: JSON.stringify(job.payload),
+        locked_at: sqlTime(DateTime.utc()),
+      })
     },
   }
 
   try {
-    await handler.run(job, ctx)
-    job.merge({ status: 'done', lastError: null, lockedAt: null })
-    await job.save()
-  } catch (error) {
-    const message = error instanceof Error && error.message ? error.message : t('gen.unexpected')
-    const retryable = error instanceof AiProviderError && error.retryable
+    try {
+      await handler.run(job, ctx)
+    } catch (error) {
+      const message = error instanceof Error && error.message ? error.message : t('gen.unexpected')
+      const retryable = error instanceof AiProviderError && error.retryable
 
-    if (!(error instanceof AiProviderError)) {
-      logger.error({ err: error, jobId: job.id }, 'job failed with unexpected error')
-    }
+      if (!(error instanceof AiProviderError)) {
+        logger.error({ err: error, jobId: job.id }, 'job failed with unexpected error')
+      }
 
-    if (retryable && job.attempts < limits.maxRetries) {
-      job.merge({
-        status: 'queued',
-        lastError: message,
-        lockedAt: null,
-        runAt: DateTime.utc().plus({ seconds: 5 * 2 ** job.attempts }),
-      })
-      await job.save()
-      await handler.onRetry?.(job, message)
+      if (retryable && job.attempts < limits.maxRetries) {
+        const runAt = DateTime.utc().plus({ seconds: 5 * 2 ** job.attempts })
+        if (
+          await updateOwned(job, token, {
+            status: 'queued',
+            last_error: message,
+            locked_at: null,
+            locked_by: null,
+            run_at: sqlTime(runAt),
+          })
+        ) {
+          await handler.onRetry?.(job, message)
+        }
+        return
+      }
+
+      if (
+        await updateOwned(job, token, {
+          status: 'failed',
+          last_error: message,
+          locked_at: null,
+          locked_by: null,
+        })
+      ) {
+        await handler.onFailed(job, message)
+      } else {
+        logger.warn({ jobId: job.id }, 'job lost its lock before failing — result discarded')
+      }
       return
     }
 
-    job.merge({ status: 'failed', lastError: message, lockedAt: null })
-    await job.save()
-    await handler.onFailed(job, message)
+    if (
+      !(await updateOwned(job, token, {
+        status: 'done',
+        last_error: null,
+        locked_at: null,
+        locked_by: null,
+      }))
+    ) {
+      logger.warn({ jobId: job.id }, 'job lost its lock before finishing')
+    }
+  } finally {
+    clearInterval(heartbeat)
+    owned.delete(token)
   }
+}
+
+/**
+ * Przy zamykaniu procesu (deploy): zadania, których nie zdążyliśmy skończyć,
+ * wracają od razu do kolejki zamiast czekać na odzyskanie po 10 minutach.
+ */
+export async function releaseOwnedJobs(): Promise<number> {
+  let released = 0
+  for (const [token, id] of owned) {
+    const affected = await db.from('jobs').where('id', id).where('locked_by', token).update({
+      status: 'queued',
+      locked_at: null,
+      locked_by: null,
+      run_at: null,
+      last_error: 'Interrupted by restart',
+      updated_at: new Date(),
+    })
+    if ((Array.isArray(affected) ? Number(affected[0]) : Number(affected)) === 1) released++
+    owned.delete(token)
+  }
+  return released
 }
 
 /** Uruchamia zadania gotowe do wykonania, jedno po drugim. Zwraca ich liczbę. */
@@ -222,13 +312,22 @@ export async function recoverStaleJobs(): Promise<number> {
 }
 
 async function recoverOne(job: Job): Promise<void> {
-  if (job.attempts < limits.maxRetries) {
-    job.merge({ status: 'queued', lockedAt: null, lastError: t('gen.interruptedRetry') })
-    await job.save()
-    await handlers[job.type]?.onRetry?.(job, t('gen.interruptedRetry'))
-  } else {
-    job.merge({ status: 'failed', lockedAt: null, lastError: t('gen.interruptedTooMany') })
-    await job.save()
-    await handlers[job.type]?.onFailed(job, t('gen.interrupted'))
-  }
+  // Przejęcie warunkowe: tylko jeśli nikt w międzyczasie nie odświeżył blokady.
+  const threshold = DateTime.utc().minus({ milliseconds: limits.jobLockTimeoutMs })
+  const retry = job.attempts < limits.maxRetries
+  const affected = await db
+    .from('jobs')
+    .where('id', job.id)
+    .where('status', 'running')
+    .where('locked_at', '<', sqlTime(threshold))
+    .update({
+      status: retry ? 'queued' : 'failed',
+      locked_at: null,
+      locked_by: null,
+      last_error: retry ? t('gen.interruptedRetry') : t('gen.interruptedTooMany'),
+      updated_at: new Date(),
+    })
+  if ((Array.isArray(affected) ? Number(affected[0]) : Number(affected)) !== 1) return
+  if (retry) await handlers[job.type]?.onRetry?.(job, t('gen.interruptedRetry'))
+  else await handlers[job.type]?.onFailed(job, t('gen.interrupted'))
 }

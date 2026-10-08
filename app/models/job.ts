@@ -26,6 +26,10 @@ export default class Job extends BaseModel {
   @column.dateTime()
   declare lockedAt: DateTime | null
 
+  /** Token procesu, który trzyma zadanie (zakończenie tylko przez właściciela). */
+  @column()
+  declare lockedBy: string | null
+
   @column()
   declare lastError: string | null
 
