@@ -394,7 +394,7 @@ export class EmailLogSchema extends BaseModel {
 }
 
 export class JobSchema extends BaseModel {
-  static $columns = ['attempts', 'createdAt', 'id', 'lastError', 'lockedAt', 'payload', 'runAt', 'status', 'type', 'updatedAt'] as const
+  static $columns = ['attempts', 'createdAt', 'id', 'lastError', 'lockedAt', 'lockedBy', 'payload', 'runAt', 'status', 'type', 'updatedAt'] as const
   $columns = JobSchema.$columns
   @column()
   declare attempts: number
@@ -406,6 +406,8 @@ export class JobSchema extends BaseModel {
   declare lastError: string | null
   @column.dateTime()
   declare lockedAt: DateTime | null
+  @column()
+  declare lockedBy: string | null
   @column()
   declare payload: any
   @column.dateTime()

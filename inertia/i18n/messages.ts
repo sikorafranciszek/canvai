@@ -124,8 +124,8 @@ export const pl = {
   'save.loading': 'Wczytywanie…',
   'save.saved': 'Zapisano',
   'save.saving': 'Zapisywanie…',
-  'save.error': 'Błąd zapisu',
-  'save.errorHint': 'Zmiany zostaną zapisane ponownie przy następnej edycji',
+  'save.error': 'Nie zapisano — ponawiam',
+  'save.errorHint': 'Brak połączenia z serwerem — ponawiamy zapis automatycznie; zmiany są w przeglądarce',
   'save.hint': 'Stan zapisu tablicy',
 
   // Narzędzia
@@ -767,6 +767,7 @@ export const pl = {
   'usage.aspect.components': 'Komponenty',
   'usage.aspect.imagery': 'Grafika',
   'usage.aspect.copy': 'Teksty',
+  'session.assetsRefreshFailed': 'Nie udało się odświeżyć listy materiałów — pokazujemy ostatnią wersję.',
 } as const
 
 export type MessageKey = keyof typeof pl
@@ -885,8 +886,8 @@ export const en: Record<MessageKey, string> = {
   'save.loading': 'Loading…',
   'save.saved': 'Saved',
   'save.saving': 'Saving…',
-  'save.error': 'Save failed',
-  'save.errorHint': 'Changes will be saved again on your next edit',
+  'save.error': 'Not saved — retrying',
+  'save.errorHint': 'No connection to the server — saving is retried automatically; your changes are kept in the browser',
   'save.hint': 'Board save status',
 
   'tools.label': 'Tools',
@@ -1521,4 +1522,5 @@ export const en: Record<MessageKey, string> = {
   'usage.aspect.components': 'Components',
   'usage.aspect.imagery': 'Imagery',
   'usage.aspect.copy': 'Copy',
+  'session.assetsRefreshFailed': 'Could not refresh materials — showing the last known list.',
 }

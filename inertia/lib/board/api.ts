@@ -72,7 +72,7 @@ export async function getScene(boardId: number): Promise<SceneResponse> {
 
 export async function putScene(
   boardId: number,
-  payload: { version: number; document: SceneDocument; appState: Record<string, unknown> },
+  payload: { version: number; document: SceneDocument; appState: Record<string, unknown> | null },
   opts: { keepalive?: boolean } = {}
 ): Promise<number> {
   const res = await fetch(`/api/boards/${boardId}/scene`, {

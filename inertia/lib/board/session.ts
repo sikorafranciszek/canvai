@@ -99,7 +99,7 @@ interface BoardState {
 
 // Silnik autosave i subskrypcja żyją poza store'em (nie są serializowalne
 // i nie powinny wywoływać re-renderów).
-let engine: AutosaveEngine<SceneDocument, Record<string, unknown>> | null = null
+let engine: AutosaveEngine<SceneDocument, Record<string, unknown> | null> | null = null
 let unsubscribeScene: (() => void) | null = null
 let lastDocument: SceneDocument | null = null
 let lastCamera: Camera = DEFAULT_CAMERA
@@ -143,13 +143,15 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       // Nowszy init/dispose wygrał — ten wczytuje nieaktualną tablicę.
       if (seq !== initSeq) return
       useSceneStore.getState().loadDocument(document)
-      useSceneStore.getState().setCamera(cameraFromAppState(appState))
+      // Kamera jest osobista (DAT-4): ostatni widok tego użytkownika, a przy
+      // pierwszym otwarciu — widok startowy zapisany w tablicy (szablon, przykład).
+      useSceneStore.getState().setCamera(loadCamera(boardId) ?? cameraFromAppState(appState))
 
       lastDocument = document
       lastCamera = useSceneStore.getState().camera
       syncedDocument = document
 
-      engine = new AutosaveEngine<SceneDocument, Record<string, unknown>>(
+      engine = new AutosaveEngine<SceneDocument, Record<string, unknown> | null>(
         {
           debounceMs: 1000,
           save: ({ version, document, appState }) =>
@@ -184,10 +186,14 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
           lastCamera = state.camera
           return
         }
-        if (state.document !== lastDocument || state.camera !== lastCamera) {
-          lastDocument = state.document
+        if (state.camera !== lastCamera) {
           lastCamera = state.camera
-          engine?.schedule(state.document, { camera: state.camera })
+          saveCamera(boardId, state.camera)
+        }
+        // Tylko zmiana treści jest zapisem sceny — ruch kamery nie podbija wersji.
+        if (state.document !== lastDocument) {
+          lastDocument = state.document
+          engine?.schedule(state.document, null)
           set({ saveStatus: 'dirty' })
         }
       })
@@ -224,7 +230,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
     // Lokalne zmiany, których serwer jeszcze nie ma, idą w zapisie z nową wersją;
     // bez nich zaplanowany zapis jest zbędny (zawierałby starą scenę).
     if (!get().readOnly && hasLocalChanges(fresh.document, merged)) {
-      engine.schedule(merged, { camera: useSceneStore.getState().camera })
+      engine.schedule(merged, null)
     } else {
       engine.cancelPending()
     }
@@ -250,7 +256,8 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       const assets = await listAssets(boardId)
       set({ assets })
     } catch {
-      set({ assets: [] })
+      // Chwilowy błąd sieci nie czyści listy (DAT-5) — zostaje poprzedni stan.
+      toast.error(translate('session.assetsRefreshFailed'))
     } finally {
       set({ assetsLoading: false })
     }
@@ -258,15 +265,19 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
 
   async saveNow(opts) {
     const boardId = get().boardId
-    if (boardId == null) return
-    const { document, camera } = useSceneStore.getState()
+    if (boardId == null || get().readOnly) return
+    // Bez niezapisanych zmian nie ma czego wysyłać (nie podbijamy wersji).
+    const status = get().saveStatus
+    if (status !== 'dirty' && status !== 'error' && !engine?.hasPending) return
+    const { document } = useSceneStore.getState()
     const version = engine?.currentVersion ?? get().version
     try {
       const next = await putScene(
         boardId,
-        { version, document, appState: { camera } },
+        { version, document, appState: null },
         { keepalive: opts?.keepalive ?? false }
       )
+      engine?.cancelPending()
       engine?.setVersion(next)
       set({ version: next, saveStatus: 'saved' })
     } catch (error) {
@@ -627,4 +638,47 @@ if (typeof window !== 'undefined') {
       void useBoardStore.getState().pullRemote(version)
     }
   })
+}
+
+// Kamera per użytkownik i tablica, w przeglądarce (DAT-4).
+const CAMERA_KEY = (boardId: number) => `canvai.camera.${boardId}`
+let cameraTimer: ReturnType<typeof setTimeout> | null = null
+
+function loadCamera(boardId: number): Camera | null {
+  try {
+    const raw = localStorage.getItem(CAMERA_KEY(boardId))
+    if (!raw) return null
+    const cam = JSON.parse(raw) as Camera
+    return Number.isFinite(cam.x) && Number.isFinite(cam.y) && Number.isFinite(cam.scale)
+      ? cam
+      : null
+  } catch {
+    return null
+  }
+}
+
+function saveCamera(boardId: number, camera: Camera) {
+  if (cameraTimer) clearTimeout(cameraTimer)
+  cameraTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(CAMERA_KEY(boardId), JSON.stringify(camera))
+    } catch {
+      // Brak dostępu do localStorage (tryb prywatny) — widok po prostu się nie zapamięta.
+    }
+  }, 400)
+}
+
+// Po powrocie sieci nieudany zapis idzie od razu (DAT-5).
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    if (engine?.failing) void engine.retryNow()
+  })
+}
+
+/** Czy są zmiany, których serwer jeszcze nie ma (ostrzeżenie przy zamykaniu karty). */
+export function hasUnsavedChanges(): boolean {
+  const status = useBoardStore.getState().saveStatus
+  return (
+    status === 'dirty' || status === 'saving' || status === 'error' || Boolean(engine?.hasPending)
+  )
 }

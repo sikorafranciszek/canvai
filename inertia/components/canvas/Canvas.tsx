@@ -12,7 +12,7 @@ import {
   prepareElementsForPaste,
   serializeElements,
 } from '@shared/clipboard'
-import { useBoardStore } from '~/lib/board/session'
+import { hasUnsavedChanges, useBoardStore } from '~/lib/board/session'
 import { SceneElementNode } from './SceneElementNode'
 import { TextEditor } from './TextEditor'
 import { SiteImportButton } from './SiteImportDialog'
@@ -222,8 +222,12 @@ export function Canvas({ boardId, readOnly = false }: { boardId: number; readOnl
   }, [boardId, readOnly])
 
   useEffect(() => {
-    const onBeforeUnload = () => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!hasUnsavedChanges()) return
       void useBoardStore.getState().saveNow({ keepalive: true })
+      // Niezapisane zmiany: przeglądarka zapyta, czy na pewno zamknąć kartę.
+      e.preventDefault()
+      e.returnValue = ''
     }
     window.addEventListener('beforeunload', onBeforeUnload)
     return () => window.removeEventListener('beforeunload', onBeforeUnload)

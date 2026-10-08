@@ -13,7 +13,9 @@
  *   `rebase` zapisywany jest wynik scalenia (zmiany innych osób + lokalne),
  *   bez niej — lokalny dokument (last-write-wins z jawnym komunikatem).
  *   Kolejny konflikt kończy się statusem `error` — bez nieskończonej pętli.
- * - Inny błąd (sieć, 422, 500) → status `error`.
+ * - Inny błąd (sieć, 422, 500) → status `error`, a dokument NIE przepada:
+ *   wraca do kolejki i zapis jest ponawiany z rosnącym odstępem
+ *   (`retryDelaysMs`), a także od razu po `retryNow()` (np. zdarzenie online).
  */
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
@@ -57,6 +59,8 @@ export interface AutosaveOptions<D = unknown, A = unknown> {
   }
   /** Po udanym zapisie — co trafiło na serwer i z jaką wersją. */
   onSaved?: (payload: { document: D; appState: A }, version: number) => void
+  /** Odstępy kolejnych ponowień po błędzie (ostatni powtarzany). */
+  retryDelaysMs?: number[]
   setTimeoutFn?: (callback: () => void, ms: number) => ReturnType<typeof setTimeout>
   clearTimeoutFn?: (handle: ReturnType<typeof setTimeout>) => void
 }
@@ -67,6 +71,8 @@ export class AutosaveEngine<D = unknown, A = unknown> {
   #queued: { document: D; appState: A } | null = null
   #inFlight: Promise<void> | null = null
   #disposed = false
+  #retryTimer: ReturnType<typeof setTimeout> | null = null
+  #failures = 0
   readonly #setTimeoutFn: (cb: () => void, ms: number) => ReturnType<typeof setTimeout>
   readonly #clearTimeoutFn: (h: ReturnType<typeof setTimeout>) => void
 
@@ -90,6 +96,32 @@ export class AutosaveEngine<D = unknown, A = unknown> {
   /** Czy czeka zaplanowany (jeszcze niewysłany) zapis. */
   get hasPending(): boolean {
     return this.#queued !== null
+  }
+
+  /** Czy ostatni zapis się nie udał (i czeka na ponowienie). */
+  get failing(): boolean {
+    return this.#failures > 0
+  }
+
+  /** Ponawia nieudany zapis od razu (np. po powrocie sieci). */
+  retryNow(): Promise<void> {
+    if (this.#retryTimer) this.#clearTimeoutFn(this.#retryTimer)
+    this.#retryTimer = null
+    return this.flush()
+  }
+
+  /** Nieudany zapis wraca do kolejki (chyba że jest już nowszy stan) i czeka na ponowienie. */
+  #fail(payload: { document: D; appState: A }) {
+    if (!this.#queued) this.#queued = payload
+    this.#failures++
+    this.opts.onStatus('error')
+    const delays = this.opts.retryDelaysMs ?? [2000, 5000, 10_000, 30_000, 60_000]
+    const delay = delays[Math.min(this.#failures - 1, delays.length - 1)]
+    if (this.#retryTimer) this.#clearTimeoutFn(this.#retryTimer)
+    this.#retryTimer = this.#setTimeoutFn(() => {
+      this.#retryTimer = null
+      void this.flush()
+    }, delay)
   }
 
   /** Porzuca zaplanowany zapis (np. gdy zdalna wersja już go zawiera). */
@@ -133,6 +165,7 @@ export class AutosaveEngine<D = unknown, A = unknown> {
           appState: payload.appState,
         })
         this.opts.onSaved?.(payload, this.#version)
+        this.#failures = 0
         this.opts.onStatus('saved')
       } catch (error) {
         if (error instanceof AutosaveConflictError) {
@@ -144,8 +177,8 @@ export class AutosaveEngine<D = unknown, A = unknown> {
           }
 
           if (!fresh) {
-            this.opts.onStatus('error')
-            continue
+            this.#fail(payload)
+            return
           }
 
           this.#version = fresh.version
@@ -160,12 +193,15 @@ export class AutosaveEngine<D = unknown, A = unknown> {
               appState: next.appState,
             })
             this.opts.onSaved?.(next, this.#version)
+            this.#failures = 0
             this.opts.onStatus('saved')
           } catch {
-            this.opts.onStatus('error')
+            this.#fail(next)
+            return
           }
         } else {
-          this.opts.onStatus('error')
+          this.#fail(payload)
+          return
         }
       }
     }
@@ -174,7 +210,9 @@ export class AutosaveEngine<D = unknown, A = unknown> {
   dispose(): void {
     this.#disposed = true
     if (this.#timer) this.#clearTimeoutFn(this.#timer)
+    if (this.#retryTimer) this.#clearTimeoutFn(this.#retryTimer)
     this.#timer = null
+    this.#retryTimer = null
     this.#queued = null
   }
 }
