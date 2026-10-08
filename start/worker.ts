@@ -26,55 +26,60 @@ const SCHEDULER_EVERY_MS = 60_000
 /** Ile czekać na bieżące zadanie przy zamykaniu (krócej niż stop_grace_period). */
 const SHUTDOWN_GRACE_MS = 20_000
 
-if (env.get('QUEUE_INLINE_WORKER', true)) {
-  workerPulse.enabled = true
-  const worker = startQueueWorker({
-    concurrency: env.get('QUEUE_CONCURRENCY', 3),
-    pollMs: POLL_MS,
-    recoverEveryMs: RECOVER_EVERY_MS,
-    onTick: (busySince) => {
-      workerPulse.lastTickAt = Date.now()
-      // Zdrowie: „zajęty od” = najstarsze trwające zadanie, 0 = bezczynny.
-      workerPulse.busySince = busySince
-    },
-  })
-  // Zamykanie (deploy): czekamy chwilę na bieżące zadania, resztę oddajemy do kolejki.
-  app.terminating(async () => {
-    const released = await worker.stop(SHUTDOWN_GRACE_MS)
-    if (released) logger.info({ released }, 'jobs returned to queue on shutdown')
-  })
-}
+/** Tylko proces serwera HTTP (bin/server.ts), nie polecenia ace w trybie web. */
+const isHttpServer = process.env.CANVAI_HTTP_SERVER === '1'
 
-/**
- * Zadania cykliczne (kopie zapasowe, maile) i wysyłka zebranych alertów.
- * Osobna pętla — długa kopia zapasowa nie blokuje kolejki generacji.
- */
-{
-  let busy = false
-  const schedule = async () => {
-    if (busy) return
-    busy = true
-    try {
-      await runDueTasks()
-    } catch (error) {
-      logger.warn({ err: error }, 'scheduler tick failed')
-    } finally {
-      busy = false
-    }
+if (isHttpServer) {
+  if (env.get('QUEUE_INLINE_WORKER', true)) {
+    workerPulse.enabled = true
+    const worker = startQueueWorker({
+      concurrency: env.get('QUEUE_CONCURRENCY', 3),
+      pollMs: POLL_MS,
+      recoverEveryMs: RECOVER_EVERY_MS,
+      onTick: (busySince) => {
+        workerPulse.lastTickAt = Date.now()
+        // Zdrowie: „zajęty od” = najstarsze trwające zadanie, 0 = bezczynny.
+        workerPulse.busySince = busySince
+      },
+    })
+    // Zamykanie (deploy): czekamy chwilę na bieżące zadania, resztę oddajemy do kolejki.
+    app.terminating(async () => {
+      const released = await worker.stop(SHUTDOWN_GRACE_MS)
+      if (released) logger.info({ released }, 'jobs returned to queue on shutdown')
+    })
   }
-  const scheduler = setInterval(() => {
-    void schedule()
-    void flushAlerts().catch((error) => logger.warn({ err: error }, 'alerts flush failed'))
-  }, SCHEDULER_EVERY_MS)
-  scheduler.unref()
-  app.terminating(async () => {
-    clearInterval(scheduler)
-    await flushAlerts(true).catch(() => {})
+
+  /**
+   * Zadania cykliczne (kopie zapasowe, maile) i wysyłka zebranych alertów.
+   * Osobna pętla — długa kopia zapasowa nie blokuje kolejki generacji.
+   */
+  {
+    let busy = false
+    const schedule = async () => {
+      if (busy) return
+      busy = true
+      try {
+        await runDueTasks()
+      } catch (error) {
+        logger.warn({ err: error }, 'scheduler tick failed')
+      } finally {
+        busy = false
+      }
+    }
+    const scheduler = setInterval(() => {
+      void schedule()
+      void flushAlerts().catch((error) => logger.warn({ err: error }, 'alerts flush failed'))
+    }, SCHEDULER_EVERY_MS)
+    scheduler.unref()
+    app.terminating(async () => {
+      clearInterval(scheduler)
+      await flushAlerts(true).catch(() => {})
+    })
+  }
+
+  // Strumienie na żywo nie mogą blokować zamknięcia serwera HTTP przy deployu.
+  app.terminating(() => {
+    const closed = closeLiveStreams()
+    if (closed) logger.info({ closed }, 'live streams closed on shutdown')
   })
 }
-
-// Strumienie na żywo nie mogą blokować zamknięcia serwera HTTP przy deployu.
-app.terminating(() => {
-  const closed = closeLiveStreams()
-  if (closed) logger.info({ closed }, 'live streams closed on shutdown')
-})

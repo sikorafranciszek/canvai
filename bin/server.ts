@@ -9,6 +9,13 @@
 |
 */
 
+/**
+ * Znacznik procesu serwera HTTP: worker kolejki i harmonogram (start/worker.ts)
+ * startują tylko tutaj — nie w poleceniach ace (`codegen`/`build` w obrazie
+ * Dockera bootują aplikację w trybie web i zawisały na otwartej bazie).
+ */
+process.env.CANVAI_HTTP_SERVER = '1'
+
 await import('reflect-metadata')
 const { Ignitor, prettyPrintError } = await import('@adonisjs/core/ignitor')
 
@@ -34,12 +41,18 @@ new Ignitor(APP_ROOT, { importer: IMPORTER })
     app.booting(async () => {
       await import('#start/env')
     })
+    // REL-3: tylko serwer HTTP (nie polecenia ace przy budowaniu obrazu).
+    app.booted(async () => {
+      const { assertProductionConfig } = await import('#start/production_checks')
+      assertProductionConfig()
+    })
     app.listen('SIGTERM', () => app.terminate())
     app.listenIf(app.managedByPm2, 'SIGINT', () => app.terminate())
   })
   .httpServer()
   .start()
-  .catch((error) => {
-    process.exitCode = 1
-    prettyPrintError(error)
+  .catch(async (error) => {
+    await prettyPrintError(error)
+    // Otwarte połączenia (baza, timery) nie mogą trzymać procesu, który nie wystartował.
+    process.exit(1)
   })
