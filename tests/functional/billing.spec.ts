@@ -566,6 +566,30 @@ test.group('Billing', (group) => {
       })
     ).assertStatus(202)
     assert.equal(await planFor(user.id), 'free')
+
+    // SEC-15: spóźnione starsze `updated` (active) nie przywraca planu po `revoked`.
+    const now = DateTime.utc()
+    ;(
+      await webhook(client, {
+        type: 'subscription.revoked',
+        data: { ...sub, status: 'canceled', ended_at: now.toISO(), modified_at: now.toISO() },
+      })
+    ).assertStatus(202)
+    ;(
+      await webhook(client, {
+        type: 'subscription.updated',
+        data: { ...sub, status: 'active', modified_at: now.minus({ minutes: 5 }).toISO() },
+      })
+    ).assertStatus(202)
+    assert.equal(await planFor(user.id), 'free')
+    // Nowsze zdarzenie (wznowienie) działa.
+    ;(
+      await webhook(client, {
+        type: 'subscription.updated',
+        data: { ...sub, status: 'active', modified_at: now.plus({ minutes: 1 }).toISO() },
+      })
+    ).assertStatus(202)
+    assert.equal(await planFor(user.id), 'pro')
   })
 
   test('webhook: sekret sprzed 2026-09-08 (klucz = bajty UTF-8 całego whsec_…) też działa', async ({

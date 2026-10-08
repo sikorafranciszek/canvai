@@ -179,12 +179,22 @@ async function resolveUser(data: Record<string, any>): Promise<User | null> {
   return email ? User.findBy('email', email.toLowerCase()) : null
 }
 
-/** Upsert subskrypcji z danych Polar (`subscription.*`). */
-async function upsertSubscription(userId: number, data: Record<string, any>) {
+/**
+ * Upsert subskrypcji z danych Polar (`subscription.*`). SEC-15: zdarzenia
+ * przychodzą w dowolnej kolejności — starsze (`modified_at`, a bez niego czas
+ * webhooka) niż zapisany stan jest pomijane, np. spóźnione `updated` po `revoked`.
+ */
+async function upsertSubscription(userId: number, data: Record<string, any>, eventAt?: string) {
   const product = productByPolarId(data.product_id)
   if (!product?.plan) {
     logger.warn({ product: data.product_id }, 'Polar: subscription with unknown product')
     return null
+  }
+  const at = parseDate(data.modified_at) ?? parseDate(eventAt) ?? null
+  const current = await Subscription.findBy('external_id', String(data.id))
+  if (current?.sourceModifiedAt && at && at < current.sourceModifiedAt) {
+    logger.info({ id: data.id, status: data.status }, 'Polar: stale subscription event ignored')
+    return current
   }
   const periodEnd = parseDate(data.current_period_end)
   const endsAt =
@@ -202,6 +212,7 @@ async function upsertSubscription(userId: number, data: Record<string, any>) {
       status: data.status as SubscriptionStatus,
       renewsAt: data.cancel_at_period_end ? null : periodEnd,
       endsAt,
+      ...(at ? { sourceModifiedAt: at } : {}),
     }
   )
 }
@@ -282,7 +293,7 @@ export async function handleWebhook(payload: WebhookPayload): Promise<WebhookOut
     case 'subscription.past_due':
     case 'subscription.paused':
     case 'subscription.resumed': {
-      const sub = await upsertSubscription(user.id, data)
+      const sub = await upsertSubscription(user.id, data, payload.timestamp)
       if (sub)
         track(
           'subscription_changed',

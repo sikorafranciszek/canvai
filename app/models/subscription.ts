@@ -46,6 +46,10 @@ export default class Subscription extends BaseModel {
   @column.dateTime()
   declare endsAt: DateTime | null
 
+  /** Czas zdarzenia Polar, z którego pochodzi stan (SEC-15). */
+  @column.dateTime()
+  declare sourceModifiedAt: DateTime | null
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 
