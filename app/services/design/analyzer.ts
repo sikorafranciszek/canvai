@@ -35,9 +35,18 @@ export function assetLinkMeta(asset: Asset): { title?: string; description?: str
   return link ?? null
 }
 
-/** Klucz treści assetu: sha256 pliku albo hash URL+metadanych dla linku. */
+/**
+ * Klucz treści assetu. Obraz: sha256 bajtów (analiza nie widzi nazwy pliku,
+ * więc wynik zależy tylko od obrazu). PDF / plik / link: analiza opiera się na
+ * nazwie i metadanych, więc wchodzą one do klucza — inaczej konto B dostałoby
+ * analizę z nazwą pliku konta A.
+ */
 export function analysisCacheKey(asset: Asset): string {
-  if (asset.sha256) return `sha256:${asset.sha256}`
+  if (asset.sha256 && asset.kind === 'image') return `sha256:${asset.sha256}`
+  if (asset.sha256) {
+    const named = JSON.stringify([asset.sha256, asset.filename])
+    return `${asset.kind}:${createHash('sha256').update(named).digest('hex')}`
+  }
   const payload = JSON.stringify([asset.kind, asset.filename, assetLinkMeta(asset)])
   return `${asset.kind}:${createHash('sha256').update(payload).digest('hex')}`
 }
