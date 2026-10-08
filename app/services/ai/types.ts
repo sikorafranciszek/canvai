@@ -76,6 +76,11 @@ export interface AnalyzeAssetInput {
   linkMeta: { title?: string; description?: string } | null
   /** Obraz przygotowany pod limity dostawcy (wariant `analysis`), jeśli jest. */
   image: { buffer: Buffer; mime: string } | null
+  /** Kilka obrazów jednego materiału (AI-7): kafle długiej strony albo strony PDF. */
+  images?: { buffer: Buffer; mime: string }[]
+  layout?: 'single' | 'tiles' | 'pages'
+  /** Tekst stron PDF (niezaufany). */
+  documentText?: string
 }
 
 export interface ComposeAssetInput {

@@ -137,12 +137,15 @@ export class DeepseekProvider implements AiProvider {
     const text = buildAnalyzeUserText(this.vision ? input : { ...input, image: null })
     const userContent: Extract<ChatMessage, { role: 'user' }>['content'] = [{ type: 'text', text }]
 
-    if (this.vision && input.image) {
-      const prepared = await prepareImageForVision(input.image, this.#vision)
-      userContent.push({
-        type: 'image_url',
-        image_url: { url: prepared.dataUrl, detail: this.#vision.detail },
-      })
+    const images = input.images?.length ? input.images : input.image ? [input.image] : []
+    if (this.vision) {
+      for (const image of images) {
+        const prepared = await prepareImageForVision(image, this.#vision)
+        userContent.push({
+          type: 'image_url',
+          image_url: { url: prepared.dataUrl, detail: this.#vision.detail },
+        })
+      }
     }
 
     const imageCount = userContent.filter((c) => c.type === 'image_url').length

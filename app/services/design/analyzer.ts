@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto'
-import drive from '@adonisjs/drive/services/main'
 import { limits } from '#config/ai'
 import type Asset from '#models/asset'
 import AssetAnalysis from '#models/asset_analysis'
@@ -7,6 +6,7 @@ import { validateAssetAnalysis } from '#services/ai/schemas'
 import { AiProviderError, type AiProvider, type AssetAnalysisData } from '#services/ai/types'
 import { ANALYSIS_PROMPT_VERSION as PROMPT_VERSION } from '#services/design/prompts'
 import { t } from '#services/i18n'
+import { analysisImagesFor, isTall } from '#services/design/analysis_images'
 
 /**
  * Etap 1: analiza assetów. Każdy asset analizowany osobno (równolegle, z
@@ -42,7 +42,15 @@ export function assetLinkMeta(asset: Asset): { title?: string; description?: str
  * analizę z nazwą pliku konta A.
  */
 export function analysisCacheKey(asset: Asset): string {
-  if (asset.sha256 && asset.kind === 'image') return `sha256:${asset.sha256}`
+  // Długie zrzuty analizowane kaflami (AI-7) — osobny klucz, reszta obrazów bez zmian.
+  if (asset.sha256 && asset.kind === 'image') {
+    return `sha256:${asset.sha256}${isTall(asset.width, asset.height) ? ':tiles-v1' : ''}`
+  }
+  // PDF: strony jako obrazy + tekst (wcześniej tylko nazwa pliku).
+  if (asset.sha256 && asset.kind === 'pdf') {
+    const named = JSON.stringify([asset.sha256, asset.filename, 'pages-v1'])
+    return `pdf:${createHash('sha256').update(named).digest('hex')}`
+  }
   if (asset.sha256) {
     const named = JSON.stringify([asset.sha256, asset.filename])
     return `${asset.kind}:${createHash('sha256').update(named).digest('hex')}`
@@ -59,21 +67,6 @@ export function assertTokenBudget(usage: UsageTracker, upcoming = 0): void {
       t('gen.tokenLimit', { total, limit: limits.maxTokensPerGeneration }),
       false
     )
-  }
-}
-
-async function loadImage(asset: Asset): Promise<{ buffer: Buffer; mime: string } | null> {
-  if (asset.kind !== 'image') return null
-  const key = asset.analysisKey ?? (asset.mime !== 'image/svg+xml' ? asset.storageKey : null)
-  if (!key) return null
-  try {
-    const bytes = await drive.use().getBytes(key)
-    return {
-      buffer: Buffer.from(bytes),
-      mime: asset.analysisKey ? 'image/webp' : (asset.mime ?? 'application/octet-stream'),
-    }
-  } catch {
-    return null
   }
 }
 
@@ -133,6 +126,7 @@ export async function analyzeAssets(
       cached++
     } else {
       assertTokenBudget(usage)
+      const prepared = await analysisImagesFor(asset)
       let result
       try {
         result = await provider.analyzeAsset({
@@ -143,7 +137,10 @@ export async function analyzeAssets(
           width: asset.width,
           height: asset.height,
           linkMeta: assetLinkMeta(asset),
-          image: await loadImage(asset),
+          image: prepared?.images[0] ?? null,
+          images: prepared?.images,
+          layout: prepared?.layout,
+          documentText: prepared?.text,
         })
       } catch (error) {
         // Nieudane próby też zużyły tokeny — liczą się do budżetu i kosztów.

@@ -99,10 +99,17 @@ export function buildAnalyzeUserText(input: AnalyzeAssetInput): string {
   const untrusted: string[] = input.image ? [] : [`name/URL: ${input.filename}`]
   if (input.linkMeta?.title) untrusted.push(`page title: ${input.linkMeta.title}`)
   if (input.linkMeta?.description) untrusted.push(`page description: ${input.linkMeta.description}`)
+  if (input.documentText) untrusted.push(`document text (first pages):\n${input.documentText}`)
 
-  const task = input.image
-    ? 'Analyse the attached image.'
-    : 'No image — rely on the metadata. If nothing can be said about visuals, leave palette/typography empty.'
+  const count = input.images?.length ?? (input.image ? 1 : 0)
+  const task =
+    input.layout === 'tiles' && count > 1
+      ? `The ${count} attached images are consecutive tiles (top to bottom, slightly overlapping) of ONE long page screenshot. Analyse them together as a single page; do not repeat text from the overlaps.`
+      : input.layout === 'pages' && count > 0
+        ? `The ${count} attached image(s) are the first page(s) of a PDF document. Analyse its design (colors, type, layout, components) together with the extracted text.`
+        : input.image
+          ? 'Analyse the attached image.'
+          : 'No image — rely on the metadata. If nothing can be said about visuals, leave palette/typography empty.'
 
   return [
     meta.join('\n'),

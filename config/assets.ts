@@ -64,9 +64,12 @@ export const thumbnail = {
   quality: 80,
 } as const
 
-/** Wariant do analizy AI: dłuższy bok maks. 1568 px (oszczędza koszt w M3). */
+/**
+ * Wariant do analizy AI (dla SVG i gdy brak oryginału): dłuższy bok = limit
+ * dostawcy (1300 px), więc obraz jest skalowany tylko raz (AI-7).
+ */
 export const analysis = {
-  maxDimension: 1568,
+  maxDimension: 1300,
   quality: 90,
 } as const
 

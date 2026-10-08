@@ -7,6 +7,7 @@ import { buildBoardContext } from '#services/design/board_context'
 import { assessQuality } from '#services/design/quality'
 import { renderCssVariables, renderDesignMd } from '#services/design/renderer'
 import { composeVerifiedSpec } from '#services/design/compose'
+import { isTall, tileImage } from '#services/design/analysis_images'
 import { colorDistance } from '#shared/color'
 import { normalizeUsage, type AssetUsage } from '#shared/asset-usage'
 
@@ -102,17 +103,27 @@ export async function loadCases(root: string, only?: string): Promise<EvalCase[]
 }
 
 /** Wariant obrazu jak w produkcji (`analysis`: webp, dłuższa krawędź ≤ 1568 px). */
+/** Obrazy jak w produkcji (AI-7): jedno skalowanie z oryginału, długie strony w kaflach. */
 async function analysisImage(file: string) {
-  const image = sharp(await readFile(file))
-  const meta = await image.metadata()
-  const buffer = await image
+  const original = await readFile(file)
+  const meta = await sharp(original).metadata()
+  const width = meta.width ?? null
+  const height = meta.height ?? null
+  if (isTall(width, height)) {
+    const tiles = await tileImage(original)
+    if (tiles.length > 1) {
+      const images = tiles.map((buffer) => ({ buffer, mime: 'image/webp' }))
+      return { images, layout: 'tiles' as const, width, height }
+    }
+  }
+  const buffer = await sharp(original)
     .resize(analysisVariant.maxDimension, analysisVariant.maxDimension, {
       fit: 'inside',
       withoutEnlargement: true,
     })
     .webp({ quality: analysisVariant.quality })
     .toBuffer()
-  return { buffer, mime: 'image/webp', width: meta.width ?? null, height: meta.height ?? null }
+  return { images: [{ buffer, mime: 'image/webp' }], layout: 'single' as const, width, height }
 }
 
 /** Tokeny z wartością, która nie wygląda na CSS (opis w nawiasie, słowa). */
@@ -236,7 +247,9 @@ export async function runCase(c: EvalCase, provider: AiProvider): Promise<EvalRe
         width: img.width,
         height: img.height,
         linkMeta: null,
-        image: provider.vision ? { buffer: img.buffer, mime: img.mime } : null,
+        image: provider.vision ? img.images[0] : null,
+        images: provider.vision ? img.images : undefined,
+        layout: img.layout,
       })
       tokens.in += res.usage.tokensIn
       tokens.out += res.usage.tokensOut
