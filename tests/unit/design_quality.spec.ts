@@ -119,6 +119,52 @@ test.group('Ocena jakości DESIGN.md', () => {
     assert.include(markdown, 'confirmed by client')
     assert.notInclude(markdown, 'color „Alert”')
   })
+
+  test('edycja (AI-10): hex z granicą, font i promień w opisach i promptach', ({ assert }) => {
+    const base = spec({
+      typography: {
+        families: [{ name: 'Inter', token: '--font-inter', sources: [1] }],
+        scale: [{ role: 'body', family: 'Inter', size: '14px' }],
+      },
+      radii: [{ element: 'cards', value: '8px' }],
+      components: [
+        {
+          name: 'Card',
+          description:
+            'Inter 14px on #ffffff, 8px radius, padding 8px; overlay #ffffff80; short #fff',
+          states: ['hover: border-radius 8px'],
+          sources: [1],
+        },
+      ],
+      agentGuide: { componentPrompts: ['Build a card in Inter with rounded 8px corners'] },
+    })
+    const { spec: edited } = applySpecEdits(base, {
+      colors: [{ token: '--color-text', hex: '#fafafa' }],
+      families: [{ token: '--font-inter', name: 'Manrope' }],
+      radii: [{ name: 'cards', value: '12px' }],
+    })
+    const desc = edited.components[0].description
+    assert.include(desc, '#fafafa,')
+    assert.include(desc, '#ffffff80', '8-cyfrowy hex nie jest psuty')
+    assert.include(desc, 'short #fafafa')
+    assert.include(desc, '12px radius')
+    assert.include(desc, 'padding 8px', 'inne 8px zostają')
+    assert.include(edited.components[0].states[0], 'border-radius 12px')
+    assert.include(edited.agentGuide.componentPrompts[0], 'Manrope')
+    assert.include(edited.agentGuide.componentPrompts[0], 'rounded 12px')
+    assert.notInclude(
+      JSON.stringify({ ...edited, typography: { ...edited.typography, families: [] } }),
+      'Inter '
+    )
+    assert.equal(edited.typography.families[0].token, '--font-inter')
+    assert.equal(edited.typography.scale[0].family, 'Manrope')
+    const { markdown } = renderDesignMd(edited, [], {
+      boardTitle: 'B',
+      version: 2,
+      generatedAt: 'now',
+    })
+    assert.notMatch(markdown, /\bInter\b/)
+  })
 })
 
 test.group('Eksporty dla narzędzi', () => {
