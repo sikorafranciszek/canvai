@@ -42,6 +42,9 @@ export const pl = {
   // DESIGN.md — API
   'doc.inProgress': 'Generacja DESIGN.md dla tej tablicy już trwa',
   'doc.cancelled': 'Generacja anulowana — kredyty wróciły na konto',
+  'doc.revisionNoBase':
+    'Wersja, którą chcesz poprawić, nie ma specyfikacji — wygeneruj DESIGN.md ponownie.',
+  'doc.revisionNotReady': 'Poprawiać można tylko gotową wersję DESIGN.md.',
   'doc.emptyBoard': 'Tablica jest pusta — dodaj zrzuty ekranu, obrazy, linki albo notatki',
   'doc.tooManyAssets':
     'Tablica ma {count} materiałów, a limit jednej generacji to {limit}. Usuń część materiałów albo podnieś limit w config/ai.ts.',
@@ -214,7 +217,8 @@ export const pl = {
   'ops.budgetUserTokens':
     'Osiągnięto dzienny limit zużycia AI dla konta. Spróbuj ponownie jutro albo napisz do nas.',
   'figma.badUrl': 'To nie jest link do pliku Figmy (figma.com/design/…).',
-  'figma.tokenRequired': 'Podaj osobisty token Figmy (Figma → Settings → Security → Personal access tokens).',
+  'figma.tokenRequired':
+    'Podaj osobisty token Figmy (Figma → Settings → Security → Personal access tokens).',
   'figma.auth': 'Figma odrzuciła token albo nie masz dostępu do tego pliku.',
   'figma.notFound': 'Nie znaleziono pliku albo ramki w Figmie.',
   'figma.rateLimited': 'Figma ogranicza liczbę zapytań — spróbuj za chwilę.',
@@ -226,17 +230,22 @@ export const pl = {
   'lifecycle.settingsSaved': 'Zapisano ustawienia powiadomień',
   'lifecycle.boardWaiting.subject': 'Tablica „{title}” czeka na DESIGN.md',
   'lifecycle.boardWaiting.heading': 'Materiały są gotowe — brakuje jednego kliknięcia',
-  'lifecycle.boardWaiting.p1': 'Na tablicy „{title}” masz {n} materiałów, ale nie powstał jeszcze DESIGN.md.',
-  'lifecycle.boardWaiting.p2': 'Generacja kosztuje około {credits} kredytów — masz {balance}. Gotowy dokument wkleisz do Cursora, Claude Code albo v0.',
+  'lifecycle.boardWaiting.p1':
+    'Na tablicy „{title}” masz {n} materiałów, ale nie powstał jeszcze DESIGN.md.',
+  'lifecycle.boardWaiting.p2':
+    'Generacja kosztuje około {credits} kredytów — masz {balance}. Gotowy dokument wkleisz do Cursora, Claude Code albo v0.',
   'lifecycle.boardWaiting.button': 'Wygeneruj DESIGN.md',
   'lifecycle.noBoard.subject': 'Zacznij od gotowego szablonu tablicy',
   'lifecycle.noBoard.heading': 'Pierwszy DESIGN.md w 5 minut',
-  'lifecycle.noBoard.p1': 'Utwórz tablicę z szablonu (strona, SaaS, sklep, aplikacja mobilna) i wrzuć w ramki zrzuty ekranów, logo i inspiracje — albo zaimportuj stronę z adresu lub plik Figmy.',
-  'lifecycle.noBoard.p2': 'Na start masz {credits} darmowych kredytów — wystarczy na kilka dokumentów. Zajrzyj też do przykładowej tablicy kawiarni Ziarno.',
+  'lifecycle.noBoard.p1':
+    'Utwórz tablicę z szablonu (strona, SaaS, sklep, aplikacja mobilna) i wrzuć w ramki zrzuty ekranów, logo i inspiracje — albo zaimportuj stronę z adresu lub plik Figmy.',
+  'lifecycle.noBoard.p2':
+    'Na start masz {credits} darmowych kredytów — wystarczy na kilka dokumentów. Zajrzyj też do przykładowej tablicy kawiarni Ziarno.',
   'lifecycle.noBoard.button': 'Utwórz tablicę',
   'lifecycle.credits.subject': '{credits} kredytów wkrótce wygaśnie',
   'lifecycle.credits.heading': 'Wykorzystaj kredyty, zanim wygasną',
-  'lifecycle.credits.p1': '{credits} kredytów na Twoim koncie wygasa {date}. Wygeneruj nowe wersje DESIGN.md albo podgląd UI, póki są dostępne.',
+  'lifecycle.credits.p1':
+    '{credits} kredytów na Twoim koncie wygasa {date}. Wygeneruj nowe wersje DESIGN.md albo podgląd UI, póki są dostępne.',
   'lifecycle.credits.button': 'Otwórz tablice',
   'lifecycle.weekly.subject': 'Twój tydzień w canvai',
   'lifecycle.weekly.heading': 'Podsumowanie tygodnia',
@@ -248,14 +257,16 @@ export const pl = {
   'lifecycle.weekly.balance': 'Saldo kredytów',
   'lifecycle.weekly.button': 'Przejdź do tablic',
   'members.self': 'Nie możesz zaprosić samego siebie.',
-  'members.limit': 'Twój plan pozwala na {limit} współpracowników na tablicy — przejdź na wyższy plan, żeby zaprosić więcej.',
+  'members.limit':
+    'Twój plan pozwala na {limit} współpracowników na tablicy — przejdź na wyższy plan, żeby zaprosić więcej.',
   'members.locked': 'Zapraszanie współpracowników jest dostępne w płatnych planach.',
   'members.role.editor': 'edycja',
   'members.role.viewer': 'podgląd i komentarze',
   'members.mail.subject': '{name} zaprasza Cię do tablicy „{title}” w canvai',
   'members.mail.heading': 'Zaproszenie do tablicy „{title}”',
   'members.mail.p1': '{name} udostępnia Ci tablicę „{title}” (uprawnienia: {role}).',
-  'members.mail.p2': 'Zaloguj się albo załóż konto na ten adres e-mail, żeby dołączyć. Na tablicy zobaczysz materiały, DESIGN.md i komentarze zespołu — na żywo.',
+  'members.mail.p2':
+    'Zaloguj się albo załóż konto na ten adres e-mail, żeby dołączyć. Na tablicy zobaczysz materiały, DESIGN.md i komentarze zespołu — na żywo.',
   'members.mail.button': 'Dołącz do tablicy',
   'members.invalidInvite': 'Zaproszenie jest nieważne albo zostało cofnięte.',
   'members.loginToJoin': 'Zaloguj się albo załóż konto na adres {email}, żeby dołączyć do tablicy.',
@@ -306,6 +317,8 @@ export const en: Record<ServerMessageKey, string> = {
 
   'doc.inProgress': 'DESIGN.md generation for this board is already running',
   'doc.cancelled': 'Generation cancelled — your credits were returned',
+  'doc.revisionNoBase': 'The version you want to revise has no spec — generate DESIGN.md again.',
+  'doc.revisionNotReady': 'Only a ready DESIGN.md version can be revised.',
   'doc.emptyBoard': 'The board is empty — add screenshots, images, links or notes',
   'doc.tooManyAssets':
     'The board has {count} materials and the per-generation limit is {limit}. Remove some materials or raise the limit in config/ai.ts.',
@@ -471,40 +484,45 @@ export const en: Record<ServerMessageKey, string> = {
   'ops.budgetUserTokens':
     'You reached the daily AI usage limit for your account. Try again tomorrow or contact us.',
   'figma.badUrl': 'This is not a Figma file link (figma.com/design/…).',
-  'figma.tokenRequired': 'Enter your Figma personal access token (Figma → Settings → Security → Personal access tokens).',
-  'figma.auth': 'Figma rejected the token or you don\'t have access to this file.',
+  'figma.tokenRequired':
+    'Enter your Figma personal access token (Figma → Settings → Security → Personal access tokens).',
+  'figma.auth': "Figma rejected the token or you don't have access to this file.",
   'figma.notFound': 'The Figma file or frame was not found.',
   'figma.rateLimited': 'Figma is rate limiting requests — try again in a moment.',
   'figma.empty': 'There are no frames to import — link to a specific frame (link with node-id).',
   'figma.failed': 'The Figma import failed.',
   'figma.frameNote': 'Figma: {file} — {frame}',
-  'lifecycle.footer': 'You\'re receiving this because you have a canvai account.',
+  'lifecycle.footer': "You're receiving this because you have a canvai account.",
   'lifecycle.unsubscribe': 'Unsubscribe from these emails',
   'lifecycle.settingsSaved': 'Notification settings saved',
   'lifecycle.boardWaiting.subject': 'Your board “{title}” is waiting for a DESIGN.md',
   'lifecycle.boardWaiting.heading': 'Your materials are ready — one click to go',
   'lifecycle.boardWaiting.p1': 'Your board “{title}” has {n} materials, but no DESIGN.md yet.',
-  'lifecycle.boardWaiting.p2': 'Generating costs about {credits} credits — you have {balance}. Paste the result into Cursor, Claude Code or v0.',
+  'lifecycle.boardWaiting.p2':
+    'Generating costs about {credits} credits — you have {balance}. Paste the result into Cursor, Claude Code or v0.',
   'lifecycle.boardWaiting.button': 'Generate DESIGN.md',
   'lifecycle.noBoard.subject': 'Start with a ready-made board template',
   'lifecycle.noBoard.heading': 'Your first DESIGN.md in 5 minutes',
-  'lifecycle.noBoard.p1': 'Create a board from a template (website, SaaS, store, mobile app) and drop screenshots, a logo and inspiration into the frames — or import a site from its URL or a Figma file.',
-  'lifecycle.noBoard.p2': 'You have {credits} free credits to start — enough for a few documents. Also check the Ziarno café example board.',
+  'lifecycle.noBoard.p1':
+    'Create a board from a template (website, SaaS, store, mobile app) and drop screenshots, a logo and inspiration into the frames — or import a site from its URL or a Figma file.',
+  'lifecycle.noBoard.p2':
+    'You have {credits} free credits to start — enough for a few documents. Also check the Ziarno café example board.',
   'lifecycle.noBoard.button': 'Create a board',
   'lifecycle.credits.subject': '{credits} credits expire soon',
   'lifecycle.credits.heading': 'Use your credits before they expire',
-  'lifecycle.credits.p1': '{credits} credits on your account expire on {date}. Generate new DESIGN.md versions or a UI preview while they last.',
+  'lifecycle.credits.p1':
+    '{credits} credits on your account expire on {date}. Generate new DESIGN.md versions or a UI preview while they last.',
   'lifecycle.credits.button': 'Open boards',
   'lifecycle.weekly.subject': 'Your week in canvai',
   'lifecycle.weekly.heading': 'Your weekly summary',
-  'lifecycle.weekly.p1': 'Here\'s what you created in the last 7 days:',
+  'lifecycle.weekly.p1': "Here's what you created in the last 7 days:",
   'lifecycle.weekly.docs': 'DESIGN.md versions',
   'lifecycle.weekly.boards': 'Boards with new versions',
   'lifecycle.weekly.materials': 'New materials',
   'lifecycle.weekly.credits': 'Credits used',
   'lifecycle.weekly.balance': 'Credit balance',
   'lifecycle.weekly.button': 'Go to boards',
-  'members.self': 'You can\'t invite yourself.',
+  'members.self': "You can't invite yourself.",
   'members.limit': 'Your plan allows {limit} collaborators per board — upgrade to invite more.',
   'members.locked': 'Inviting collaborators is available on paid plans.',
   'members.role.editor': 'can edit',
@@ -512,7 +530,8 @@ export const en: Record<ServerMessageKey, string> = {
   'members.mail.subject': '{name} invited you to the board “{title}” in canvai',
   'members.mail.heading': 'Invitation to “{title}”',
   'members.mail.p1': '{name} shared the board “{title}” with you (access: {role}).',
-  'members.mail.p2': 'Sign in or create an account with this email address to join. You\'ll see the materials, DESIGN.md and team comments — live.',
+  'members.mail.p2':
+    "Sign in or create an account with this email address to join. You'll see the materials, DESIGN.md and team comments — live.",
   'members.mail.button': 'Join the board',
   'members.invalidInvite': 'This invitation is invalid or has been revoked.',
   'members.loginToJoin': 'Sign in or create an account with {email} to join the board.',

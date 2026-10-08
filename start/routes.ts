@@ -191,6 +191,7 @@ router
     router.get('/boards/:id/design-doc/export', [controllers.DesignDocs, 'export'])
     router.post('/boards/:id/design-doc/edit', [controllers.DesignDocs, 'edit'])
     router.post('/boards/:id/design-doc/cancel', [controllers.DesignDocs, 'cancel'])
+    router.post('/boards/:id/design-doc/revise', [controllers.DesignDocs, 'revise'])
     router.get('/boards/:id/design-doc/preview', [controllers.DesignPreviews, 'show'])
     router.get('/boards/:id/share', [controllers.BoardShares, 'show'])
     router.put('/boards/:id/share', [controllers.BoardShares, 'update'])

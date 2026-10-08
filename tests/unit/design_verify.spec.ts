@@ -272,3 +272,20 @@ test.group('Krok weryfikacji (AI-8)', () => {
     assert.include(markdown, '### Settings †')
   })
 })
+
+test.group('Regeneracja sekcji (FEAT-2)', () => {
+  test('mergeSection podmienia tylko pola sekcji i łączy pytania', async ({ assert }) => {
+    const { mergeSection } = await import('#services/design/generator')
+    const base = spec({ openQuestions: ['Q1'] })
+    const revised = spec({
+      colors: [{ name: 'Ink', hex: '#111111', sources: [1] }],
+      typography: { families: [{ name: 'Inter', sources: [1] }], scale: [] },
+      openQuestions: ['Q1', 'Q2'],
+    })
+    const out = mergeSection(base, revised, 'typography')
+    assert.equal(out.typography.families[0].name, 'Inter')
+    assert.equal(out.colors[0].hex, '#0f0f0f', 'kolory z bazy')
+    assert.deepEqual(out.openQuestions, ['Q1', 'Q2'])
+    assert.equal(base.typography.families[0].name, 'Roboto', 'baza nietknięta')
+  })
+})

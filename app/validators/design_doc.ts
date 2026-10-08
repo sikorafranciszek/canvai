@@ -1,4 +1,5 @@
 import vine from '@vinejs/vine'
+import { REVISABLE_SECTIONS } from '#services/ai/types'
 import { EXPORT_FORMATS } from '#services/design/exports'
 
 /**
@@ -16,6 +17,15 @@ export const generateDesignDocValidator = vine.compile(
 export const designDocVersionValidator = vine.compile(
   vine.object({
     version: vine.number().withoutDecimals().positive().optional(),
+  })
+)
+
+/** POST /api/boards/:id/design-doc/revise — poprawka poleceniem (FEAT-2). */
+export const reviseValidator = vine.compile(
+  vine.object({
+    version: vine.number().withoutDecimals().positive(),
+    instruction: vine.string().trim().minLength(3).maxLength(500),
+    section: vine.enum(REVISABLE_SECTIONS).optional(),
   })
 )
 

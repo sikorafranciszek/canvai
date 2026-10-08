@@ -77,6 +77,14 @@ export default class DesignDoc extends BaseModel {
   @column()
   declare editedFromVersion: number | null
 
+  /** Polecenie użytkownika, z którego powstała wersja (FEAT-2). */
+  @column()
+  declare instruction: string | null
+
+  /** Regenerowana sekcja (FEAT-2); `null` = cały dokument. */
+  @column()
+  declare revisedSection: string | null
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime | null
 

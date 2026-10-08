@@ -86,6 +86,19 @@ async function findCached(cacheKey: string, model: string): Promise<AssetAnalysi
   }
 }
 
+/** Analizy z cache (bez wywołań modelu) — poprawka poleceniem nie analizuje od nowa (FEAT-2). */
+export async function cachedAnalyses(
+  assets: Asset[],
+  model: string
+): Promise<Map<number, AssetAnalysisData>> {
+  const out = new Map<number, AssetAnalysisData>()
+  for (const asset of assets) {
+    const hit = await findCached(analysisCacheKey(asset), model)
+    if (hit) out.set(asset.id, hit)
+  }
+  return out
+}
+
 /** Czy analiza assetu jest już w cache (ponowna generacja nie płaci za nią). */
 export async function isAnalysisCached(asset: Asset, model: string): Promise<boolean> {
   return (await findCached(analysisCacheKey(asset), model)) !== null

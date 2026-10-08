@@ -53,6 +53,7 @@ async function summary(userId: number) {
     plan,
     balance: await balanceOf(userId),
     enforced: billing.enforced,
+    revisionCost: costs.revision,
     limits: {
       ...limits,
       boards: finite(limits.boards),

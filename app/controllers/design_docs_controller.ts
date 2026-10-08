@@ -1,12 +1,17 @@
 import { versionVisible } from '#services/design/access'
 import type { HttpContext } from '@adonisjs/core/http'
 import DesignDoc from '#models/design_doc'
-import { startGeneration } from '#services/design/generation_service'
+import {
+  startGeneration,
+  startRevision,
+  type StartGenerationResult,
+} from '#services/design/generation_service'
 import { diffDocs, previousReady } from '#services/design/spec_diff'
 import Job from '#models/job'
 import { prepareGeneration } from '#services/design/generator'
 import {
   changesValidator,
+  reviseValidator,
   designDocVersionValidator,
   editDesignDocValidator,
   estimateValidator,
@@ -73,6 +78,8 @@ export default class DesignDocsController {
       jobId: doc.jobId,
       progress: (job?.payload?.progress as Record<string, unknown> | undefined) ?? null,
       editedFromVersion: doc.editedFromVersion ?? null,
+      instruction: doc.instruction ?? null,
+      revisedSection: doc.revisedSection ?? null,
       ...(withContent ? { contentMd: doc.contentMd } : {}),
       ...(withContent && doc.spec && doc.status === 'ready'
         ? {
@@ -157,15 +164,9 @@ export default class DesignDocsController {
     }
   }
 
-  /** POST /api/boards/:id/design-doc — zleca generację (202) albo zwraca aktualną wersję (200). */
-  async store(ctx: HttpContext) {
-    const { auth, params, request, response } = ctx
-    const user = auth.user!
-    const board = await accessibleBoard(user.id, params.id, 'edit')
-    if (!board) return response.notFound()
-
-    const { force, proMode = false } = await request.validateUsing(generateDesignDocValidator)
-    const result = await startGeneration(board, user.id, { force, proMode })
+  /** Wynik startu generacji / poprawki → odpowiedź HTTP (wspólne dla store i revise). */
+  private async respondToStart(ctx: HttpContext, result: StartGenerationResult) {
+    const { response } = ctx
     switch (result.kind) {
       case 'plan':
         return response.status(403).json({ message: result.message, code: 'E_PLAN_FEATURE' })
@@ -197,23 +198,63 @@ export default class DesignDocsController {
           .status(200)
           .json({ data: { doc: await this.serialize(result.doc, true), reused: true } })
       case 'queued':
-        trackFor(
-          ctx,
-          'design_doc_requested',
-          {
-            version: result.doc.version,
-            proMode,
-            credits: result.credits,
-            newMaterials: result.newMaterials,
-            materials: result.materials,
-            force: Boolean(force),
-          },
-          { boardId: board.id }
-        )
         return response
           .status(202)
           .json({ data: { doc: await this.serialize(result.doc, false), reused: false } })
     }
+  }
+
+  /**
+   * POST /api/boards/:id/design-doc/revise — poprawka poleceniem albo
+   * regeneracja jednej sekcji (FEAT-2) jako nowa wersja; cena `costs.revision`.
+   */
+  async revise(ctx: HttpContext) {
+    const { auth, params, request, response } = ctx
+    const board = await accessibleBoard(auth.user!.id, params.id, 'edit')
+    if (!board) return response.notFound()
+    const { version, instruction, section } = await request.validateUsing(reviseValidator)
+    const result = await startRevision(board, auth.user!.id, { version, instruction, section })
+    if (result.kind === 'queued') {
+      trackFor(
+        ctx,
+        'design_doc_revision',
+        {
+          from: version,
+          version: result.doc.version,
+          section: section ?? null,
+          credits: result.credits,
+        },
+        { boardId: board.id }
+      )
+    }
+    return this.respondToStart(ctx, result)
+  }
+
+  /** POST /api/boards/:id/design-doc — zleca generację (202) albo zwraca aktualną wersję (200). */
+  async store(ctx: HttpContext) {
+    const { auth, params, request, response } = ctx
+    const user = auth.user!
+    const board = await accessibleBoard(user.id, params.id, 'edit')
+    if (!board) return response.notFound()
+
+    const { force, proMode = false } = await request.validateUsing(generateDesignDocValidator)
+    const result = await startGeneration(board, user.id, { force, proMode })
+    if (result.kind === 'queued') {
+      trackFor(
+        ctx,
+        'design_doc_requested',
+        {
+          version: result.doc.version,
+          proMode,
+          credits: result.credits,
+          newMaterials: result.newMaterials,
+          materials: result.materials,
+          force: Boolean(force),
+        },
+        { boardId: board.id }
+      )
+    }
+    return this.respondToStart(ctx, result)
   }
 
   /**

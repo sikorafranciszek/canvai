@@ -14,8 +14,13 @@ import type {
   ProviderResult,
   ClaimVerdict,
   VerifyClaimsInput,
+  ReviseInput,
 } from '#services/ai/types'
-import { buildAnalyzeUserText, buildComposeUserText } from '#services/design/prompts'
+import {
+  buildAnalyzeUserText,
+  buildComposeUserText,
+  SECTION_FIELDS,
+} from '#services/design/prompts'
 import { renderPreviewTemplate } from '#services/design/preview_template'
 
 /**
@@ -240,6 +245,44 @@ export class MockProvider implements AiProvider {
     })
 
     return { data, model: this.analysisModel, usage: { tokensIn: 0, tokensOut: 0 } }
+  }
+
+  /**
+   * Mock poprawki (FEAT-2), deterministyczny: „ciemniej/darker” przyciemnia
+   * pierwszy kolor (założenie †), „bez szeryf/no serif” usuwa kroje szeryfowe;
+   * z sekcją — sekcja złożona od nowa z materiałów, reszta bez zmian.
+   */
+  async reviseDocument(input: ReviseInput): Promise<ProviderResult<DesignSpec>> {
+    this.lastComposePrompt = buildComposeUserText(input)
+    const spec = structuredClone(input.currentSpec) as unknown as Record<string, unknown>
+    if (input.section) {
+      const fresh = buildMockSpec(input) as unknown as Record<string, unknown>
+      for (const key of SECTION_FIELDS[input.section]) spec[key] = fresh[key]
+    }
+    const s = spec as unknown as DesignSpec
+    if (/ciemn|dark/i.test(input.instruction) && s.colors[0]) {
+      const c = s.colors[0]
+      const darker = `#${[1, 3, 5]
+        .map((i) =>
+          Math.round(Number.parseInt(c.hex.slice(i, i + 2), 16) * 0.8)
+            .toString(16)
+            .padStart(2, '0')
+        )
+        .join('')}`
+      c.hex = darker
+      c.assumed = true
+      c.sources = []
+    }
+    if (/bez\s+\S*\s*szeryf|no serif/i.test(input.instruction)) {
+      s.typography.families = s.typography.families.filter(
+        (f) => !/serif/i.test(`${f.substitute}`) || /sans/i.test(`${f.substitute}`)
+      )
+    }
+    return {
+      data: validateDesignSpec(s),
+      model: this.compositionModel,
+      usage: { tokensIn: 0, tokensOut: 0 },
+    }
   }
 
   /** Mock: twierdzenie potwierdzone, gdy jego nazwa występuje w materiale dowodowym. */

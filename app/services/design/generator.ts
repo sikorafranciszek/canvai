@@ -6,15 +6,21 @@ import Board from '#models/board'
 import BoardScene from '#models/board_scene'
 import DesignDoc from '#models/design_doc'
 import { getProvider } from '#services/ai/provider'
-import { AiProviderError, type AiProvider } from '#services/ai/types'
-import { analyzeAssets, type UsageTracker } from '#services/design/analyzer'
+import {
+  AiProviderError,
+  REVISABLE_SECTIONS,
+  type AiProvider,
+  type DesignSpec,
+  type RevisableSection,
+} from '#services/ai/types'
+import { analyzeAssets, cachedAnalyses, type UsageTracker } from '#services/design/analyzer'
 import { composeVerifiedSpec } from '#services/design/compose'
 import {
   buildBoardContext,
   computeInputFingerprint,
   type BoardContext,
 } from '#services/design/board_context'
-import { PROMPT_VERSION } from '#services/design/prompts'
+import { PROMPT_VERSION, SECTION_FIELDS } from '#services/design/prompts'
 import { renderDesignMd } from '#services/design/renderer'
 import type { Evidence } from '#services/design/verify'
 import type { AssetAnalysisData } from '#services/ai/types'
@@ -127,6 +133,38 @@ export async function whiteLabelName(userId: number): Promise<string | null> {
   return brand.whiteLabel ? brand.name : null
 }
 
+/** Wersja bazowa poprawki poleceniem (FEAT-2). */
+async function revisionBase(
+  doc: DesignDoc
+): Promise<{ spec: DesignSpec; section?: RevisableSection }> {
+  const base = doc.editedFromVersion
+    ? await DesignDoc.query()
+        .where('board_id', doc.boardId)
+        .where('version', doc.editedFromVersion)
+        .first()
+    : null
+  if (!base?.spec) throw new AiProviderError(t('doc.revisionNoBase'), false)
+  const section = (REVISABLE_SECTIONS as readonly string[]).includes(doc.revisedSection ?? '')
+    ? (doc.revisedSection as RevisableSection)
+    : undefined
+  return { spec: base.spec, section }
+}
+
+/** Specyfikacja bazowa z podmienionymi polami jednej sekcji. */
+export function mergeSection(
+  base: DesignSpec,
+  revised: DesignSpec,
+  section: RevisableSection
+): DesignSpec {
+  const out = structuredClone(base) as unknown as Record<string, unknown>
+  const src = revised as unknown as Record<string, unknown>
+  for (const key of SECTION_FIELDS[section]) out[key] = src[key]
+  // Pytania z nowej wersji dopisujemy — mogą dotyczyć przepisanej sekcji.
+  const questions = new Set([...base.openQuestions, ...revised.openQuestions])
+  out.openQuestions = [...questions]
+  return out as unknown as DesignSpec
+}
+
 /** Generacja anulowana przez użytkownika — bez ponawiania. */
 export class GenerationCancelled extends AiProviderError {
   constructor() {
@@ -191,13 +229,23 @@ async function generate(
   started: number,
   onProgress: (progress: GenerationProgress) => Promise<void> | void
 ): Promise<DesignDoc> {
-  const { provider, assets, context, board } = input
+  const { provider, context, board } = input
+
+  // Poprawka poleceniem (FEAT-2): bazowa specyfikacja i analizy wyłącznie z cache.
+  const revision = doc.instruction ? await revisionBase(doc) : null
 
   // Etap 1
-  const { analyses, analyzed, cached } = await analyzeAssets(assets, provider, usage, async (p) => {
-    if (p.done > 0) await assertActive(doc.id)
-    await onProgress({ stage: 'analyze', done: p.done, total: p.total })
-  })
+  const { analyses, analyzed, cached } = revision
+    ? await (async () => {
+        const hits = await cachedAnalyses(input.assets, provider.analysisModel)
+        return { analyses: hits, analyzed: 0, cached: hits.size }
+      })()
+    : await analyzeAssets(input.assets, provider, usage, async (p) => {
+        if (p.done > 0) await assertActive(doc.id)
+        await onProgress({ stage: 'analyze', done: p.done, total: p.total })
+      })
+  // Poprawka widzi tylko materiały z gotową analizą (nowe wymagają pełnej generacji).
+  const assets = revision ? input.assets.filter((a) => analyses.has(a.id)) : input.assets
 
   await assertActive(doc.id)
   // Etap 2 — kompozycja, ugruntowanie i weryfikacja (wspólne z ewaluacją).
@@ -211,13 +259,35 @@ async function generate(
     analysis: analyses.get(a.id)!,
     usage: a.usage,
   }))
-  const { spec, model } = await composeVerifiedSpec({
+  const composeInput = {
+    boardTitle: board.title,
+    assets: composeAssets,
+    context,
+    reasoning: doc.proMode,
+  }
+  const run = await composeVerifiedSpec({
     provider,
-    input: { boardTitle: board.title, assets: composeAssets, context, reasoning: doc.proMode },
+    input: composeInput,
     usage,
     evidence: evidenceFor(board, assets, analyses, context),
+    call: revision
+      ? (previousErrors) =>
+          provider.reviseDocument({
+            ...composeInput,
+            previousErrors,
+            currentSpec: revision.spec,
+            instruction: doc.instruction!,
+            section: revision.section,
+          })
+      : undefined,
   })
-  doc.model = model
+  doc.model = run.model
+  // Regeneracja sekcji: reszta dokumentu dokładnie jak w wersji bazowej.
+  const spec = revision?.section
+    ? mergeSection(revision.spec, run.spec, revision.section)
+    : run.spec
+  // Weryfikacja poprawionej bazy może powtórzyć pytania, które baza już miała.
+  if (revision) spec.openQuestions = [...new Set(spec.openQuestions)]
 
   await assertActive(doc.id)
   // Render

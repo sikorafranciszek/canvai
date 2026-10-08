@@ -32,6 +32,7 @@ export type ChangeReason =
   | { type: 'asset_removed'; assetId: number; filename: string }
   | { type: 'usage_changed'; assetId: number; filename: string; from?: AssetUsage; to?: AssetUsage }
   | { type: 'edited' }
+  | { type: 'command'; instruction: string; section: string | null }
   | { type: 'pro_mode'; on: boolean }
   | { type: 'prompt_version'; from: string; to: string }
 
@@ -54,6 +55,8 @@ export interface DocSnapshot {
   promptVersion: string | null
   proMode: boolean
   editedFromVersion: number | null
+  instruction?: string | null
+  revisedSection?: string | null
 }
 
 function group(
@@ -151,7 +154,13 @@ export function diffDocs(from: DocSnapshot, to: DocSnapshot): SpecChanges {
 
   // Przyczyny z danych tablicy.
   const reasons: ChangeReason[] = []
-  if (to.editedFromVersion) reasons.push({ type: 'edited' })
+  if (to.instruction) {
+    reasons.push({
+      type: 'command',
+      instruction: to.instruction,
+      section: to.revisedSection ?? null,
+    })
+  } else if (to.editedFromVersion) reasons.push({ type: 'edited' })
   const prevSources = new Map((from.sources ?? []).map((s) => [s.assetId, s]))
   const nextSources = new Map((to.sources ?? []).map((s) => [s.assetId, s]))
   for (const [id, s] of nextSources) {

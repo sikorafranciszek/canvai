@@ -23,6 +23,8 @@ export interface BillingSummary {
   plan: PlanId
   balance: number
   enforced: boolean
+  /** Cena poprawki poleceniem / regeneracji sekcji (FEAT-2). */
+  revisionCost?: number
   limits: PlanLimits
 }
 

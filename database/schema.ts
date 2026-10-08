@@ -313,7 +313,7 @@ export class CrmNoteSchema extends BaseModel {
 }
 
 export class DesignDocSchema extends BaseModel {
-  static $columns = ['boardId', 'contentMd', 'createdAt', 'creditsCharged', 'editedFromVersion', 'error', 'generatedAt', 'id', 'inputFingerprint', 'jobId', 'model', 'proMode', 'promptVersion', 'sources', 'spec', 'status', 'usage', 'version'] as const
+  static $columns = ['boardId', 'contentMd', 'createdAt', 'creditsCharged', 'editedFromVersion', 'error', 'generatedAt', 'id', 'inputFingerprint', 'instruction', 'jobId', 'model', 'proMode', 'promptVersion', 'revisedSection', 'sources', 'spec', 'status', 'usage', 'version'] as const
   $columns = DesignDocSchema.$columns
   @column()
   declare boardId: number
@@ -334,6 +334,8 @@ export class DesignDocSchema extends BaseModel {
   @column()
   declare inputFingerprint: string | null
   @column()
+  declare instruction: string | null
+  @column()
   declare jobId: number | null
   @column()
   declare model: string | null
@@ -341,6 +343,8 @@ export class DesignDocSchema extends BaseModel {
   declare proMode: boolean
   @column()
   declare promptVersion: string | null
+  @column()
+  declare revisedSection: string | null
   @column()
   declare sources: any | null
   @column()
@@ -418,6 +422,21 @@ export class JobSchema extends BaseModel {
   declare type: string
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
+}
+
+export class OpsAlertSchema extends BaseModel {
+  static $columns = ['count', 'firstAt', 'key', 'lastAt', 'message'] as const
+  $columns = OpsAlertSchema.$columns
+  @column()
+  declare count: number
+  @column.dateTime()
+  declare firstAt: DateTime
+  @column({ isPrimary: true })
+  declare key: string
+  @column.dateTime()
+  declare lastAt: DateTime
+  @column()
+  declare message: string
 }
 
 export class PortalFeedbackSchema extends BaseModel {

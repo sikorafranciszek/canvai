@@ -445,6 +445,98 @@ test.group('Design doc API', (group) => {
     assert.equal(again.body().data.doc.version, v2.version)
   })
 
+  test('poprawka poleceniem i regeneracja sekcji (FEAT-2): nowa wersja, reszta bez zmian', async ({
+    client,
+    assert,
+  }) => {
+    const { user, cookies } = await login(client)
+    const board = await createBoard(user)
+    await seedBoard(client, cookies, board)
+    await client.post(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies }).json({})
+    await runPendingJobs()
+    const v1 = await DesignDoc.query().where('board_id', board.id).where('version', 1).firstOrFail()
+    assert.equal(v1.status, 'ready', v1.error ?? '')
+    const analysesBefore = await AssetAnalysis.query().count('* as n')
+
+    // Polecenie dla całego dokumentu: ciemniejszy pierwszy kolor, bez nowych analiz.
+    const res = await client
+      .post(`/api/boards/${board.id}/design-doc/revise`)
+      .headers({ cookie: cookies })
+      .json({ version: 1, instruction: 'Primary ciemniejszy' })
+    res.assertStatus(202)
+    assert.equal(res.body().data.doc.version, 2)
+    await runPendingJobs()
+    const v2 = await DesignDoc.query().where('board_id', board.id).where('version', 2).firstOrFail()
+    assert.equal(v2.status, 'ready', v2.error ?? '')
+    assert.equal(v2.editedFromVersion, 1)
+    assert.equal(v2.instruction, 'Primary ciemniejszy')
+    assert.isNull(v2.revisedSection)
+    assert.notEqual(v2.spec!.colors[0].hex, v1.spec!.colors[0].hex)
+    assert.deepEqual(v2.spec!.components, v1.spec!.components)
+    assert.deepEqual(
+      (await AssetAnalysis.query().count('* as n'))[0].$extras,
+      analysesBefore[0].$extras,
+      'poprawka korzysta wyłącznie z cache analiz'
+    )
+
+    // FEAT-1: przyczyna „polecenie” w zmianach.
+    const changes = await client
+      .get(`/api/boards/${board.id}/design-doc/changes`)
+      .headers({ cookie: cookies })
+    assert.deepInclude(changes.body().data.changes.reasons, {
+      type: 'command',
+      instruction: 'Primary ciemniejszy',
+      section: null,
+    })
+
+    // Regeneracja jednej sekcji: poza typografią wszystko jak w v2.
+    const sec = await client
+      .post(`/api/boards/${board.id}/design-doc/revise`)
+      .headers({ cookie: cookies })
+      .json({ version: 2, instruction: 'Spróbuj jeszcze raz', section: 'typography' })
+    sec.assertStatus(202)
+    await runPendingJobs()
+    const v3 = await DesignDoc.query().where('board_id', board.id).where('version', 3).firstOrFail()
+    assert.equal(v3.status, 'ready', v3.error ?? '')
+    assert.equal(v3.revisedSection, 'typography')
+    assert.deepEqual(v3.spec!.colors, v2.spec!.colors)
+    assert.deepEqual(v3.spec!.components, v2.spec!.components)
+    const dto = (
+      await client.get(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies })
+    ).body().data
+    assert.equal(dto.instruction, 'Spróbuj jeszcze raz')
+    assert.equal(dto.revisedSection, 'typography')
+
+    // Walidacja i brak bazy.
+    ;(
+      await client
+        .post(`/api/boards/${board.id}/design-doc/revise`)
+        .headers({ cookie: cookies, accept: 'application/json' })
+        .json({ version: 3, instruction: 'x' })
+    ).assertStatus(422)
+    ;(
+      await client
+        .post(`/api/boards/${board.id}/design-doc/revise`)
+        .headers({ cookie: cookies, accept: 'application/json' })
+        .json({ version: 3, instruction: 'Ciemniej', section: 'nope' })
+    ).assertStatus(422)
+    ;(
+      await client
+        .post(`/api/boards/${board.id}/design-doc/revise`)
+        .headers({ cookie: cookies, accept: 'application/json' })
+        .json({ version: 99, instruction: 'Ciemniej' })
+    ).assertStatus(422)
+
+    // Obcy nie może poprawiać.
+    const other = await login(client)
+    ;(
+      await client
+        .post(`/api/boards/${board.id}/design-doc/revise`)
+        .headers({ cookie: other.cookies })
+        .json({ version: 3, instruction: 'Ciemniej' })
+    ).assertStatus(404)
+  })
+
   test('wydruk / PDF: właściciel i portal klienta; obcy nie widzi', async ({ client, assert }) => {
     const { user, cookies } = await login(client)
     const board = await createBoard(user)

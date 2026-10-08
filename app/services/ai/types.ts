@@ -107,6 +107,25 @@ export interface ComposeInput {
   reasoning?: boolean
 }
 
+/** Sekcje, które można regenerować osobno (FEAT-2). */
+export const REVISABLE_SECTIONS = [
+  'colors',
+  'typography',
+  'layout',
+  'components',
+  'screens',
+  'voice',
+  'rules',
+] as const
+export type RevisableSection = (typeof REVISABLE_SECTIONS)[number]
+
+/** Poprawka poleceniem (FEAT-2): bieżąca specyfikacja + polecenie użytkownika. */
+export interface ReviseInput extends ComposeInput {
+  currentSpec: import('#services/design/spec').DesignSpec
+  instruction: string
+  section?: RevisableSection
+}
+
 /** Podgląd UI: przykładowa strona HTML w stylu dokumentu. */
 export interface PreviewInput {
   boardTitle: string
@@ -136,6 +155,8 @@ export interface AiProvider {
   analyzeAsset(input: AnalyzeAssetInput): Promise<ProviderResult<AssetAnalysisData>>
   composeDocument(input: ComposeInput): Promise<ProviderResult<DesignSpec>>
   composePreview(input: PreviewInput): Promise<ProviderResult<PreviewOutput>>
+  /** Poprawka poleceniem / regeneracja sekcji (FEAT-2). */
+  reviseDocument(input: ReviseInput): Promise<ProviderResult<DesignSpec>>
   /** Krok weryfikacji (AI-8): dowód z materiałów dla twierdzeń albo `null`. Opcjonalny. */
   verifyClaims?(input: VerifyClaimsInput): Promise<ProviderResult<ClaimVerdict[]>>
 }

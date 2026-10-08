@@ -347,6 +347,8 @@ export interface DesignDocDto {
   progress: DesignDocProgress | null
   contentMd?: string | null
   editedFromVersion?: number | null
+  instruction?: string | null
+  revisedSection?: string | null
   quality?: QualityReport
   tokens?: DocTokens
 }
@@ -462,6 +464,46 @@ export async function generateDesignDoc(
   )
 }
 
+export const REVISABLE_SECTIONS = [
+  'colors',
+  'typography',
+  'layout',
+  'components',
+  'screens',
+  'voice',
+  'rules',
+] as const
+export type RevisableSection = (typeof REVISABLE_SECTIONS)[number]
+
+/**
+ * Poprawka poleceniem albo regeneracja jednej sekcji (FEAT-2) — nowa wersja
+ * na bazie `version`. Błędy jak przy generacji (409 z trwającą wersją itd.).
+ */
+export async function reviseDesignDoc(
+  boardId: number,
+  input: { version: number; instruction: string; section?: RevisableSection }
+): Promise<DesignDocDto> {
+  const res = await fetch(`/api/boards/${boardId}/design-doc/revise`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...csrfHeaders() },
+    body: JSON.stringify(input),
+    credentials: 'same-origin',
+  })
+  const body = await parseJson<{
+    data?: { doc: DesignDocDto } | DesignDocDto
+    message?: string
+    code?: string
+  }>(res).catch(() => ({}) as { data?: undefined; message?: string; code?: string })
+  if (res.status === 202) return (body.data as { doc: DesignDocDto }).doc
+  const inProgress = res.status === 409 ? ((body.data as DesignDocDto | undefined) ?? null) : null
+  throw new DesignDocRequestError(
+    body.message ?? translate('revise.failed'),
+    res.status,
+    body.code ?? null,
+    inProgress
+  )
+}
+
 export async function getDesignDoc(
   boardId: number,
   version?: number
@@ -495,6 +537,7 @@ export type ChangeReasonDto =
   | { type: 'asset_removed'; assetId: number; filename: string }
   | { type: 'usage_changed'; assetId: number; filename: string; from?: AssetUsage; to?: AssetUsage }
   | { type: 'edited' }
+  | { type: 'command'; instruction: string; section: string | null }
   | { type: 'pro_mode'; on: boolean }
   | { type: 'prompt_version'; from: string; to: string }
 

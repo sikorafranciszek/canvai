@@ -3,6 +3,8 @@ import type {
   ComposeInput,
   PreviewInput,
   VerifyClaimsInput,
+  ReviseInput,
+  RevisableSection,
 } from '#services/ai/types'
 import type { DesignSpec } from '#services/design/spec'
 import { renderCssVariables } from '#services/design/renderer'
@@ -365,6 +367,42 @@ export function composeInputPlan(input: ComposeInput): {
 
 export function buildComposeUserText(input: ComposeInput): string {
   return composeInputPlan(input).text
+}
+
+// ---------------------------------------------------------------------------
+// Poprawka poleceniem (FEAT-2)
+// ---------------------------------------------------------------------------
+
+/** Które pola specyfikacji należą do sekcji regenerowanej osobno. */
+export const SECTION_FIELDS: Record<RevisableSection, (keyof DesignSpec)[]> = {
+  colors: ['colors', 'surfaces'],
+  typography: ['typography'],
+  layout: ['layout', 'spacing', 'radii', 'shadows', 'breakpoints', 'borders'],
+  components: ['components', 'focusRing'],
+  screens: ['screens', 'flows'],
+  voice: ['voice'],
+  rules: ['dos', 'donts'],
+}
+
+export const REVISE_SYSTEM_PROMPT = [
+  COMPOSE_SYSTEM_PROMPT,
+  'REVISION MODE: you receive the CURRENT SPEC of an existing document and a CHANGE REQUEST from the board',
+  'owner. Apply the request and return the COMPLETE updated spec in the same JSON shape. Change only what the',
+  'request asks for (and what must change for consistency, e.g. a renamed color in component descriptions);',
+  'keep everything else exactly as it is, including sources. The grounding rules still apply: a value the',
+  'materials do not show is an assumption ("assumed": true) — e.g. a darker primary that is not in any asset.',
+].join('\n')
+
+export function buildReviseUserText(input: ReviseInput): string {
+  const scope = input.section
+    ? `Only the "${input.section}" section may change (fields: ${SECTION_FIELDS[input.section].join(', ')}); regenerate it from the materials if the request asks to rewrite it.`
+    : 'Any part of the spec may change if the request requires it.'
+  return [
+    buildComposeUserText(input),
+    `CURRENT SPEC (JSON):\n${fenceUntrusted('current-spec', JSON.stringify(input.currentSpec))}`,
+    `CHANGE REQUEST (from the board owner — follow it):\n${input.instruction.replace(/<\/?untrusted[^>]*>/gi, '').slice(0, 600)}`,
+    scope,
+  ].join('\n\n')
 }
 
 // ---------------------------------------------------------------------------

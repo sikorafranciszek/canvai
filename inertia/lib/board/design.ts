@@ -13,6 +13,8 @@ import {
   DesignDocRequestError,
   editDesignDoc,
   generateDesignDoc,
+  reviseDesignDoc,
+  type RevisableSection,
   type DocEdits,
   getDesignDoc,
   listDesignDocs,
@@ -64,6 +66,8 @@ interface DesignState {
   setProMode: (on: boolean) => void
   selectVersion: (version: number) => Promise<void>
   generate: (opts?: { force?: boolean }) => Promise<void>
+  /** Poprawka poleceniem / regeneracja sekcji bieżącej wersji (FEAT-2). */
+  revise: (instruction: string, section?: RevisableSection) => Promise<boolean>
   /** Nowa wersja od innego uczestnika — odśwież listę (bieżący widok zostaje). */
   refreshRemote: () => Promise<void>
   /** Ręczna edycja tokenów bieżącej wersji → nowa wersja. Zwraca `true` po sukcesie. */
@@ -307,6 +311,34 @@ export const useDesignStore = create<DesignState>()((set, get) => {
       } catch (error) {
         toast.error(error instanceof Error ? error.message : translate('tokens.saveFailed'))
         return false
+      }
+    },
+
+    async revise(instruction, section) {
+      const { boardId, current } = get()
+      if (boardId == null || !current || get().starting || isPending(get().active)) return false
+      set({ starting: true, reusedNotice: false })
+      try {
+        const doc = await reviseDesignDoc(boardId, {
+          version: current.version,
+          instruction,
+          section,
+        })
+        void useBillingStore.getState().load()
+        set({ active: doc })
+        await refreshVersions(boardId)
+        schedulePoll(boardId, doc.version, seq, POLL_MS)
+        return true
+      } catch (error) {
+        if (error instanceof DesignDocRequestError && error.status === 409 && error.doc) {
+          set({ active: error.doc })
+          schedulePoll(boardId, error.doc.version, seq, POLL_MS)
+          return false
+        }
+        notifyError(error, 'revise.failed')
+        return false
+      } finally {
+        set({ starting: false })
       }
     },
 

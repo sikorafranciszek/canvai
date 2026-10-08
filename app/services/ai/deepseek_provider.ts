@@ -16,12 +16,15 @@ import {
   type ProviderResult,
   type ClaimVerdict,
   type VerifyClaimsInput,
+  type ReviseInput,
 } from '#services/ai/types'
 import {
   ANALYZE_SYSTEM_PROMPT,
   COMPOSE_SYSTEM_PROMPT,
   PREVIEW_SYSTEM_PROMPT,
   VERIFY_SYSTEM_PROMPT,
+  REVISE_SYSTEM_PROMPT,
+  buildReviseUserText,
   buildAnalyzeUserText,
   buildComposeUserText,
   buildPreviewUserText,
@@ -182,6 +185,22 @@ export class DeepseekProvider implements AiProvider {
         timeoutMs: this.#limits.composeTimeoutMs,
         thinking: input.reasoning ? 'high' : undefined,
         // Ta sama prośba dałaby ten sam błąd — ponawia generator, z listą problemów.
+        retryInvalid: false,
+      }
+    )
+  }
+
+  async reviseDocument(input: ReviseInput): Promise<ProviderResult<DesignSpec>> {
+    return this.#chatJson(
+      this.compositionModel,
+      [
+        { role: 'system', content: REVISE_SYSTEM_PROMPT },
+        { role: 'user', content: buildReviseUserText(input) },
+      ],
+      (value) => runWithLocale('en', () => validateDesignSpec(value)),
+      {
+        maxTokens: this.#limits.maxComposeOutputTokens,
+        timeoutMs: this.#limits.composeTimeoutMs,
         retryInvalid: false,
       }
     )

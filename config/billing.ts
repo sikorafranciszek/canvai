@@ -82,6 +82,8 @@ export const costs = {
   proMultiplier: 2,
   /** Podgląd UI — przykładowa strona HTML z DESIGN.md. */
   preview: 6,
+  /** Poprawka poleceniem / regeneracja sekcji (FEAT-2) — bez nowych analiz. */
+  revision: 2,
 }
 
 /** Darmowe kredyty. */

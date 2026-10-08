@@ -1,7 +1,8 @@
 import db from '@adonisjs/lucid/services/db'
 import type Board from '#models/board'
 import DesignDoc from '#models/design_doc'
-import { billing } from '#config/billing'
+import type { RevisableSection } from '#services/ai/types'
+import { billing, costs } from '#config/billing'
 import { providerNotReadyMessage, providerReady } from '#services/ai/provider'
 import {
   InsufficientCreditsError,
@@ -154,4 +155,99 @@ export async function startGeneration(
     newMaterials: estimate?.newMaterials ?? input.assets.length,
     materials: input.assets.length,
   }
+}
+
+/**
+ * Poprawka poleceniem / regeneracja sekcji (FEAT-2): nowa wersja liczona w
+ * kolejce tak jak generacja (postęp, anulowanie, zwrot przy błędzie), ale bez
+ * nowych analiz i za stałą, niższą cenę (`costs.revision`).
+ */
+export async function startRevision(
+  board: Board,
+  requesterId: number,
+  opts: { version: number; instruction: string; section?: RevisableSection }
+): Promise<StartGenerationResult> {
+  if (!providerReady()) return { kind: 'unavailable', message: providerNotReadyMessage() }
+  const base = await DesignDoc.query()
+    .where('board_id', board.id)
+    .where('version', opts.version)
+    .first()
+  if (!base || base.status !== 'ready') return { kind: 'limit', message: t('doc.revisionNotReady') }
+  if (!base.spec) return { kind: 'limit', message: t('doc.revisionNoBase') }
+
+  const inProgress = await DesignDoc.query()
+    .where('board_id', board.id)
+    .whereIn('status', ['queued', 'running'])
+    .first()
+  if (inProgress) return { kind: 'busy', doc: inProgress }
+
+  const denial = (await aiBudgetDenial(requesterId)) ?? (await claimGenerationSlot(requesterId))
+  if (denial) return { kind: 'budget', message: denial }
+
+  const credits = billing.enforced ? costs.revision : 0
+  if (credits) {
+    await ensureAutomaticGrants(board.userId)
+    const balance = await balanceOf(board.userId)
+    if (balance < credits) {
+      await releaseGenerationSlot(requesterId)
+      return {
+        kind: 'credits',
+        message: t('billing.insufficient', { needed: credits, balance }),
+        needed: credits,
+        balance,
+      }
+    }
+  }
+
+  let outcome: { kind: 'ok'; doc: DesignDoc } | { kind: 'busy'; doc: DesignDoc }
+  try {
+    outcome = await db.transaction(async (trx) => {
+      await lockBoard(trx, board.id)
+      const running = await DesignDoc.query({ client: trx })
+        .where('board_id', board.id)
+        .whereIn('status', ['queued', 'running'])
+        .first()
+      if (running) return { kind: 'busy' as const, doc: running }
+      const top = await DesignDoc.query({ client: trx })
+        .where('board_id', board.id)
+        .max('version as v')
+      const created = await DesignDoc.create(
+        {
+          boardId: board.id,
+          version: Number(top[0].$extras.v ?? 0) + 1,
+          status: 'queued',
+          proMode: base.proMode,
+          editedFromVersion: base.version,
+          instruction: opts.instruction,
+          revisedSection: opts.section ?? null,
+        },
+        { client: trx }
+      )
+      if (credits) await reserveCredits(board.userId, credits, { designDocId: created.id }, trx)
+      const job = await enqueue(
+        JOB_GENERATE_DESIGN_DOC,
+        { designDocId: created.id, boardId: board.id, locale: currentLocale() },
+        trx
+      )
+      created.jobId = job.id
+      await created.save()
+      return { kind: 'ok' as const, doc: created }
+    })
+  } catch (error) {
+    await releaseGenerationSlot(requesterId)
+    if (error instanceof InsufficientCreditsError) {
+      return {
+        kind: 'credits',
+        message: error.message,
+        needed: error.needed,
+        balance: error.balance,
+      }
+    }
+    throw error
+  }
+  if (outcome.kind === 'busy') {
+    await releaseGenerationSlot(requesterId)
+    return outcome
+  }
+  return { kind: 'queued', doc: outcome.doc, credits, newMaterials: 0, materials: 0 }
 }

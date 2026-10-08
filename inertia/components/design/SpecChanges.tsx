@@ -101,6 +101,13 @@ export function SpecChanges({
         })
       case 'edited':
         return t('changes.reason.edited')
+      case 'command':
+        return r.section
+          ? t('changes.reason.commandSection', {
+              instruction: r.instruction,
+              section: t(`revise.section.${r.section}` as MessageKey),
+            })
+          : t('changes.reason.command', { instruction: r.instruction })
       case 'pro_mode':
         return audience === 'team'
           ? t(r.on ? 'changes.reason.proOn' : 'changes.reason.proOff')

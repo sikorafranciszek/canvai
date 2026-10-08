@@ -135,6 +135,8 @@ export async function composeVerifiedSpec(opts: {
   input: Omit<ComposeInput, 'previousErrors'>
   usage: UsageTracker
   evidence: Evidence
+  /** Inne wywołanie modelu (np. poprawka poleceniem, FEAT-2) — ta sama kontrola. */
+  call?: (previousErrors?: string[]) => ReturnType<AiProvider['composeDocument']>
 }): Promise<ComposeRun> {
   const { provider, input, usage } = opts
   const plan = composeInputPlan(input)
@@ -149,10 +151,10 @@ export async function composeVerifiedSpec(opts: {
     assertTokenBudget(usage, plan.tokens)
     let result: Awaited<ReturnType<AiProvider['composeDocument']>>
     try {
-      result = await provider.composeDocument({
-        ...input,
-        previousErrors: previousErrors.length ? previousErrors : undefined,
-      })
+      const errors = previousErrors.length ? previousErrors : undefined
+      result = opts.call
+        ? await opts.call(errors)
+        : await provider.composeDocument({ ...input, previousErrors: errors })
     } catch (error) {
       // Tokeny nieudanych prób też się liczą (budżet, koszty).
       if (error instanceof AiProviderError && error.usage) addUsage(usage, error.usage)

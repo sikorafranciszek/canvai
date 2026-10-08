@@ -26,6 +26,7 @@ import {
   Minimize2,
   Check,
   X,
+  Wand2,
 } from 'lucide-react'
 import { router } from '@inertiajs/react'
 import { Menu } from '~/components/ui/Menu'
@@ -39,6 +40,8 @@ import { diffLines, diffStats } from '@shared/line-diff'
 import {
   designDocDownloadUrl,
   getDesignDocChanges,
+  REVISABLE_SECTIONS,
+  type RevisableSection,
   type DesignDocDto,
   type SpecChangesDto,
 } from '~/lib/board/api'
@@ -450,7 +453,15 @@ export function DesignDocPanel() {
                     </button>
                   ))}
                 </div>
-                {current.editedFromVersion ? (
+                {current.instruction ? (
+                  <span className="t-small t-muted" data-testid="design-doc-instruction">
+                    {t('revise.from', { version: current.editedFromVersion ?? '?' })}
+                    {current.revisedSection
+                      ? ` · ${t(`revise.section.${current.revisedSection}` as MessageKey)}`
+                      : ''}
+                    : „{current.instruction}”
+                  </span>
+                ) : current.editedFromVersion ? (
                   <span className="t-small t-muted">
                     {t('doc.editedFrom', { version: current.editedFromVersion })}
                   </span>
@@ -524,6 +535,12 @@ export function DesignDocPanel() {
           </>
         )}
       </div>
+      {canEdit &&
+      current?.status === 'ready' &&
+      current.hasSpec !== false &&
+      !(active && (active.status === 'queued' || active.status === 'running')) ? (
+        <RevisePanel key={current.version} />
+      ) : null}
       {canEdit ? <GenerationOptions /> : null}
       <PreviewDialog />
       {boardId != null && current?.status === 'ready' ? (
@@ -796,6 +813,116 @@ function DiffView({
 }
 
 /** Pasek pod dokumentem: koszt następnej generacji i przełącznik Pro reasoning. */
+/**
+ * Poprawka poleceniem albo regeneracja jednej sekcji (FEAT-2): „ciemniejszy
+ * primary”, „bez serifów” — nowa wersja na bazie bieżącej, reszta bez zmian.
+ */
+function RevisePanel() {
+  const { t, tp } = useT()
+  const revise = useDesignStore((s) => s.revise)
+  const starting = useDesignStore((s) => s.starting)
+  const summary = useBillingStore((s) => s.summary)
+  const [open, setOpen] = useState(false)
+  const [instruction, setInstruction] = useState('')
+  const [section, setSection] = useState<RevisableSection | ''>('')
+  const text = instruction.trim()
+  const valid = text.length >= 3
+  const cost = summary?.enforced ? (summary.revisionCost ?? null) : null
+
+  const submit = async () => {
+    if (!valid || starting) return
+    if (await revise(text, section || undefined)) {
+      setInstruction('')
+      setOpen(false)
+    }
+  }
+
+  if (!open) {
+    return (
+      <div className="revise revise--closed">
+        <button
+          type="button"
+          className="btn btn--quiet btn--sm"
+          data-testid="revise-open"
+          onClick={() => setOpen(true)}
+        >
+          <Wand2 size={14} />
+          {t('revise.open')}
+        </button>
+      </div>
+    )
+  }
+  return (
+    <form
+      className="revise"
+      data-testid="revise-form"
+      onSubmit={(e) => {
+        e.preventDefault()
+        void submit()
+      }}
+    >
+      <label className="sr-only" htmlFor="revise-instruction">
+        {t('revise.label')}
+      </label>
+      <textarea
+        id="revise-instruction"
+        className="textarea revise__input"
+        data-testid="revise-instruction"
+        rows={2}
+        maxLength={500}
+        autoFocus
+        placeholder={t('revise.placeholder')}
+        value={instruction}
+        onChange={(e) => setInstruction(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault()
+            void submit()
+          }
+          if (e.key === 'Escape') setOpen(false)
+        }}
+      />
+      <div className="revise__row">
+        <label className="sr-only" htmlFor="revise-section">
+          {t('revise.sectionLabel')}
+        </label>
+        <select
+          id="revise-section"
+          className="select select--sm"
+          data-testid="revise-section"
+          value={section}
+          onChange={(e) => setSection(e.target.value as RevisableSection | '')}
+        >
+          <option value="">{t('revise.section.all')}</option>
+          {REVISABLE_SECTIONS.map((s) => (
+            <option key={s} value={s}>
+              {t(`revise.section.${s}` as MessageKey)}
+            </option>
+          ))}
+        </select>
+        <span className="revise__actions">
+          <button type="button" className="btn btn--quiet btn--sm" onClick={() => setOpen(false)}>
+            {t('common.cancel')}
+          </button>
+          <button
+            type="submit"
+            className="btn btn--primary btn--sm"
+            data-testid="revise-submit"
+            disabled={!valid || starting}
+          >
+            {cost != null
+              ? t('revise.applyCost', { credits: tp('count.credits', cost) })
+              : t('revise.apply')}
+          </button>
+        </span>
+      </div>
+      <p className="t-small t-muted revise__hint">
+        {section ? t('revise.hintSection') : t('revise.hintAll')}
+      </p>
+    </form>
+  )
+}
+
 function GenerationOptions() {
   const { t, tp } = useT()
   const estimate = useDesignStore((s) => s.estimate)

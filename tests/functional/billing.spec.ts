@@ -294,6 +294,30 @@ test.group('Billing', (group) => {
     assert.equal(est2.body().data.credits, costs.compose)
   })
 
+  test('poprawka poleceniem (FEAT-2) kosztuje stałą cenę rewizji', async ({ client, assert }) => {
+    const user = await makeUser()
+    const cookies = await login(client, user)
+    const board = await createBoard(user)
+    await seedBoard(client, cookies, board)
+    ;(
+      await client.post(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies }).json({})
+    ).assertStatus(202)
+    await runPendingJobs()
+    const before = await balanceOf(user.id)
+    const res = await client
+      .post(`/api/boards/${board.id}/design-doc/revise`)
+      .headers({ cookie: cookies })
+      .json({ version: 1, instruction: 'bez szeryfów' })
+    res.assertStatus(202)
+    assert.equal(await balanceOf(user.id), before - costs.revision)
+    await runPendingJobs()
+    const doc = await DesignDoc.findOrFail(res.body().data.doc.id)
+    assert.equal(doc.status, 'ready', doc.error ?? '')
+    assert.equal(doc.creditsCharged, costs.revision)
+    const summary = await client.get('/api/billing').headers({ cookie: cookies })
+    assert.equal(summary.body().data.revisionCost, costs.revision)
+  })
+
   test('za mało kredytów → 402 i nic nie powstaje; nieudana generacja zwraca kredyty', async ({
     client,
     assert,
