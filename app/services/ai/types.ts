@@ -134,6 +134,9 @@ export class AiProviderError extends Error {
     super(message)
     this.name = 'AiProviderError'
   }
+
+  /** Tokeny zużyte przez nieudane próby — liczone do budżetu i kosztów (AI-5). */
+  usage?: { tokensIn: number; tokensOut: number }
 }
 
 /** Odpowiedź modelu nie spełnia schematu — błąd ponawialny. */

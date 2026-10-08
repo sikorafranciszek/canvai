@@ -85,6 +85,11 @@ export async function prepareGeneration(
   return { board, assets, context, fingerprint, provider }
 }
 
+function addUsage(tracker: UsageTracker, add: { tokensIn: number; tokensOut: number }) {
+  tracker.tokensIn += add.tokensIn
+  tracker.tokensOut += add.tokensOut
+}
+
 /** Materiał dowodowy dla `verifySpec`: analizy, role materiałów i teksty ludzi. */
 export function evidenceFor(
   board: Board,
@@ -188,27 +193,41 @@ async function generate(
   }))
   const allowedIds = assets.map((a) => a.id)
 
+  // Jeden limit wywołań kompozycji na generację (AI-6). Odrzucona odpowiedź —
+  // błąd schematu albo ugruntowania — wraca do modelu z listą problemów (po
+  // angielsku, jak reszta promptu); identyczna powtórka niczego by nie zmieniła.
   let spec: DesignSpec | null = null
   let previousErrors: string[] = []
-  for (let attempt = 0; attempt <= limits.maxRetries && !spec; attempt++) {
+  for (let call = 0; call < limits.maxComposeCalls && !spec; call++) {
     assertTokenBudget(usage)
-    const result = await provider.composeDocument({
-      boardTitle: board.title,
-      assets: composeAssets,
-      context,
-      previousErrors: previousErrors.length ? previousErrors : undefined,
-      reasoning: doc.proMode,
-    })
-    usage.tokensIn += result.usage.tokensIn
-    usage.tokensOut += result.usage.tokensOut
+    let result: Awaited<ReturnType<AiProvider['composeDocument']>>
+    try {
+      result = await provider.composeDocument({
+        boardTitle: board.title,
+        assets: composeAssets,
+        context,
+        previousErrors: previousErrors.length ? previousErrors : undefined,
+        reasoning: doc.proMode,
+      })
+    } catch (error) {
+      // Tokeny nieudanych prób też się liczą (budżet, koszty).
+      if (error instanceof AiProviderError && error.usage) addUsage(usage, error.usage)
+      if (error instanceof InvalidModelOutputError) {
+        previousErrors = [error.message]
+        continue
+      }
+      throw error
+    }
+    addUsage(usage, result.usage)
     doc.model = result.model
 
-    const problems = groundSpec(result.data, allowedIds)
+    const problems = runWithLocale('en', () => groundSpec(result.data, allowedIds))
     if (problems.length === 0) spec = result.data
     else previousErrors = problems
   }
   if (!spec) {
-    throw new InvalidModelOutputError(t('gen.notGrounded', { errors: previousErrors.join('; ') }))
+    // Bez ponawiania całego zadania — kolejne próby kosztowałyby tyle samo.
+    throw new AiProviderError(t('gen.notGrounded', { errors: previousErrors.join('; ') }), false)
   }
   // Kod sprawdza model: role materiałów, kolory, cytaty, marki (wspólne z ewaluacją).
   verifySpec(spec, evidenceFor(board, assets, analyses, context))

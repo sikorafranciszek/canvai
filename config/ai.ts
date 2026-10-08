@@ -138,6 +138,12 @@ export const limits = {
   composeTimeoutMs: 360_000,
   /** Liczba ponowień przy błędzie 429/5xx. */
   maxRetries: 3,
+  /**
+   * Wspólny limit wywołań kompozycji na jedną generację (AI-6): odrzucona
+   * odpowiedź (schemat, ugruntowanie) wraca do modelu z listą problemów,
+   * a po wyczerpaniu limitu generacja kończy się bez ponawiania całego zadania.
+   */
+  maxComposeCalls: 4,
   /** Maksymalna liczba assetów wysyłanych w jednym zadaniu analizy. */
   maxAssetsPerJob: 40,
   /**

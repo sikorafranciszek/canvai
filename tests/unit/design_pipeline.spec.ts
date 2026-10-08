@@ -531,6 +531,33 @@ test.group('Design pipeline / deepseek provider', () => {
     assert.equal(authCalls, 1)
   })
 
+  test('kompozycja: błąd schematu bez identycznej powtórki, po angielsku, z tokenami (AI-6)', async ({
+    assert,
+  }) => {
+    let calls = 0
+    const provider = new DeepseekProvider(config, {
+      fetch: (async () => {
+        calls++
+        return reply('{"name": "x"}')
+      }) as typeof fetch,
+      sleep: async () => {},
+    })
+    try {
+      await provider.composeDocument({
+        boardTitle: 't',
+        assets: [],
+        context: buildBoardContext(null),
+      })
+      assert.fail('powinno rzucić')
+    } catch (error) {
+      assert.instanceOf(error, InvalidModelOutputError)
+      assert.match((error as Error).message, /colors|font|component/i)
+      assert.notMatch((error as Error).message, /kolor|brak/i)
+      assert.deepEqual((error as AiProviderError).usage, { tokensIn: 100, tokensOut: 20 })
+    }
+    assert.equal(calls, 1)
+  })
+
   test('brak klucza kończy się czytelnym błędem bez wywołania sieci', async ({ assert }) => {
     let calls = 0
     const provider = new DeepseekProvider(

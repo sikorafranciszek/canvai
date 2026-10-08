@@ -23,7 +23,7 @@ import {
   buildComposeUserText,
   buildPreviewUserText,
 } from '#services/design/prompts'
-import { t } from '#services/i18n'
+import { runWithLocale, t } from '#services/i18n'
 
 /**
  * Dostawca DeepSeek (`api.deepseek.com`, protokół OpenAI Chat Completions).
@@ -168,11 +168,14 @@ export class DeepseekProvider implements AiProvider {
         { role: 'system', content: COMPOSE_SYSTEM_PROMPT },
         { role: 'user', content: buildComposeUserText(input) },
       ],
-      validateDesignSpec,
+      // Problemy ze schematem wracają do modelu jako informacja zwrotna — po angielsku.
+      (value) => runWithLocale('en', () => validateDesignSpec(value)),
       {
         maxTokens: this.#limits.maxComposeOutputTokens,
         timeoutMs: this.#limits.composeTimeoutMs,
         thinking: input.reasoning ? 'high' : undefined,
+        // Ta sama prośba dałaby ten sam błąd — ponawia generator, z listą problemów.
+        retryInvalid: false,
       }
     )
   }
@@ -193,7 +196,13 @@ export class DeepseekProvider implements AiProvider {
     model: string,
     messages: ChatMessage[],
     validate: (value: unknown) => T,
-    options: { maxTokens: number; timeoutMs: number; thinking?: 'off' | 'low' | 'high' }
+    options: {
+      maxTokens: number
+      timeoutMs: number
+      thinking?: 'off' | 'low' | 'high'
+      /** `false` — błąd schematu odpowiedzi kończy wywołanie (bez identycznej powtórki). */
+      retryInvalid?: boolean
+    }
   ): Promise<ProviderResult<T>> {
     if (!this.config.apiKey) {
       throw new AiProviderError(t('ai.noKeyDeepseek'), false)
@@ -224,7 +233,8 @@ export class DeepseekProvider implements AiProvider {
             throw new AiProviderError(t('ai.truncated'), false)
           }
           maxTokens = Math.min(maxTokens * 2, this.#limits.maxOutputTokensCeiling)
-          throw new InvalidModelOutputError(t('ai.truncated'))
+          // Ucięta odpowiedź: kolejna próba ma wyższy limit — to nie jest powtórka.
+          throw Object.assign(new InvalidModelOutputError(t('ai.truncated')), { truncated: true })
         }
         const content = choice?.message?.content
         if (typeof content !== 'string' || !content.trim()) {
@@ -234,12 +244,23 @@ export class DeepseekProvider implements AiProvider {
       } catch (error) {
         const err =
           error instanceof AiProviderError ? error : new AiProviderError(t('ai.unexpected'), true)
+        err.usage = { ...usage }
         if (!err.retryable) throw err
+        const truncated = (err as { truncated?: boolean }).truncated === true
+        if (
+          err instanceof InvalidModelOutputError &&
+          options.retryInvalid === false &&
+          !truncated
+        ) {
+          throw err
+        }
         lastError = err
       }
     }
 
-    throw lastError ?? new AiProviderError(t('ai.noResponse'), false)
+    const final = lastError ?? new AiProviderError(t('ai.noResponse'), false)
+    final.usage = { ...usage }
+    throw final
   }
 
   async #request(

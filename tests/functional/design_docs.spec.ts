@@ -10,7 +10,9 @@ import Asset from '#models/asset'
 import drive from '@adonisjs/drive/services/main'
 import { setProviderOverride } from '#services/ai/provider'
 import { MockProvider } from '#services/ai/mock_provider'
-import { AiProviderError } from '#services/ai/types'
+import { AiProviderError, InvalidModelOutputError } from '#services/ai/types'
+import Job from '#models/job'
+import { limits } from '#config/ai'
 import { runPendingJobs } from '#services/queue'
 import { PROMPT_VERSION } from '#services/design/prompts'
 
@@ -595,6 +597,38 @@ test.group('Design doc API', (group) => {
     assert.equal(res.body().data.status, 'ready')
     assert.equal(calls, 2)
     assert.notInclude(res.body().data.contentMd, 'A999999')
+  })
+
+  test('odrzucona odpowiedź wraca z problemami; jeden limit wywołań na generację (AI-6)', async ({
+    client,
+    assert,
+  }) => {
+    const { user, cookies } = await login(client)
+    const board = await createBoard(user)
+    await seedBoard(client, cookies, board)
+
+    // Zawsze błędny schemat: dokładnie maxComposeCalls wywołań, bez ponawiania zadania.
+    const broken = new MockProvider()
+    const feedback: (string[] | undefined)[] = []
+    broken.composeDocument = async (input) => {
+      feedback.push(input.previousErrors)
+      const error = new InvalidModelOutputError('Missing colors')
+      error.usage = { tokensIn: 1000, tokensOut: 10 }
+      throw error
+    }
+    setProviderOverride(broken)
+    await client.post(`/api/boards/${board.id}/design-doc`).headers({ cookie: cookies }).json({})
+    for (let i = 0; i < 5; i++) await runPendingJobs()
+
+    assert.lengthOf(feedback, limits.maxComposeCalls)
+    assert.isUndefined(feedback[0])
+    assert.deepEqual(feedback[1], ['Missing colors'])
+    const doc = await DesignDoc.query().where('board_id', board.id).firstOrFail()
+    assert.equal(doc.status, 'failed')
+    const job = await Job.query()
+      .whereRaw("payload->>'designDocId' = ?", [String(doc.id)])
+      .firstOrFail()
+    assert.equal(job.attempts, 1)
   })
 
   test('materiał usunięty z płótna nie trafia do DESIGN.md, a prune go sprząta', async ({
