@@ -1,5 +1,7 @@
 import { Form, Link } from '@adonisjs/inertia/react'
-import { Head } from '@inertiajs/react'
+import { Head, usePage } from '@inertiajs/react'
+import { AlertCircle } from 'lucide-react'
+import { translateFlash } from '~/lib/format'
 import { useT } from '~/i18n'
 import { privacyUrl } from '~/lib/consent'
 
@@ -45,6 +47,9 @@ function Field({
 
 export default function Signup() {
   const { t } = useT()
+  const { flash } = usePage()
+  // Np. limit zakładania kont z jednego adresu (SEC-4) — bez tego formularz „odbija” bez słowa.
+  const flashError = typeof flash.error === 'string' ? translateFlash(flash.error) : null
   return (
     <>
       <Head title={t('auth.signup.title')} />
@@ -57,6 +62,12 @@ export default function Signup() {
         <Form route="new_account.store" className="auth__form">
           {({ errors, processing }: FormState) => (
             <>
+              {flashError ? (
+                <div className="alert alert--danger" role="alert" data-testid="signup-error">
+                  <AlertCircle />
+                  {flashError}
+                </div>
+              ) : null}
               <Field
                 id="fullName"
                 label={t('auth.field.fullName')}
