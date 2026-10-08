@@ -9,6 +9,7 @@ import { referrals } from '#config/billing'
 import { isDisposableEmail } from '#services/disposable_email'
 import { attachReferrer, isReferralCode } from '#services/billing/referrals'
 import { trackFor } from '#services/analytics/events'
+import { hit, rateKey } from '#services/rate_limit'
 
 export default class NewAccountController {
   async create({ inertia, request, response }: HttpContext) {
@@ -22,6 +23,15 @@ export default class NewAccountController {
   async store(ctx: HttpContext) {
     const { request, response, auth, session } = ctx
     const { passwordConfirmation, ...payload } = await request.validateUsing(signupValidator)
+    // SEC-4: masowe zakładanie kont (darmowe kredyty, nagrody za polecenia).
+    const limit = await hit(rateKey('signup:ip', request.ip()), 5, 60 * 60_000)
+    if (!limit.allowed) {
+      session.flash(
+        'error',
+        t('auth.tooManyAttempts', { minutes: Math.ceil(limit.retryAfterSec / 60) })
+      )
+      return response.redirect().back()
+    }
     if (isDisposableEmail(payload.email)) {
       throw new vineErrors.E_VALIDATION_ERROR([
         { field: 'email', message: t('account.disposableEmail'), rule: 'disposable' },

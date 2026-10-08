@@ -1,4 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
+import { hitAll, rateKey } from '#services/rate_limit'
 import logger from '@adonisjs/core/services/logger'
 import { DateTime } from 'luxon'
 import User from '#models/user'
@@ -21,6 +22,16 @@ export default class PasswordResetController {
   async store(ctx: HttpContext) {
     const { request, session, response } = ctx
     const { email } = await request.validateUsing(forgotPasswordValidator)
+    // SEC-4: bez zasypywania skrzynek mailami resetu. Odpowiedź taka sama jak przy
+    // sukcesie (nie zdradzamy, czy konto istnieje), tylko mail nie wychodzi.
+    const limit = await hitAll([
+      { key: rateKey('reset:email', email), max: 3, windowMs: 60 * 60_000 },
+      { key: rateKey('reset:ip', ctx.request.ip()), max: 10, windowMs: 60 * 60_000 },
+    ])
+    if (!limit.allowed) {
+      session.flash('success', t('account.resetSent'))
+      return response.redirect().back()
+    }
     const user = await User.findBy('email', email)
 
     if (user && !(await issuedRecently(user, 'password_reset'))) {

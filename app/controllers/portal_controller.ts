@@ -154,7 +154,7 @@ export default class PortalController {
       session.flash('error', t('portal.nothing'))
       return response.redirect().back()
     }
-    if (rateLimited(`portal:${share.id}`, 30, 60 * 60_000)) {
+    if (await rateLimited(`portal:${share.id}`, 30, 60 * 60_000)) {
       session.flash('error', t('portal.rateLimited'))
       return response.redirect().back()
     }
@@ -222,7 +222,7 @@ export default class PortalController {
       session.flash('error', t('portal.noDoc'))
       return response.redirect().back()
     }
-    if (rateLimited(`portal-feedback:${share.id}`, 20, 60 * 60_000)) {
+    if (await rateLimited(`portal-feedback:${share.id}`, 20, 60 * 60_000)) {
       session.flash('error', t('portal.rateLimited'))
       return response.redirect().back()
     }

@@ -441,6 +441,17 @@ export class PortalFeedbackSchema extends BaseModel {
   declare version: number | null
 }
 
+export class RateLimitSchema extends BaseModel {
+  static $columns = ['hits', 'key', 'resetAt'] as const
+  $columns = RateLimitSchema.$columns
+  @column()
+  declare hits: number
+  @column({ isPrimary: true })
+  declare key: string
+  @column.dateTime()
+  declare resetAt: DateTime
+}
+
 export class SchedulerRunSchema extends BaseModel {
   static $columns = ['lastMessage', 'lastRunAt', 'lastStatus', 'task'] as const
   $columns = SchedulerRunSchema.$columns

@@ -37,6 +37,16 @@ registerTask({
   },
 })
 
+/** Codzienne usuwanie wygasłych liczników limitów żądań. */
+registerTask({
+  name: 'rate_limits_purge',
+  due: every(24 * 60),
+  async run() {
+    const { purgeExpired } = await import('#services/rate_limit')
+    return `purged ${await purgeExpired()} expired counters`
+  },
+})
+
 /** Cotygodniowe sprzątanie plików bez wiersza w bazie (DAT-8). */
 registerTask({
   name: 'orphan_files',

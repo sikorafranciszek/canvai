@@ -266,6 +266,7 @@ export const pl = {
   'brand.saved': 'Zapisano markę',
   'brand.logoInvalid': 'Logo musi być obrazem PNG, JPG, WebP albo SVG do 4 MB.',
   'billing.taxIdInvalid': 'Podaj poprawny NIP / numer VAT UE (np. PL1234567890).',
+  'auth.tooManyAttempts': 'Zbyt wiele prób. Spróbuj ponownie za {minutes} min.',
 } as const
 
 export type ServerMessageKey = keyof typeof pl
@@ -521,4 +522,5 @@ export const en: Record<ServerMessageKey, string> = {
   'brand.saved': 'Brand saved',
   'brand.logoInvalid': 'The logo must be a PNG, JPG, WebP or SVG image up to 4 MB.',
   'billing.taxIdInvalid': 'Enter a valid EU VAT / tax ID (e.g. PL1234567890).',
+  'auth.tooManyAttempts': 'Too many attempts. Try again in {minutes} min.',
 }

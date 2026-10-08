@@ -102,7 +102,7 @@ export default class CrmController {
     const { request, auth, response, session } = ctx
     const { email, password } = await request.validateUsing(loginValidator)
     // Ochrona przed zgadywaniem haseł: 10 prób na 15 minut z jednego IP.
-    if (rateLimited(`crm-login:${request.ip()}`, 10, 15 * 60_000)) {
+    if (await rateLimited(`crm-login:${request.ip()}`, 10, 15 * 60_000)) {
       logger.warn({ ip: request.ip() }, 'crm login rate limited')
       session.flash('error', 'crm.login.rateLimited')
       return response.redirect().toPath('/login')

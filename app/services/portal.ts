@@ -26,18 +26,10 @@ export async function findActiveShare(token: string) {
   return owner ? { share, board, owner } : null
 }
 
-/** Prosty limit żądań portalu w pamięci procesu (na token i akcję). */
-const hits = new Map<string, number[]>()
-export function rateLimited(key: string, max: number, windowMs: number): boolean {
-  const now = Date.now()
-  const recent = (hits.get(key) ?? []).filter((ts) => now - ts < windowMs)
-  if (recent.length >= max) {
-    hits.set(key, recent)
-    return true
-  }
-  recent.push(now)
-  hits.set(key, recent)
-  return false
+/** Limit żądań (w bazie — wspólny dla procesów, patrz rate_limit.ts). `true` = zablokowane. */
+export async function rateLimited(key: string, max: number, windowMs: number): Promise<boolean> {
+  const { hit } = await import('#services/rate_limit')
+  return !(await hit(key, max, windowMs)).allowed
 }
 
 /** Powiadomienie właściciela tablicy (w jego języku). Błąd wysyłki nie przerywa akcji klienta. */
