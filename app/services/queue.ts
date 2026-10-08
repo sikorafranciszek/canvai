@@ -65,7 +65,10 @@ const handlers: Record<string, JobHandler> = {
       )
       // Nieudana generacja nic nie kosztuje — rezerwacja wraca w całości.
       await releaseAll({ designDocId: docId })
-      raiseAlert('design_doc_failed', `DESIGN.md generation failed (doc ${docId}): ${message}`)
+      // Pojedyncza porażka bywa winą materiałów — alarm dopiero przy serii (REL-5).
+      raiseAlert('design_doc_failed', `DESIGN.md generation failed (doc ${docId}): ${message}`, {
+        threshold: 3,
+      })
       if (board) publish(board.id, 'doc', { status: 'failed' })
     },
     async onRetry(job, message) {
@@ -94,7 +97,9 @@ const handlers: Record<string, JobHandler> = {
         }
       )
       await releaseAll({ designPreviewId: previewId }, 'preview failed')
-      raiseAlert('preview_failed', `UI preview failed (preview ${previewId}): ${message}`)
+      raiseAlert('preview_failed', `UI preview failed (preview ${previewId}): ${message}`, {
+        threshold: 3,
+      })
     },
     async onRetry(job) {
       await DesignPreview.query()

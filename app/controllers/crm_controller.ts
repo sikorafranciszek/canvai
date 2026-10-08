@@ -23,7 +23,7 @@ import { adminDenial, isAdmin } from '#services/crm/admin'
 import { rateLimited } from '#services/portal'
 import { backupConfigured, ops } from '#config/ops'
 import { usageToday } from '#services/ops/ai_budget'
-import { pendingAlerts, sentAlerts } from '#services/ops/alerts'
+import { pendingAlerts, recentAlerts, sentAlerts } from '#services/ops/alerts'
 import { registeredTasks, runTask, taskStatus } from '#services/ops/scheduler'
 import '#services/ops/tasks'
 import {
@@ -178,6 +178,7 @@ export default class CrmController {
         pending: pendingAlerts(),
         webhook: Boolean(ops.alerts.webhookUrl),
         recent: sentAlerts.slice(0, 5),
+        log: await recentAlerts(15).catch(() => []),
       },
     }
   }

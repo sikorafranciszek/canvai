@@ -9,7 +9,14 @@ import { ops } from '#config/ops'
 import { S3Client } from '#services/ops/s3'
 import { backupDeps, listBackups, pruneBackups, runBackup, storagePath } from '#services/ops/backup'
 import { dailyAt, every, registerTask, runDueTasks } from '#services/ops/scheduler'
-import { flushAlerts, raiseAlert, resetAlerts, sentAlerts } from '#services/ops/alerts'
+import {
+  flushAlerts,
+  normalizeAlertKey,
+  raiseAlert,
+  recentAlerts,
+  resetAlerts,
+  sentAlerts,
+} from '#services/ops/alerts'
 import {
   aiBudgetDenial,
   claimGenerationSlot,
@@ -168,6 +175,38 @@ test.group('Ops — harmonogram, alerty i limity AI', (group) => {
     assert.match(sentAlerts[0].text, /task_test_fail.*boom/)
     assert.match(sentAlerts[0].text, /\[x\] second \(×2/)
     assert.isFalse(await flushAlerts(), 'nic nowego do wysłania')
+  })
+
+  test('alerty (REL-5): klucze bez zmiennych, próg dla błędów użytkownika, zapis w bazie', async ({
+    assert,
+  }) => {
+    resetAlerts()
+    assert.equal(
+      normalizeAlertKey(
+        'log:Generation 123 failed for 3f2b9c1e-1111-2222-3333-444455556666 "Kawiarnia"'
+      ),
+      normalizeAlertKey('log:Generation 98 failed for 9a9b9c9d-aaaa-bbbb-cccc-ddddeeeeffff "Inna"')
+    )
+    raiseAlert('log:Generation 1 failed', 'a')
+    raiseAlert('log:Generation 2 failed', 'b')
+    raiseAlert('design_doc_failed', 'materials problem', { threshold: 3 })
+    raiseAlert('design_doc_failed', 'materials problem', { threshold: 3 })
+    assert.isTrue(await flushAlerts(true))
+    assert.match(sentAlerts[0].text, /Generation # failed.*×2/)
+    assert.notInclude(sentAlerts[0].text, 'materials problem', 'poniżej progu — bez wysyłki')
+
+    for (let i = 0; i < 3; i++) raiseAlert('design_doc_failed', 'provider down', { threshold: 3 })
+    assert.isTrue(await flushAlerts(true))
+    assert.include(sentAlerts[0].text, 'provider down')
+
+    for (let i = 0; i < 60; i++) raiseAlert(`distinct-${'x'.repeat(i)}`, `m${i}`)
+    await flushAlerts(true)
+    assert.match(sentAlerts[0].text, /More than 50 distinct alerts/)
+
+    await new Promise((r) => setTimeout(r, 300))
+    const log = await recentAlerts(100)
+    const doc = log.find((a) => a.key === 'design_doc_failed')
+    assert.equal(doc?.count, 5, 'w bazie każde wystąpienie, także poniżej progu')
   })
 
   test('limity dzienne: liczba generacji i tokeny użytkownika', async ({ assert }) => {

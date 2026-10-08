@@ -74,7 +74,12 @@ interface SystemStatus {
     userDailyTokens: number
     top: { id: number; email: string; generations: number; tokens: number }[]
   }
-  alerts: { pending: number; webhook: boolean; recent: { at: string; text: string }[] }
+  alerts: {
+    pending: number
+    webhook: boolean
+    recent: { at: string; text: string }[]
+    log: { key: string; message: string; count: number; firstAt: string; lastAt: string }[]
+  }
 }
 
 const when = (iso: string | null) =>
@@ -169,6 +174,18 @@ function SystemCard({ system }: { system: SystemStatus }) {
                     {a.text}
                   </pre>
                 ))}
+              </details>
+            ) : null}
+            {system.alerts.log.length ? (
+              <details className="t-small">
+                <summary>Dziennik alertów ({system.alerts.log.length})</summary>
+                <ul className="crm-system__alerts">
+                  {system.alerts.log.map((a) => (
+                    <li key={a.key}>
+                      <b>×{a.count}</b> {when(a.lastAt)} — {a.message}
+                    </li>
+                  ))}
+                </ul>
               </details>
             ) : null}
           </dd>

@@ -43,7 +43,8 @@ registerTask({
   due: every(24 * 60),
   async run() {
     const { purgeExpired } = await import('#services/rate_limit')
-    return `purged ${await purgeExpired()} expired counters`
+    const { purgeAlerts } = await import('#services/ops/alerts')
+    return `purged ${await purgeExpired()} expired counters, ${await purgeAlerts()} old alerts`
   },
 })
 
