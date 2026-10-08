@@ -99,7 +99,10 @@ export function invalidCssTokens(spec: DesignSpec): string[] {
     .filter((line) => /^\s+--[\w-]+: /.test(line))
     .filter((line) => {
       const value = line.replace(/^\s+--[\w-]+: /, '').replace(/;$/, '')
-      const withoutFns = value.replace(/\b(rgba?|hsla?|oklch|oklab|var|calc)\([^()]*\)/g, '')
+      const withoutFns = value.replace(
+        /\b(rgba?|hsla?|oklch|oklab|var|calc|cubic-bezier)\([^()]*\)/g,
+        ''
+      )
       return /[()]/.test(withoutFns)
     })
     .map((line) => line.trim())

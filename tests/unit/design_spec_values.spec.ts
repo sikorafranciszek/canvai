@@ -5,7 +5,7 @@ import {
   validateDesignSpec,
   verifyColorEvidence,
 } from '#services/design/spec'
-import { renderCssVariables, renderTailwindTheme } from '#services/design/renderer'
+import { renderCssVariables, renderDesignMd, renderTailwindTheme } from '#services/design/renderer'
 
 function minimalSpec(extra: Record<string, unknown> = {}) {
   return {
@@ -59,7 +59,8 @@ test.group('DesignSpec — wartości CSS', () => {
     assert.lengthOf(spec.shadows, 0)
     for (const css of [renderCssVariables(spec), renderTailwindTheme(spec)]) {
       assert.include(css, '--radius-avatars: 50%;')
-      assert.notInclude(css, '(')
+      // Jedyne nawiasy w tokenach to funkcje CSS (np. krzywa ruchu), nie opisy.
+      assert.notInclude(css.replace(/cubic-bezier\([^)]*\)/g, ''), '(')
     }
     assert.match(spec.openQuestions.join(' '), /radius „cards”: „slightly rounded”/)
   })
@@ -114,5 +115,81 @@ test.group('DesignSpec — kolory a materiały', () => {
     assert.include(spec.components[0].description, 'bg #d93025')
     assert.sameMembers(flagged, ['Gray', 'Tailwind Red'])
     assert.equal(spec.colors[0].token, '--color-red')
+  })
+})
+
+test.group('DesignSpec — nazwy tokenów i system (AI-9)', () => {
+  test('odstępy semantyczne, Tailwind nie nadpisuje skali liczbowej, jedna interlinia', ({
+    assert,
+  }) => {
+    const spec = validateDesignSpec(
+      minimalSpec({
+        spacing: {
+          baseUnit: '4px',
+          scale: ['32', '4', '16', '8', '24', '12', '48'].map((n) => ({
+            name: n,
+            value: `${n}px`,
+          })),
+        },
+        typography: {
+          families: [{ name: 'Roboto', sources: [1] }],
+          scale: [
+            { role: 'body', size: '14px', lineHeight: '1.5', token: '--text-body' },
+            { role: 'body', size: '16px', lineHeight: '1.5', token: '--text-body' },
+          ],
+        },
+        radii: [
+          { element: 'cards', value: '12px' },
+          { element: 'Cards', value: '16px' },
+        ],
+      })
+    )
+    assert.deepEqual(
+      spec.spacing.scale.map((s) => `${s.name}=${s.value}`),
+      ['2xs=4px', 'xs=8px', 'sm=12px', 'md=16px', 'lg=24px', 'xl=32px', '2xl=48px']
+    )
+    assert.deepEqual(spec.radii, [{ name: 'cards', value: '12px' }])
+    assert.deepEqual(
+      spec.typography.scale.map((r) => r.token),
+      ['--text-body', '--text-body-2']
+    )
+    const tw = renderTailwindTheme(spec)
+    assert.notMatch(tw, /--spacing-\d+:/)
+    assert.include(tw, '--spacing: 4px;')
+    assert.include(tw, '--text-body--line-height: 1.5;')
+    const css = renderCssVariables(spec)
+    assert.include(css, '--text-body--line-height: 1.5;')
+    assert.notInclude(css, '--leading-')
+  })
+
+  test('brakujące breakpointy, warstwy, ruch i focus — wartości domyślne jako założenia', ({
+    assert,
+  }) => {
+    const spec = validateDesignSpec(
+      minimalSpec({
+        colors: [{ name: 'Primary', hex: '#3355ff', role: 'primary action', sources: [1] }],
+        breakpoints: [{ name: 'tablet', value: '800px' }],
+        motion: [
+          { name: 'quick', value: '90ms' },
+          { name: 'wobbly', value: 'bouncy' },
+        ],
+      })
+    )
+    assert.deepEqual(spec.breakpoints, [{ name: 'tablet', value: '800px' }])
+    assert.equal(spec.focusRing, '2px solid #3355ff')
+    assert.sameMembers(spec.systemAssumed!, ['z-index layers', 'border widths', 'focus ring'])
+    assert.match(spec.openQuestions.join(' '), /motion „wobbly”/)
+    const css = renderCssVariables(spec)
+    assert.include(css, '--breakpoint-tablet: 800px;')
+    assert.include(css, '--z-modal: 50;')
+    assert.include(css, '--duration-quick: 90ms;')
+    assert.include(css, '--focus-ring: 2px solid #3355ff;')
+    const { markdown } = renderDesignMd(spec, [], {
+      boardTitle: 'B',
+      version: 1,
+      generatedAt: 'now',
+    })
+    assert.include(markdown, '## Tokens — Responsive, Layers & Motion')
+    assert.match(markdown, /z-index layers \(typical defaults/)
   })
 })

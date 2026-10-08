@@ -309,7 +309,7 @@ test.group('Design pipeline / spec & renderer', () => {
     // Quick Start = te same tokeny co tabele.
     assert.include(markdown, '  --color-parchment: #faf8f5;')
     assert.include(markdown, '  --font-inter: Inter, ui-sans-serif, system-ui, sans-serif;')
-    assert.include(markdown, '  --text-body: 14px;\n  --leading-body: 1.43;')
+    assert.include(markdown, '  --text-body: 14px;\n  --text-body--line-height: 1.43;')
     assert.include(markdown, '  --radius-cards: 16px;')
     assert.include(markdown, '@theme {')
     assert.include(markdown, '  --text-body--line-height: 1.43;')

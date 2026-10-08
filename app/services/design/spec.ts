@@ -118,6 +118,17 @@ export interface DesignSpec {
   }
   similarBrands: { name: string; reason: string }[]
   openQuestions: string[]
+  /*
+   * System (AI-9). Opcjonalne — specyfikacje zapisane przed v6 ich nie mają.
+   * Wartości z materiałów albo domyślne (wtedy nazwa grupy w `systemAssumed`).
+   */
+  breakpoints?: SpecNameValue[]
+  zIndex?: SpecNameValue[]
+  motion?: SpecNameValue[]
+  borders?: SpecNameValue[]
+  focusRing?: string
+  iconography?: string
+  systemAssumed?: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -251,6 +262,127 @@ export function cssShadow(raw: string): string | null {
   if (!/\d/.test(value) || /[^\w\s#().,%/-]/.test(value)) return null
   const words = value.replace(/#[0-9a-f]{3,8}\b/gi, '').match(/[a-z]+/gi) ?? []
   return words.every((w) => SHADOW_WORDS.has(w.toLowerCase())) ? value : null
+}
+
+const MOTION_DURATION = /^\d+(?:\.\d+)?m?s$/i
+const MOTION_EASING =
+  /^(?:linear|ease|ease-in|ease-out|ease-in-out|cubic-bezier\(\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*\))$/i
+const FOCUS_RING =
+  /^\d+(?:\.\d+)?px\s+(?:solid|dashed|dotted|double)\s+(?:#[0-9a-f]{3,8}|rgba?\([^()]*\)|var\(--[a-z0-9-]+\))$/i
+
+/** Czas (`150ms`) albo krzywa (`ease-out`, `cubic-bezier(…)`) — inaczej `null`. */
+export function cssMotion(raw: string): string | null {
+  const value = stripNotes(raw)
+  return MOTION_DURATION.test(value) || MOTION_EASING.test(value) ? value : null
+}
+
+/** Wartość w px (do sortowania skali odstępów); `rem` = 16px. */
+function toPx(value: string): number {
+  const m = value.match(/^(-?[\d.]+)(px|rem|em)?$/)
+  if (!m) return Number.NaN
+  return Number(m[1]) * (m[2] === 'rem' || m[2] === 'em' ? 16 : 1)
+}
+
+const SIZE_LADDER = ['3xs', '2xs', 'xs', 'sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl']
+
+/**
+ * Spójne nazwy tokenów (AI-9):
+ * - odstępy o nazwach liczbowych („8”) dostają nazwy semantyczne (xs…2xl) —
+ *   `--spacing-8: 8px` w Tailwind v4 zmieniałby znaczenie `p-8` (2rem → 8px);
+ * - duplikaty nazw w każdej rodzinie tokenów są usuwane (pierwszy wygrywa),
+ *   a powtórzone tokeny fontów i skali dostają sufiks.
+ */
+export function normalizeTokenNames(spec: DesignSpec): void {
+  const scale = spec.spacing.scale
+  if (scale.length && scale.every((s) => /^\d+(?:\.\d+)?(?:px|rem)?$/i.test(s.name.trim()))) {
+    const sorted = [...scale].sort((a, b) => toPx(a.value) - toPx(b.value))
+    const md = sorted.reduce(
+      (best, s, i) =>
+        Math.abs(toPx(s.value) - 16) < Math.abs(toPx(sorted[best].value) - 16) ? i : best,
+      0
+    )
+    const start = Math.max(0, SIZE_LADDER.indexOf('md') - md)
+    spec.spacing.scale = sorted.map((s, i) => ({
+      name: SIZE_LADDER[start + i] ?? `${start + i - SIZE_LADDER.length + 7}xl`,
+      value: s.value,
+    }))
+  }
+  const uniqueNames = (items: SpecNameValue[]) => {
+    const seen = new Set<string>()
+    return items.filter((item) => {
+      const key = slug(item.name)
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }
+  spec.spacing.scale = uniqueNames(spec.spacing.scale)
+  spec.radii = uniqueNames(spec.radii)
+  spec.shadows = uniqueNames(spec.shadows)
+  for (const key of ['breakpoints', 'zIndex', 'motion', 'borders'] as const) {
+    if (spec[key]) spec[key] = uniqueNames(spec[key]!)
+  }
+  const suffix = <T extends { token: string }>(items: T[]) => {
+    const seen = new Set<string>()
+    for (const item of items) {
+      let t = item.token
+      for (let i = 2; seen.has(t); i++) t = `${item.token}-${i}`
+      item.token = t
+      seen.add(t)
+    }
+  }
+  suffix(spec.typography.families)
+  suffix(spec.typography.scale)
+}
+
+/**
+ * Dokument dla narzędzi do kodu musi mieć breakpointy, warstwy, ruch, obramowania
+ * i focus. Czego nie widać w materiałach, kod uzupełnia typowymi wartościami jako
+ * założenia — z pytaniem w Open Questions (zamiast zgadywania przez model).
+ */
+export function fillSystemDefaults(spec: DesignSpec): void {
+  const assumed: string[] = []
+  if (!spec.breakpoints?.length) {
+    spec.breakpoints = [
+      { name: 'sm', value: '640px' },
+      { name: 'md', value: '768px' },
+      { name: 'lg', value: '1024px' },
+      { name: 'xl', value: '1280px' },
+    ]
+    assumed.push('breakpoints')
+  }
+  if (!spec.zIndex?.length) {
+    spec.zIndex = [
+      { name: 'dropdown', value: '10' },
+      { name: 'sticky', value: '20' },
+      { name: 'overlay', value: '40' },
+      { name: 'modal', value: '50' },
+      { name: 'toast', value: '60' },
+    ]
+    assumed.push('z-index layers')
+  }
+  if (!spec.motion?.length) {
+    spec.motion = [
+      { name: 'fast', value: '120ms' },
+      { name: 'base', value: '200ms' },
+      { name: 'slow', value: '320ms' },
+      { name: 'standard', value: 'cubic-bezier(0.2, 0, 0, 1)' },
+    ]
+    assumed.push('motion')
+  }
+  if (!spec.borders?.length) {
+    spec.borders = [{ name: 'hairline', value: '1px' }]
+    assumed.push('border widths')
+  }
+  if (!spec.focusRing) {
+    const accent =
+      spec.colors.find((c) =>
+        /primary|accent|brand|action|link|focus/i.test(`${c.name} ${c.role} ${c.token}`)
+      ) ?? spec.colors[0]
+    spec.focusRing = `2px solid ${accent?.hex ?? '#2563eb'}`
+    assumed.push('focus ring')
+  }
+  spec.systemAssumed = assumed
 }
 
 export function validateDesignSpec(input: unknown): DesignSpec {
@@ -438,6 +570,38 @@ export function validateDesignSpec(input: unknown): DesignSpec {
     ),
     openQuestions: strList(v.openQuestions, 20),
   }
+  // System (AI-9): breakpointy, warstwy, ruch, obramowania, focus.
+  spec.breakpoints = list(v.breakpoints, (b) => lengthItem('breakpoint', nameValue(b)), 8)
+  spec.borders = list(v.borders, (b) => lengthItem('border width', nameValue(b)), 8)
+  spec.zIndex = list(
+    v.zIndex,
+    (z) => {
+      const item = nameValue(z)
+      const n = item ? Number(item.value) : NaN
+      return item && Number.isInteger(n) && Math.abs(n) <= 100_000
+        ? { name: item.name, value: String(n) }
+        : null
+    },
+    10
+  )
+  spec.motion = list(
+    v.motion,
+    (m) => {
+      const item = nameValue(m)
+      if (!item) return null
+      const value = cssMotion(item.value)
+      if (!value) unclear.push(`motion „${item.name}”: „${item.value}”`)
+      return value ? { name: item.name, value } : null
+    },
+    10
+  )
+  const ring = str(v.focusRing, 80)
+  spec.focusRing = ring && FOCUS_RING.test(ring) ? ring : ''
+  if (ring && !spec.focusRing) unclear.push(`focus ring: „${ring}”`)
+  spec.iconography = text(v.iconography, 800)
+  normalizeTokenNames(spec)
+  fillSystemDefaults(spec)
+
   if (unclear.length) {
     spec.openQuestions.push(
       `These values were descriptions rather than CSS and were left out of the tokens — confirm exact values: ${unclear.slice(0, 12).join('; ')}.`

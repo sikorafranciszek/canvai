@@ -93,9 +93,20 @@ function slug(value: string): string {
     .replace(/^-|-$/g, '')
 }
 
-/** `--text-body` → `--leading-body` */
+/**
+ * Interlinia: jedna konwencja w CSS, Tailwind v4 i eksportach (AI-9) —
+ * `--text-body` → `--text-body--line-height` (natywny zapis Tailwind v4).
+ */
 function leadingToken(textToken: string): string {
-  return `--leading-${textToken.replace(/^--(text-)?/, '')}`
+  return `${textToken}--line-height`
+}
+
+/** Ruch: czasy jako `--duration-*`, krzywe jako `--ease-*`. */
+function motionEntries(spec: DesignSpec): [string, string][] {
+  return (spec.motion ?? []).map((m): [string, string] => [
+    /m?s$/i.test(m.value) ? `--duration-${slug(m.name)}` : `--ease-${slug(m.name)}`,
+    m.value,
+  ])
 }
 
 function fontStack(name: string, substitute: string): string {
@@ -176,13 +187,18 @@ export function renderCssVariables(spec: DesignSpec): string {
     [
       'Spacing',
       [
-        ['--spacing-unit', spec.spacing.baseUnit],
+        ['--spacing', spec.spacing.baseUnit],
         ...spec.spacing.scale.map((s): [string, string] => [`--spacing-${slug(s.name)}`, s.value]),
       ],
     ],
     ['Layout', layoutEntries(spec)],
+    ['Breakpoints', (spec.breakpoints ?? []).map((b) => [`--breakpoint-${slug(b.name)}`, b.value])],
     ['Border Radius', spec.radii.map((r) => [`--radius-${slug(r.name)}`, r.value])],
+    ['Border Width', (spec.borders ?? []).map((b) => [`--border-${slug(b.name)}`, b.value])],
     ['Shadows', spec.shadows.map((s) => [`--shadow-${slug(s.name)}`, s.value])],
+    ['Focus', spec.focusRing ? [['--focus-ring', spec.focusRing]] : []],
+    ['Z-index', (spec.zIndex ?? []).map((z) => [`--z-${slug(z.name)}`, z.value])],
+    ['Motion', motionEntries(spec)],
     ['Surfaces', spec.surfaces.map((s) => [`--surface-${slug(s.name)}`, s.value])],
   ])
 }
@@ -209,9 +225,19 @@ export function renderTailwindTheme(spec: DesignSpec): string {
             ]
       }),
     ],
-    ['Spacing', spec.spacing.scale.map((s) => [`--spacing-${slug(s.name)}`, s.value])],
+    [
+      'Spacing',
+      [
+        // Bazowa jednostka skali Tailwind (p-4 = 4 × --spacing); nazwy semantyczne
+        // (xs…2xl) nie nadpisują domyślnej skali liczbowej.
+        ['--spacing', spec.spacing.baseUnit],
+        ...spec.spacing.scale.map((s): [string, string] => [`--spacing-${slug(s.name)}`, s.value]),
+      ],
+    ],
+    ['Breakpoints', (spec.breakpoints ?? []).map((b) => [`--breakpoint-${slug(b.name)}`, b.value])],
     ['Border Radius', spec.radii.map((r) => [`--radius-${slug(r.name)}`, r.value])],
     ['Shadows', spec.shadows.map((s) => [`--shadow-${slug(s.name)}`, s.value])],
+    ['Motion', motionEntries(spec).filter(([k]) => k.startsWith('--ease-'))],
   ])
 }
 
@@ -349,6 +375,50 @@ export function renderDesignMd(
     layoutBullets.length ? `### Layout\n\n${bullets(layoutBullets)}` : ''
   )
 
+  // System: breakpointy, warstwy, ruch, obramowania, focus, ikony (AI-9).
+  if (spec.breakpoints || spec.zIndex || spec.motion || spec.focusRing) {
+    const defaulted = new Set(spec.systemAssumed ?? [])
+    const mark = (group: string) => (defaulted.has(group) ? ` ${ASSUMED}` : '')
+    section(
+      'Tokens — Responsive, Layers & Motion',
+      spec.breakpoints?.length
+        ? `### Breakpoints${mark('breakpoints')}\n\n${table(
+            ['Name', 'Min width', 'Token'],
+            spec.breakpoints.map((b) => [b.name, b.value, `\`--breakpoint-${slug(b.name)}\``])
+          )}`
+        : '',
+      spec.zIndex?.length
+        ? `### Z-index${mark('z-index layers')}\n\n${table(
+            ['Layer', 'Value', 'Token'],
+            spec.zIndex.map((z) => [z.name, z.value, `\`--z-${slug(z.name)}\``])
+          )}`
+        : '',
+      spec.motion?.length
+        ? `### Motion${mark('motion')}\n\n${table(
+            ['Name', 'Value', 'Token'],
+            motionEntries(spec).map(([token, value], i) => [
+              spec.motion![i].name,
+              `\`${value}\``,
+              `\`${token}\``,
+            ])
+          )}`
+        : '',
+      spec.borders?.length || spec.focusRing
+        ? `### Borders & Focus${mark('border widths') || mark('focus ring')}\n\n${bullets([
+            ...(spec.borders ?? []).map(
+              (b) => `**Border ${b.name}:** ${b.value} (\`--border-${slug(b.name)}\`)`
+            ),
+            ...(spec.focusRing
+              ? [
+                  `**Focus ring:** \`${spec.focusRing}\` (\`--focus-ring\`) with 2px offset on every interactive element`,
+                ]
+              : []),
+          ])}`
+        : '',
+      spec.iconography ? `### Iconography\n\n${spec.iconography}` : ''
+    )
+  }
+
   // Komponenty
   section(
     'Components',
@@ -466,6 +536,9 @@ export function renderDesignMd(
     ...spec.typography.families.filter((f) => f.assumed).map((f) => `font „${f.name}”`),
     ...spec.components.filter((c) => c.assumed).map((c) => `component „${c.name}”`),
     ...(spec.spacing.assumed ? [`spacing scale (base ${spec.spacing.baseUnit})`] : []),
+    ...(spec.systemAssumed ?? []).map(
+      (g) => `${g} (typical defaults — not visible in the materials)`
+    ),
   ]
   section(
     'Open Questions',

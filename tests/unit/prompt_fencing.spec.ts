@@ -113,7 +113,7 @@ test.group('Budżet wejścia kompozycji (AI-5)', () => {
       kind: 'image',
       userNote: 'n'.repeat(3000),
       onCanvas: true,
-      usage: null,
+      usage: undefined,
       analysis: {
         role: 'screen' as const,
         summary: 's'.repeat(1500),

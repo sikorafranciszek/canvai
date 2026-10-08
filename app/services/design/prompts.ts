@@ -26,7 +26,8 @@ import { renderCssVariables } from '#services/design/renderer'
  * v6: bez celów liczbowych („5-12 kolorów”) — tylko tyle pozycji, ile wspierają
  * materiały; niezbędne braki jako założenia; podobne marki tylko wymienione
  * przez klienta (AI-1). Fonty cytowane tylko, gdy nazwane w materiale (AI-2);
- * kolory tekstów w zaufanym JSON-ie (AI-4).
+ * kolory tekstów w zaufanym JSON-ie (AI-4); breakpointy, warstwy, ruch, obramowania
+ * i focus; semantyczne nazwy odstępów (AI-9).
  *
  * Bezpieczeństwo (lens 7): wszystko, co pochodzi z tablicy — nazwy plików,
  * notatki, tekst z obrazów, metadane linków — trafia do bloku `<untrusted>`
@@ -123,7 +124,7 @@ const SPEC_SHAPE = `{
    "families": [{"name": "Inter", "token": "--font-sans", "substitute": "system-ui, sans-serif", "weights": [400, 500], "sizes": ["12px", "14px", "16px"], "lineHeights": ["1.43", "1.5"], "role": "how it is used", "sources": [12], "assumed": false}],
    "scale": [{"role": "body", "family": "Inter", "weight": "400", "size": "14px", "lineHeight": "1.43", "letterSpacing": "0", "token": "--text-body"}]
  },
- "spacing": {"baseUnit": "4px", "density": "compact|comfortable|spacious", "scale": [{"name": "8", "value": "8px"}], "assumed": false},
+ "spacing": {"baseUnit": "4px", "density": "compact|comfortable|spacious", "scale": [{"name": "sm", "value": "8px"}], "assumed": false},
  "radii": [{"element": "cards", "value": "16px"}],
  "shadows": [{"name": "subtle", "value": "rgba(0, 0, 0, 0.08) 0px 1px 2px 0px"}],
  "layout": {"pageMaxWidth": "900px", "sectionGap": "32px", "cardPadding": "16px", "elementGap": "8px", "description": "overall layout paragraph"},
@@ -137,6 +138,12 @@ const SPEC_SHAPE = `{
  "elevation": "paragraph on depth/shadows",
  "imagery": "paragraph on photography/illustration/icon style",
  "agentGuide": {"quickColors": [{"label": "text (primary)", "value": "#27251e"}], "componentPrompts": ["Create a …: exact values …"]},
+ "breakpoints": [{"name": "md", "value": "768px"}],
+ "zIndex": [{"name": "modal", "value": "50"}],
+ "motion": [{"name": "fast", "value": "150ms"}, {"name": "standard", "value": "cubic-bezier(0.2, 0, 0, 1)"}],
+ "borders": [{"name": "hairline", "value": "1px"}],
+ "focusRing": "2px solid #2563eb",
+ "iconography": "icon style, stroke width, sizes — only what is visible",
  "similarBrands": [{"name": "…", "reason": "…"}],
  "openQuestions": ["What is still unknown, with a sensible default proposal"]
 }`
@@ -172,6 +179,9 @@ export const COMPOSE_SYSTEM_PROMPT = [
   '- Product name: take it from the board title, notes or a logo. A tab, filter or section label in a screenshot',
   '  (e.g. "Top chat", "Dashboard") is NOT the product name — if unknown, use a short descriptive name.',
   '- Any spacing scale not measured from the materials: "assumed": true.',
+  '- breakpoints, zIndex, motion, borders, focusRing: only values visible or measurable in the materials (e.g. a',
+  '  focus outline in a screenshot, a mobile and a desktop screen); otherwise leave them empty — the system adds',
+  '  marked defaults. Name spacing steps semantically (xs, sm, md, lg, xl…), never by their pixel value.',
   '- Token values (sizes, radii, spacing, shadows, layout) must be valid CSS only — e.g. "50%", "8px", "9999px",',
   '  "rgba(0, 0, 0, 0.08) 0px 1px 2px 0px". Put explanations in names/descriptions, never inside the value.',
   '- Use arrows (flows) and frames from the board structure for "screens" and "flows".',
