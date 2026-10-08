@@ -12,6 +12,7 @@ import { prepareGeneration } from '#services/design/generator'
 import {
   changesValidator,
   reviseValidator,
+  approveValidator,
   designDocVersionValidator,
   editDesignDocValidator,
   estimateValidator,
@@ -29,6 +30,7 @@ import db from '@adonisjs/lucid/services/db'
 import { lockBoard } from '#services/design/board_lock'
 import { printBrand } from '#services/portal'
 import { accessibleBoard } from '#services/board_access'
+import { approvalOf, setApproval } from '#services/design/approval'
 import { publish } from '#services/board_events'
 import { createEditedVersion, SpecEditError } from '#services/design/edit'
 import { trackFor } from '#services/analytics/events'
@@ -184,6 +186,12 @@ export default class DesignDocsController {
           .json({ message: result.message, code: 'E_DESIGN_DOC_EMPTY_BOARD' })
       case 'limit':
         return response.status(422).json({ message: result.message, code: 'E_DESIGN_DOC_LIMIT' })
+      case 'approved':
+        return response.status(409).json({
+          message: result.message,
+          code: 'E_APPROVED_VERSION',
+          approvedVersion: result.version,
+        })
       case 'budget':
         return response.status(429).json({ message: result.message, code: 'E_AI_BUDGET' })
       case 'credits':
@@ -212,8 +220,14 @@ export default class DesignDocsController {
     const { auth, params, request, response } = ctx
     const board = await accessibleBoard(auth.user!.id, params.id, 'edit')
     if (!board) return response.notFound()
-    const { version, instruction, section } = await request.validateUsing(reviseValidator)
-    const result = await startRevision(board, auth.user!.id, { version, instruction, section })
+    const { version, instruction, section, overApproved } =
+      await request.validateUsing(reviseValidator)
+    const result = await startRevision(board, auth.user!.id, {
+      version,
+      instruction,
+      section,
+      overApproved,
+    })
     if (result.kind === 'queued') {
       trackFor(
         ctx,
@@ -237,8 +251,12 @@ export default class DesignDocsController {
     const board = await accessibleBoard(user.id, params.id, 'edit')
     if (!board) return response.notFound()
 
-    const { force, proMode = false } = await request.validateUsing(generateDesignDocValidator)
-    const result = await startGeneration(board, user.id, { force, proMode })
+    const {
+      force,
+      proMode = false,
+      overApproved,
+    } = await request.validateUsing(generateDesignDocValidator)
+    const result = await startGeneration(board, user.id, { force, proMode, overApproved })
     if (result.kind === 'queued') {
       trackFor(
         ctx,
@@ -348,6 +366,34 @@ export default class DesignDocsController {
     })
   }
 
+  /**
+   * POST /api/boards/:id/design-doc/approve — zespół akceptuje wersję jako
+   * kontraktową (FEAT-4); DELETE zdejmuje akceptację.
+   */
+  async approve(ctx: HttpContext) {
+    const { auth, params, request, response } = ctx
+    const user = auth.user!
+    const board = await accessibleBoard(user.id, params.id, 'edit')
+    if (!board) return response.notFound()
+    const { version } = await request.validateUsing(approveValidator)
+    const doc = await DesignDoc.query()
+      .where('board_id', board.id)
+      .where('version', version)
+      .where('status', 'ready')
+      .first()
+    if (!doc) return response.status(422).json({ message: t('doc.revisionNotReady') })
+    await setApproval(board, version, user.fullName?.trim() || user.email)
+    trackFor(ctx, 'design_doc_approved', { version, by: 'team' }, { boardId: board.id })
+    return response.json({ data: approvalOf(board) })
+  }
+
+  async unapprove({ auth, params, response }: HttpContext) {
+    const board = await accessibleBoard(auth.user!.id, params.id, 'edit')
+    if (!board) return response.notFound()
+    await setApproval(board, null, null)
+    return response.json({ data: null })
+  }
+
   /** GET /api/boards/:id/design-docs — historia wersji (bez treści). */
   async index({ auth, params, response }: HttpContext) {
     const board = await accessibleBoard(auth.user!.id, params.id)
@@ -367,7 +413,10 @@ export default class DesignDocsController {
     ])
     return response.json({
       data: await Promise.all(docs.map((d) => this.serialize(d, false))),
-      meta: { hiddenVersions: Number(total[0].$extras.total) - docs.length },
+      meta: {
+        hiddenVersions: Number(total[0].$extras.total) - docs.length,
+        approved: approvalOf(board),
+      },
     })
   }
 

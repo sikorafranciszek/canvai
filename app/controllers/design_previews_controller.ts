@@ -1,3 +1,4 @@
+import { previewHeaders } from '#services/design/preview_template'
 import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import { billing, costs } from '#config/billing'
@@ -22,21 +23,6 @@ const previewValidator = vine.compile(
     force: vine.boolean().optional(),
   })
 )
-
-/**
- * Twarde nagłówki podglądu: bez skryptów (CSP `sandbox` bez `allow-scripts`),
- * jedyne zewnętrzne zasoby to Google Fonts, osadzanie tylko w aplikacji.
- */
-const PREVIEW_CSP = [
-  "default-src 'none'",
-  "style-src 'unsafe-inline' https://fonts.googleapis.com",
-  'font-src https://fonts.gstatic.com data:',
-  'img-src data: blob:',
-  "base-uri 'none'",
-  "form-action 'none'",
-  "frame-ancestors 'self'",
-  'sandbox',
-].join('; ')
 
 /** Podgląd UI z wersji DESIGN.md (przykładowa strona HTML), rozliczany kredytami. */
 export default class DesignPreviewsController {
@@ -165,13 +151,7 @@ export default class DesignPreviewsController {
     const doc = preview ? await DesignDoc.find(preview.designDocId) : null
     if (!preview?.html || !doc || doc.boardId !== board.id) return response.notFound()
 
-    response.header('Content-Type', 'text/html; charset=utf-8')
-    response.header('Content-Security-Policy', PREVIEW_CSP)
-    response.header('X-Content-Type-Options', 'nosniff')
-    response.header('Referrer-Policy', 'no-referrer')
-    // Globalny X-Frame-Options (Shield) blokowałby iframe w samej aplikacji.
-    response.header('X-Frame-Options', 'SAMEORIGIN')
-    response.header('Cache-Control', 'private, no-store')
+    previewHeaders(response)
     if (request.qs().download) {
       response.header('Content-Disposition', `attachment; filename="preview-v${doc.version}.html"`)
     }

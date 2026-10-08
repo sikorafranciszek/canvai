@@ -407,3 +407,29 @@ export function sanitizePreviewHtml(html: string): string {
     : `<head>${meta}</head>${styled}`
   return `<!doctype html>\n${withCsp.replace(/^\s*<!doctype[^>]*>\s*/i, '')}`
 }
+
+/**
+ * Twarde nagłówki podglądu: bez skryptów (CSP `sandbox` bez `allow-scripts`),
+ * jedyne zewnętrzne zasoby to Google Fonts, osadzanie tylko w aplikacji.
+ */
+export const PREVIEW_CSP = [
+  "default-src 'none'",
+  "style-src 'unsafe-inline' https://fonts.googleapis.com",
+  'font-src https://fonts.gstatic.com data:',
+  'img-src data: blob:',
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'self'",
+  'sandbox',
+].join('; ')
+
+/** Nagłówki odpowiedzi z HTML podglądu (aplikacja i portal klienta). */
+export function previewHeaders(response: { header: (name: string, value: string) => unknown }) {
+  response.header('Content-Type', 'text/html; charset=utf-8')
+  response.header('Content-Security-Policy', PREVIEW_CSP)
+  response.header('X-Content-Type-Options', 'nosniff')
+  response.header('Referrer-Policy', 'no-referrer')
+  // Globalny X-Frame-Options (Shield) blokowałby iframe w samej aplikacji.
+  response.header('X-Frame-Options', 'SAMEORIGIN')
+  response.header('Cache-Control', 'private, no-store')
+}

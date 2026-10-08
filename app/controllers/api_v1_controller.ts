@@ -29,6 +29,7 @@ export default class ApiV1Controller {
       return response.status(404).json({ error: 'No ready DESIGN.md for this board' })
     response.header('Content-Type', 'text/markdown; charset=utf-8')
     response.header('X-Design-Version', String(doc.version))
+    response.header('X-Design-Approved', String(doc.version === board.approvedVersion))
     return response.send(doc.contentMd)
   }
 
@@ -40,6 +41,8 @@ export default class ApiV1Controller {
     const file = doc ? tokensFor(doc, format) : null
     if (!file) return response.status(404).json({ error: 'No tokens — generate DESIGN.md first' })
     response.header('Content-Type', `${file.type}; charset=utf-8`)
+    response.header('X-Design-Version', String(doc!.version))
+    response.header('X-Design-Approved', String(doc!.version === board.approvedVersion))
     return response.send(file.body)
   }
 }

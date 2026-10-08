@@ -208,8 +208,14 @@ export class BoardShareSchema extends BaseModel {
 }
 
 export class BoardSchema extends BaseModel {
-  static $columns = ['createdAt', 'id', 'isSample', 'slug', 'title', 'updatedAt', 'userId'] as const
+  static $columns = ['approvedAt', 'approvedBy', 'approvedVersion', 'createdAt', 'id', 'isSample', 'slug', 'title', 'updatedAt', 'userId'] as const
   $columns = BoardSchema.$columns
+  @column.dateTime()
+  declare approvedAt: DateTime | null
+  @column()
+  declare approvedBy: string | null
+  @column()
+  declare approvedVersion: number | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column({ isPrimary: true })
@@ -440,7 +446,7 @@ export class OpsAlertSchema extends BaseModel {
 }
 
 export class PortalFeedbackSchema extends BaseModel {
-  static $columns = ['boardId', 'comment', 'createdAt', 'decision', 'designDocId', 'id', 'name', 'version'] as const
+  static $columns = ['boardId', 'comment', 'createdAt', 'decision', 'designDocId', 'id', 'name', 'section', 'version'] as const
   $columns = PortalFeedbackSchema.$columns
   @column()
   declare boardId: number
@@ -456,6 +462,8 @@ export class PortalFeedbackSchema extends BaseModel {
   declare id: number
   @column()
   declare name: string
+  @column()
+  declare section: string | null
   @column()
   declare version: number | null
 }

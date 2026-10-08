@@ -28,6 +28,10 @@ export default class PortalFeedback extends BaseModel {
   @column()
   declare comment: string | null
 
+  /** Sekcja, której dotyczy uwaga (FEAT-4) — `null` = cały dokument. */
+  @column()
+  declare section: string | null
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 }

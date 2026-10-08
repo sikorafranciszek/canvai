@@ -101,6 +101,7 @@ router.get('/c/:token', [controllers.Portal, 'show']).as('portal.show')
 router.post('/c/:token/materials', [controllers.Portal, 'materials']).as('portal.materials')
 router.post('/c/:token/feedback', [controllers.Portal, 'feedback']).as('portal.feedback')
 router.get('/c/:token/print', [controllers.Portal, 'print']).as('portal.print')
+router.get('/c/:token/preview', [controllers.Portal, 'preview']).as('portal.preview')
 
 /** Logo agencji (white-label) — publiczne, dla portalu klienta i PDF. */
 router.get('/brand/:userId/logo', [controllers.Brand, 'show'])
@@ -192,6 +193,8 @@ router
     router.post('/boards/:id/design-doc/edit', [controllers.DesignDocs, 'edit'])
     router.post('/boards/:id/design-doc/cancel', [controllers.DesignDocs, 'cancel'])
     router.post('/boards/:id/design-doc/revise', [controllers.DesignDocs, 'revise'])
+    router.post('/boards/:id/design-doc/approve', [controllers.DesignDocs, 'approve'])
+    router.delete('/boards/:id/design-doc/approve', [controllers.DesignDocs, 'unapprove'])
     router.get('/boards/:id/design-doc/preview', [controllers.DesignPreviews, 'show'])
     router.get('/boards/:id/share', [controllers.BoardShares, 'show'])
     router.put('/boards/:id/share', [controllers.BoardShares, 'update'])

@@ -27,6 +27,7 @@ import {
   Check,
   X,
   Wand2,
+  BadgeCheck,
 } from 'lucide-react'
 import { router } from '@inertiajs/react'
 import { Menu } from '~/components/ui/Menu'
@@ -76,6 +77,8 @@ export function DesignDocPanel() {
   const selectVersion = useDesignStore((s) => s.selectVersion)
   const generate = useDesignStore((s) => s.generate)
   const hiddenVersions = useDesignStore((s) => s.hiddenVersions)
+  const approved = useDesignStore((s) => s.approved)
+  const setApproval = useDesignStore((s) => s.setApproval)
   const limits = useBillingStore((s) => s.summary?.limits)
   const showPreview = usePreviewStore((s) => s.show)
 
@@ -176,6 +179,7 @@ export function DesignDocPanel() {
                     status: t(STATUS_LABEL[v.status]),
                     when: relativeTime(v.generatedAt ?? v.createdAt),
                   })}
+                  {approved?.version === v.version ? ` · ${t('approval.badge')}` : ''}
                 </option>
               ))}
             </select>
@@ -243,6 +247,29 @@ export function DesignDocPanel() {
                 <Eye />
                 {t('preview.button')}
               </button>
+              {canEdit && current?.status === 'ready' ? (
+                <button
+                  type="button"
+                  className="btn btn--quiet btn--icon btn--sm"
+                  data-testid="design-doc-approve"
+                  aria-pressed={approved?.version === current.version}
+                  aria-label={
+                    approved?.version === current.version
+                      ? t('approval.remove')
+                      : t('approval.approve', { version: current.version })
+                  }
+                  data-tip={
+                    approved?.version === current.version
+                      ? t('approval.remove')
+                      : t('approval.approveTip')
+                  }
+                  onClick={() =>
+                    void setApproval(approved?.version === current.version ? null : current.version)
+                  }
+                >
+                  <BadgeCheck />
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="btn btn--quiet btn--icon btn--sm"
@@ -453,6 +480,16 @@ export function DesignDocPanel() {
                     </button>
                   ))}
                 </div>
+                {approved?.version === current.version ? (
+                  <span className="badge badge--success" data-testid="design-doc-approved">
+                    <BadgeCheck size={12} />
+                    {approved.by ? t('approval.byWho', { who: approved.by }) : t('approval.badge')}
+                  </span>
+                ) : approved ? (
+                  <span className="t-small t-muted" data-testid="design-doc-approved-other">
+                    {t('approval.other', { version: approved.version })}
+                  </span>
+                ) : null}
                 {current.instruction ? (
                   <span className="t-small t-muted" data-testid="design-doc-instruction">
                     {t('revise.from', { version: current.editedFromVersion ?? '?' })}

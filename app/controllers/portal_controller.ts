@@ -10,6 +10,11 @@ import { findActiveShare, notifyOwner, printBrand, rateLimited } from '#services
 import { absoluteUrl } from '#services/app_url'
 import { t } from '#services/i18n'
 import { track } from '#services/analytics/collector'
+import { REVISABLE_SECTIONS } from '#services/ai/types'
+import { portalSheet } from '#services/design/portal_sheet'
+import { approvalOf, setApproval } from '#services/design/approval'
+import { previewHeaders } from '#services/design/preview_template'
+import DesignPreview from '#models/design_preview'
 
 const MAX_FILES = 10
 
@@ -27,6 +32,8 @@ const feedbackValidator = vine.compile(
     decision: vine.enum(['approved', 'changes']),
     comment: vine.string().trim().maxLength(4000).optional(),
     version: vine.number().withoutDecimals().positive(),
+    /** Uwaga do jednej sekcji (FEAT-4); puste = cały dokument. */
+    section: vine.enum(REVISABLE_SECTIONS).optional(),
   })
 )
 
@@ -105,6 +112,7 @@ export default class PortalController {
       .where('board_id', board.id)
       .whereNotNull('submitted_by')
       .count('* as total')
+    const preview = doc ? await this.readyPreview(doc.id) : null
 
     return inertia.render(
       'portal/show' as any,
@@ -123,8 +131,12 @@ export default class PortalController {
                 contentMd: doc.contentMd,
                 generatedAt: doc.generatedAt?.toISO() ?? null,
                 changes: changes && !changes.empty ? { from: previous!.version, ...changes } : null,
+                // Widok wizualny dla klienta (FEAT-4) zamiast surowego markdownu.
+                sheet: doc.spec ? portalSheet(doc.spec) : null,
+                previewUrl: preview ? `/c/${share.token}/preview` : null,
               }
             : null,
+          approved: share.showDoc ? approvalOf(board) : null,
           decision: decision
             ? {
                 decision: decision.decision,
@@ -135,6 +147,32 @@ export default class PortalController {
         },
       } as any
     )
+  }
+
+  /** Najnowszy gotowy podgląd UI wersji (bez treści HTML). */
+  private readyPreview(docId: number) {
+    return DesignPreview.query()
+      .where('design_doc_id', docId)
+      .where('status', 'ready')
+      .select('id')
+      .orderBy('id', 'desc')
+      .first()
+  }
+
+  /** GET /c/:token/preview — podgląd UI pokazywanej wersji (w piaskownicy jak w aplikacji). */
+  async preview({ params, response }: HttpContext) {
+    const found = await this.resolve(String(params.token))
+    if (!found || !found.share.showDoc) return response.notFound()
+    const doc = await DesignDoc.query()
+      .where('board_id', found.board.id)
+      .where('status', 'ready')
+      .orderBy('version', 'desc')
+      .first()
+    const ref = doc ? await this.readyPreview(doc.id) : null
+    const preview = ref ? await DesignPreview.find(ref.id) : null
+    if (!preview?.html) return response.notFound()
+    previewHeaders(response)
+    return response.send(preview.html)
   }
 
   /** POST /c/:token/materials — pliki, link i/lub notatka od klienta. */
@@ -243,11 +281,23 @@ export default class PortalController {
       decision: payload.decision,
       name: payload.name,
       comment: payload.comment ?? null,
+      section: payload.section ?? null,
     })
+    // Akceptacja klienta ustala wersję kontraktową (FEAT-4): REST v1 i MCP serwują
+    // ją domyślnie, a nowa generacja nad nią wymaga potwierdzenia zespołu.
+    if (payload.decision === 'approved') await setApproval(board, doc.version, payload.name)
     await notifyOwner(
       owner,
       payload.decision,
-      { name: payload.name, board: board.title, version: doc.version, comment: payload.comment },
+      {
+        name: payload.name,
+        board: board.title,
+        version: doc.version,
+        comment:
+          payload.section && payload.comment
+            ? `[${payload.section}] ${payload.comment}`
+            : payload.comment,
+      },
       absoluteUrl(ctx, `/boards/${board.id}`)
     )
     session.flash(

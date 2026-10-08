@@ -8,6 +8,9 @@ import type React from 'react'
 import { Brand } from '~/components/ui/Brand'
 import { LanguageSwitcher } from '~/components/ui/LanguageSwitcher'
 import { MarkdownView } from '~/components/design/MarkdownView'
+import { PortalSheet, type PortalSheetDto } from '~/components/design/PortalSheet'
+import { REVISABLE_SECTIONS } from '~/lib/board/api'
+import type { MessageKey } from '~/i18n'
 import { LegalLinks } from '~/components/ui/ConsentBanner'
 import { formatDateTime } from '~/lib/format'
 import { useT } from '~/i18n'
@@ -25,7 +28,10 @@ interface PortalProps {
     contentMd: string | null
     generatedAt: string | null
     changes?: (SpecChangesDto & { from: number }) | null
+    sheet?: PortalSheetDto | null
+    previewUrl?: string | null
   } | null
+  approved?: { version: number; by: string | null; at: string | null } | null
   decision: { decision: 'approved' | 'changes'; name: string; createdAt: string | null } | null
 }
 
@@ -55,6 +61,7 @@ export default function Portal({ portal }: { portal: PortalProps }) {
   const [files, setFiles] = useState<File[]>([])
   const fileInput = useRef<HTMLInputElement>(null)
   const decisionInput = useRef<HTMLInputElement>(null)
+  const [view, setView] = useState<'visual' | 'markdown'>('visual')
 
   useEffect(() => setName(readName()), [])
 
@@ -263,9 +270,35 @@ export default function Portal({ portal }: { portal: PortalProps }) {
                   audience="client"
                 />
               ) : null}
-              <div className="portal__md">
-                <MarkdownView source={portal.doc.contentMd} />
-              </div>
+              {portal.approved ? (
+                <p className="t-small t-muted" data-testid="portal-approved">
+                  {portal.approved.version === portal.doc.version
+                    ? t('portal.approved.current', { name: portal.approved.by ?? '—' })
+                    : t('portal.approved.other', { version: portal.approved.version })}
+                </p>
+              ) : null}
+              {portal.doc.sheet ? (
+                <div className="segmented segmented--text" role="group">
+                  {(['visual', 'markdown'] as const).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      aria-pressed={view === v}
+                      data-testid={`portal-view-${v}`}
+                      onClick={() => setView(v)}
+                    >
+                      {t(v === 'visual' ? 'portal.view.visual' : 'portal.view.markdown')}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {portal.doc.sheet && view === 'visual' ? (
+                <PortalSheet sheet={portal.doc.sheet} previewUrl={portal.doc.previewUrl} />
+              ) : (
+                <div className="portal__md">
+                  <MarkdownView source={portal.doc.contentMd} />
+                </div>
+              )}
               <Form
                 route="portal.feedback"
                 routeParams={{ token: portal.token }}
@@ -302,6 +335,25 @@ export default function Portal({ portal }: { portal: PortalProps }) {
                       </div>
                     ) : null}
                     {errors.name ? <div className="field__error">{errors.name}</div> : null}
+                    <div className="field">
+                      <label className="field__label" htmlFor="portal-section">
+                        {t('portal.field.section')}
+                      </label>
+                      <select
+                        className="select"
+                        id="portal-section"
+                        name="section"
+                        defaultValue=""
+                        data-testid="portal-section"
+                      >
+                        <option value="">{t('revise.section.all')}</option>
+                        {REVISABLE_SECTIONS.map((s) => (
+                          <option key={s} value={s}>
+                            {t(`revise.section.${s}` as MessageKey)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     <div className="field">
                       <label className="field__label" htmlFor="portal-comment">
                         {t('portal.field.comment')}

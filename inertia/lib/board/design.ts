@@ -14,6 +14,8 @@ import {
   editDesignDoc,
   generateDesignDoc,
   reviseDesignDoc,
+  setDesignDocApproval,
+  type ApprovalDto,
   type RevisableSection,
   type DocEdits,
   getDesignDoc,
@@ -42,6 +44,10 @@ interface DesignState {
   versions: DesignDocDto[]
   /** Wersje ukryte przez limit historii planu Free. */
   hiddenVersions: number
+  /** Zaakceptowana wersja (FEAT-4) — domyślna dla REST v1 i MCP. */
+  approved: ApprovalDto | null
+  /** Akceptacja wersji przez zespół (`null` zdejmuje). */
+  setApproval: (version: number | null) => Promise<void>
   /** Tryb Pro reasoning dla następnej generacji. */
   proMode: boolean
   /** Koszt następnej generacji (odświeżany po zmianach tablicy). */
@@ -99,8 +105,8 @@ function isPending(doc: DesignDocDto | null | undefined): boolean {
 
 export const useDesignStore = create<DesignState>()((set, get) => {
   async function refreshVersions(boardId: number) {
-    const { versions, hiddenVersions } = await listDesignDocs(boardId)
-    if (get().boardId === boardId) set({ versions, hiddenVersions })
+    const { versions, hiddenVersions, approved } = await listDesignDocs(boardId)
+    if (get().boardId === boardId) set({ versions, hiddenVersions, approved })
     return versions
   }
 
@@ -161,6 +167,21 @@ export const useDesignStore = create<DesignState>()((set, get) => {
     tab: 'assets',
     versions: [],
     hiddenVersions: 0,
+    approved: null,
+
+    async setApproval(version) {
+      const boardId = get().boardId
+      if (boardId == null) return
+      try {
+        const approved = await setDesignDocApproval(boardId, version)
+        set({ approved })
+        toast.success(
+          version == null ? translate('approval.removed') : translate('approval.done', { version })
+        )
+      } catch (error) {
+        notifyError(error, 'approval.failed')
+      }
+    },
     proMode: false,
     estimate: null,
     current: null,
@@ -214,6 +235,10 @@ export const useDesignStore = create<DesignState>()((set, get) => {
           // Moja generacja się skończyła — wynik od razu, bez czekania na odpytanie.
           schedulePoll(boardId, active.version, seq, 0)
         }
+        return
+      }
+      if (event.status === 'approval') {
+        void refreshVersions(boardId)
         return
       }
       if (event.status === 'ready') {
@@ -319,11 +344,15 @@ export const useDesignStore = create<DesignState>()((set, get) => {
       if (boardId == null || !current || get().starting || isPending(get().active)) return false
       set({ starting: true, reusedNotice: false })
       try {
-        const doc = await reviseDesignDoc(boardId, {
-          version: current.version,
-          instruction,
-          section,
-        })
+        const doc = await overApprovedRetry((overApproved) =>
+          reviseDesignDoc(boardId, {
+            version: current.version,
+            instruction,
+            section,
+            overApproved,
+          })
+        )
+        if (!doc) return false
         void useBillingStore.getState().load()
         set({ active: doc })
         await refreshVersions(boardId)
@@ -352,7 +381,10 @@ export const useDesignStore = create<DesignState>()((set, get) => {
         const board = useBoardStore.getState()
         if (board.saveStatus === 'dirty' || board.saveStatus === 'error') await board.saveNow()
 
-        const result = await generateDesignDoc(boardId, { ...opts, proMode: get().proMode })
+        const result = await overApprovedRetry((overApproved) =>
+          generateDesignDoc(boardId, { ...opts, proMode: get().proMode, overApproved })
+        )
+        if (!result) return
         void useBillingStore.getState().load()
         if (result.kind === 'reused') {
           set({ current: result.doc, reusedNotice: true })
@@ -379,6 +411,23 @@ export const useDesignStore = create<DesignState>()((set, get) => {
     },
   }
 })
+
+/**
+ * Nowa wersja ponad zaakceptowaną (FEAT-4): serwer odpowiada 409
+ * `E_APPROVED_VERSION`, a po potwierdzeniu ponawiamy z `overApproved`.
+ * `null` = użytkownik zrezygnował.
+ */
+async function overApprovedRetry<T>(call: (overApproved?: boolean) => Promise<T>) {
+  try {
+    return await call()
+  } catch (error) {
+    if (!(error instanceof DesignDocRequestError) || error.code !== 'E_APPROVED_VERSION')
+      throw error
+    const version = useDesignStore.getState().approved?.version ?? '?'
+    if (!window.confirm(translate('approval.confirmOver', { version }))) return null
+    return call(true)
+  }
+}
 
 export function progressLabel(doc: DesignDocDto | null): string {
   if (!doc) return ''

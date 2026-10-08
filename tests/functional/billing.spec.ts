@@ -1156,6 +1156,134 @@ test.group('Billing', (group) => {
     }
   })
 
+  test('akceptacja (FEAT-4): portal ustala wersję kontraktową dla API, nowa wersja wymaga potwierdzenia', async ({
+    client,
+    assert,
+  }) => {
+    const fake = mail.fake()
+    try {
+      const owner = await makeUser('owner')
+      const cookies = await login(client, owner)
+      const board = await createBoard(owner, 'Kontrakt')
+      await seedBoard(client, cookies, board)
+      ;(
+        await webhook(client, orderPayload(owner, `ord-approve-${owner.id}`, VARIANTS.pack_s))
+      ).assertStatus(202)
+      ;(
+        await client
+          .post(`/api/boards/${board.id}/design-doc`)
+          .headers({ cookie: cookies })
+          .json({})
+      ).assertStatus(202)
+      await runPendingJobs()
+
+      const on = await client
+        .put(`/api/boards/${board.id}/share`)
+        .headers({ cookie: cookies })
+        .json({ enabled: true })
+      const path = new URL(on.body().data.url).pathname
+
+      // Portal: widok wizualny z próbkami kolorów.
+      const html = (await client.get(path)).text()
+      const script = html.match(/<script[^>]*data-page="app"[^>]*>([\s\S]*?)<\/script>/)?.[1]
+      const props = JSON.parse(script ?? '{}').props.portal
+      assert.isAbove(props.doc.sheet.colors.length, 0)
+      assert.match(props.doc.sheet.colors[0].hex, /^#[0-9a-f]{6}$/)
+      assert.isNull(props.approved)
+
+      // Klient akceptuje v1 z uwagą do kolorów.
+      ;(
+        await client
+          .post(`${path}/feedback`)
+          .json({
+            name: 'Klient ACME',
+            decision: 'approved',
+            version: 1,
+            section: 'colors',
+            comment: 'Pasuje',
+          })
+          .redirects(0)
+      ).assertStatus(302)
+      await board.refresh()
+      assert.equal(board.approvedVersion, 1)
+      assert.equal(board.approvedBy, 'Klient ACME')
+      const fb = await PortalFeedback.query().where('board_id', board.id).firstOrFail()
+      assert.equal(fb.section, 'colors')
+      fake.messages.assertSentCount(1)
+
+      // Nowa wersja ponad zaakceptowaną: 409, a po potwierdzeniu 202.
+      const blocked = await client
+        .post(`/api/boards/${board.id}/design-doc`)
+        .headers({ cookie: cookies })
+        .json({ force: true })
+      blocked.assertStatus(409)
+      assert.equal(blocked.body().code, 'E_APPROVED_VERSION')
+      assert.equal(blocked.body().approvedVersion, 1)
+      ;(
+        await client
+          .post(`/api/boards/${board.id}/design-doc/revise`)
+          .headers({ cookie: cookies })
+          .json({ version: 1, instruction: 'ciemniej' })
+      ).assertStatus(409)
+      ;(
+        await client
+          .post(`/api/boards/${board.id}/design-doc`)
+          .headers({ cookie: cookies })
+          .json({ force: true, overApproved: true })
+      ).assertStatus(202)
+      await runPendingJobs()
+
+      // API v1 i MCP: domyślnie wersja zaakceptowana, wskazana na żądanie.
+      const { token } = await createApiToken(owner, 'test')
+      const auth = { authorization: `Bearer ${token}` }
+      const md = await client.get(`/api/v1/boards/${board.id}/design-md`).headers(auth)
+      md.assertStatus(200)
+      assert.equal(md.headers()['x-design-version'], '1')
+      assert.equal(md.headers()['x-design-approved'], 'true')
+      const v2 = await client.get(`/api/v1/boards/${board.id}/design-md?version=2`).headers(auth)
+      assert.equal(v2.headers()['x-design-version'], '2')
+      assert.equal(v2.headers()['x-design-approved'], 'false')
+      const list = await client.get('/api/v1/boards').headers(auth)
+      const listed = list.body().data.find((b: any) => b.id === board.id)
+      assert.deepInclude(listed.designMd, { version: 1, approved: true })
+      const meta = await client
+        .get(`/api/boards/${board.id}/design-docs`)
+        .headers({ cookie: cookies })
+      assert.deepInclude(meta.body().meta.approved, { version: 1, by: 'Klient ACME' })
+
+      // Zespół akceptuje v2, potem zdejmuje akceptację → najnowsza.
+      ;(
+        await client
+          .post(`/api/boards/${board.id}/design-doc/approve`)
+          .headers({ cookie: cookies })
+          .json({ version: 2 })
+      ).assertStatus(200)
+      assert.equal(
+        (await client.get(`/api/v1/boards/${board.id}/design-md`).headers(auth)).headers()[
+          'x-design-version'
+        ],
+        '2'
+      )
+      ;(
+        await client
+          .delete(`/api/boards/${board.id}/design-doc/approve`)
+          .headers({ cookie: cookies })
+      ).assertStatus(200)
+      await board.refresh()
+      assert.isNull(board.approvedVersion)
+      const latest = await client.get(`/api/v1/boards/${board.id}/design-md`).headers(auth)
+      assert.equal(latest.headers()['x-design-approved'], 'false')
+      ;(
+        await client
+          .post(`/api/boards/${board.id}/design-doc/approve`)
+          .headers({ cookie: cookies, accept: 'application/json' })
+          .json({ version: 99 })
+      ).assertStatus(422)
+    } finally {
+      mail.restore()
+    }
+  })
+
   test('brand kity: zapis z DESIGN.md (plan płatny), zmiana nazwy, usunięcie', async ({
     client,
     assert,

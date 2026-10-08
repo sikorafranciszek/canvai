@@ -45,6 +45,8 @@ export const pl = {
   'doc.revisionNoBase':
     'Wersja, którą chcesz poprawić, nie ma specyfikacji — wygeneruj DESIGN.md ponownie.',
   'doc.revisionNotReady': 'Poprawiać można tylko gotową wersję DESIGN.md.',
+  'doc.overApproved':
+    'Wersja {version} jest zaakceptowana — potwierdź, że chcesz utworzyć nową (API i MCP dalej serwują zaakceptowaną).',
   'doc.emptyBoard': 'Tablica jest pusta — dodaj zrzuty ekranu, obrazy, linki albo notatki',
   'doc.tooManyAssets':
     'Tablica ma {count} materiałów, a limit jednej generacji to {limit}. Usuń część materiałów albo podnieś limit w config/ai.ts.',
@@ -319,6 +321,8 @@ export const en: Record<ServerMessageKey, string> = {
   'doc.cancelled': 'Generation cancelled — your credits were returned',
   'doc.revisionNoBase': 'The version you want to revise has no spec — generate DESIGN.md again.',
   'doc.revisionNotReady': 'Only a ready DESIGN.md version can be revised.',
+  'doc.overApproved':
+    'Version {version} is approved — confirm that you want a new one (the API and MCP keep serving the approved version).',
   'doc.emptyBoard': 'The board is empty — add screenshots, images, links or notes',
   'doc.tooManyAssets':
     'The board has {count} materials and the per-generation limit is {limit}. Remove some materials or raise the limit in config/ai.ts.',

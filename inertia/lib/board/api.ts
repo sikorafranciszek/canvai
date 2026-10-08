@@ -437,12 +437,16 @@ export type GenerateDesignDocResult =
 
 export async function generateDesignDoc(
   boardId: number,
-  opts: { force?: boolean; proMode?: boolean } = {}
+  opts: { force?: boolean; proMode?: boolean; overApproved?: boolean } = {}
 ): Promise<GenerateDesignDocResult> {
   const res = await fetch(`/api/boards/${boardId}/design-doc`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-    body: JSON.stringify({ force: opts.force ?? false, proMode: opts.proMode ?? false }),
+    body: JSON.stringify({
+      force: opts.force ?? false,
+      proMode: opts.proMode ?? false,
+      ...(opts.overApproved ? { overApproved: true } : {}),
+    }),
     credentials: 'same-origin',
   })
   const body = await parseJson<{
@@ -481,7 +485,12 @@ export type RevisableSection = (typeof REVISABLE_SECTIONS)[number]
  */
 export async function reviseDesignDoc(
   boardId: number,
-  input: { version: number; instruction: string; section?: RevisableSection }
+  input: {
+    version: number
+    instruction: string
+    section?: RevisableSection
+    overApproved?: boolean
+  }
 ): Promise<DesignDocDto> {
   const res = await fetch(`/api/boards/${boardId}/design-doc/revise`, {
     method: 'POST',
@@ -560,13 +569,42 @@ export async function getDesignDocChanges(
   ).data
 }
 
+/** Zaakceptowana („kontraktowa”) wersja tablicy (FEAT-4). */
+export interface ApprovalDto {
+  version: number
+  by: string | null
+  at: string | null
+}
+
 export async function listDesignDocs(
   boardId: number
-): Promise<{ versions: DesignDocDto[]; hiddenVersions: number }> {
+): Promise<{ versions: DesignDocDto[]; hiddenVersions: number; approved: ApprovalDto | null }> {
   const res = await fetch(`/api/boards/${boardId}/design-docs`, { credentials: 'same-origin' })
   if (!res.ok) throw await httpError(res, translate('api.docsLoad'))
-  const body = await parseJson<{ data: DesignDocDto[]; meta?: { hiddenVersions?: number } }>(res)
-  return { versions: body.data, hiddenVersions: body.meta?.hiddenVersions ?? 0 }
+  const body = await parseJson<{
+    data: DesignDocDto[]
+    meta?: { hiddenVersions?: number; approved?: ApprovalDto | null }
+  }>(res)
+  return {
+    versions: body.data,
+    hiddenVersions: body.meta?.hiddenVersions ?? 0,
+    approved: body.meta?.approved ?? null,
+  }
+}
+
+/** Akceptacja wersji przez zespół (`version`) albo jej zdjęcie (`null`). */
+export async function setDesignDocApproval(
+  boardId: number,
+  version: number | null
+): Promise<ApprovalDto | null> {
+  const res = await fetch(`/api/boards/${boardId}/design-doc/approve`, {
+    method: version == null ? 'DELETE' : 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...csrfHeaders() },
+    body: version == null ? undefined : JSON.stringify({ version }),
+    credentials: 'same-origin',
+  })
+  if (!res.ok) throw await httpError(res, translate('approval.failed'))
+  return (await parseJson<{ data: ApprovalDto | null }>(res)).data
 }
 
 export function designDocDownloadUrl(boardId: number, version?: number): string {

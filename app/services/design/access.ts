@@ -26,13 +26,21 @@ export async function listBoards(userId: number) {
         .orderBy('version', 'desc')
     : []
   return boards.map((b) => {
-    const doc = docs.find((d) => d.boardId === b.id)
+    // Zaakceptowana wersja (FEAT-4) ma pierwszeństwo przed najnowszą.
+    const doc =
+      (b.approvedVersion != null &&
+        docs.find((d) => d.boardId === b.id && d.version === b.approvedVersion)) ||
+      docs.find((d) => d.boardId === b.id)
     return {
       id: b.id,
       title: b.title,
       updatedAt: b.updatedAt?.toISO() ?? null,
       designMd: doc
-        ? { version: doc.version, generatedAt: doc.generatedAt?.toISO() ?? null }
+        ? {
+            version: doc.version,
+            generatedAt: doc.generatedAt?.toISO() ?? null,
+            approved: doc.version === b.approvedVersion,
+          }
         : null,
     }
   })
@@ -56,10 +64,18 @@ export async function readyDoc(userId: number, boardId: number, version?: number
   const board = (await boardAccess(userId, boardId, 'view'))?.board
   if (!board) return { board: null, doc: null }
   const query = DesignDoc.query().where('board_id', board.id).where('status', 'ready')
+  // Bez numeru: wersja zaakceptowana (FEAT-4), a gdy jej nie ma — najnowsza gotowa.
   const doc = version
     ? await query.where('version', version).first()
-    : await query.orderBy('version', 'desc').first()
-  if (doc && !(await versionVisible(board.userId, board.id, doc.version))) {
+    : ((board.approvedVersion != null
+        ? await query.clone().where('version', board.approvedVersion).first()
+        : null) ?? (await query.orderBy('version', 'desc').first()))
+  // Wersja kontraktowa jest widoczna zawsze, niezależnie od limitu historii planu.
+  if (
+    doc &&
+    doc.version !== board.approvedVersion &&
+    !(await versionVisible(board.userId, board.id, doc.version))
+  ) {
     return { board, doc: null }
   }
   return { board, doc }

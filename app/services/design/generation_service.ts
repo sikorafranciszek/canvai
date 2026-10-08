@@ -37,11 +37,25 @@ export type StartGenerationResult =
   | { kind: 'limit'; message: string }
   | { kind: 'budget'; message: string }
   | { kind: 'credits'; message: string; needed: number; balance: number }
+  | { kind: 'approved'; message: string; version: number }
+
+/**
+ * Nowa wersja ponad zaakceptowaną (FEAT-4) wymaga potwierdzenia — klient
+ * zaakceptował kontrakt, a REST v1/MCP dalej serwują zaakceptowaną wersję.
+ */
+function approvalGuard(board: Board, overApproved?: boolean): StartGenerationResult | null {
+  if (board.approvedVersion == null || overApproved) return null
+  return {
+    kind: 'approved',
+    message: t('doc.overApproved', { version: board.approvedVersion }),
+    version: board.approvedVersion,
+  }
+}
 
 export async function startGeneration(
   board: Board,
   requesterId: number,
-  opts: { force?: boolean; proMode?: boolean }
+  opts: { force?: boolean; proMode?: boolean; overApproved?: boolean }
 ): Promise<StartGenerationResult> {
   const proMode = Boolean(opts.proMode)
   const { limits } = await entitlementsFor(board.userId)
@@ -72,6 +86,8 @@ export async function startGeneration(
   ) {
     return { kind: 'reused', doc: latest }
   }
+  const guarded = approvalGuard(board, opts.overApproved)
+  if (guarded) return guarded
 
   // Bezpieczniki kosztów (dzienne limity) — przed rezerwacją kredytów.
   const denial = (await aiBudgetDenial(requesterId)) ?? (await claimGenerationSlot(requesterId))
@@ -165,7 +181,12 @@ export async function startGeneration(
 export async function startRevision(
   board: Board,
   requesterId: number,
-  opts: { version: number; instruction: string; section?: RevisableSection }
+  opts: {
+    version: number
+    instruction: string
+    section?: RevisableSection
+    overApproved?: boolean
+  }
 ): Promise<StartGenerationResult> {
   if (!providerReady()) return { kind: 'unavailable', message: providerNotReadyMessage() }
   const base = await DesignDoc.query()
@@ -180,6 +201,8 @@ export async function startRevision(
     .whereIn('status', ['queued', 'running'])
     .first()
   if (inProgress) return { kind: 'busy', doc: inProgress }
+  const guarded = approvalGuard(board, opts.overApproved)
+  if (guarded) return guarded
 
   const denial = (await aiBudgetDenial(requesterId)) ?? (await claimGenerationSlot(requesterId))
   if (denial) return { kind: 'budget', message: denial }

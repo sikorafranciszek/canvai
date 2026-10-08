@@ -30,7 +30,7 @@ const TOOLS = [
     name: 'list_boards',
     title: 'List boards',
     description:
-      "List the user's canvai boards with the latest ready DESIGN.md version of each (null = not generated yet).",
+      "List the user's canvai boards with the DESIGN.md version agents should use: the client-approved one when there is one (approved: true), otherwise the latest ready (null = not generated yet).",
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     annotations: { readOnlyHint: true },
   },
@@ -43,7 +43,10 @@ const TOOLS = [
       type: 'object',
       properties: {
         board_id: { type: 'integer', description: 'Board id from list_boards' },
-        version: { type: 'integer', description: 'Specific version (default: latest ready)' },
+        version: {
+          type: 'integer',
+          description: 'Specific version (default: the approved version, else the latest ready)',
+        },
       },
       required: ['board_id'],
       additionalProperties: false,
@@ -60,7 +63,10 @@ const TOOLS = [
       properties: {
         board_id: { type: 'integer', description: 'Board id from list_boards' },
         format: { type: 'string', enum: [...EXPORT_FORMATS], default: 'css' },
-        version: { type: 'integer', description: 'Specific version (default: latest ready)' },
+        version: {
+          type: 'integer',
+          description: 'Specific version (default: the approved version, else the latest ready)',
+        },
       },
       required: ['board_id'],
       additionalProperties: false,

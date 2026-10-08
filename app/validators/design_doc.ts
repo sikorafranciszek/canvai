@@ -10,6 +10,8 @@ export const generateDesignDocValidator = vine.compile(
   vine.object({
     force: vine.boolean().optional(),
     proMode: vine.boolean().optional(),
+    /** Potwierdzenie nowej wersji ponad zaakceptowaną (FEAT-4). */
+    overApproved: vine.boolean().optional(),
   })
 )
 
@@ -26,6 +28,14 @@ export const reviseValidator = vine.compile(
     version: vine.number().withoutDecimals().positive(),
     instruction: vine.string().trim().minLength(3).maxLength(500),
     section: vine.enum(REVISABLE_SECTIONS).optional(),
+    overApproved: vine.boolean().optional(),
+  })
+)
+
+/** POST /api/boards/:id/design-doc/approve — akceptacja wersji przez zespół (FEAT-4). */
+export const approveValidator = vine.compile(
+  vine.object({
+    version: vine.number().withoutDecimals().positive(),
   })
 )
 
