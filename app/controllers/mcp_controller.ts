@@ -3,6 +3,9 @@ import { listBoards, readyDoc, tokensFor } from '#services/design/access'
 import { EXPORT_FORMATS, type ExportFormat } from '#services/design/exports'
 import { track } from '#services/analytics/collector'
 
+/** Maksymalna liczba wywołań w jednym batchu JSON-RPC. */
+const MAX_BATCH = 20
+
 /**
  * Serwer MCP (Model Context Protocol) — transport „Streamable HTTP” bez stanu:
  * każdy POST to wiadomość JSON-RPC 2.0, odpowiedź to zwykły JSON (bez SSE).
@@ -227,7 +230,20 @@ export default class McpController {
     }
 
     if (Array.isArray(body)) {
-      const results = (await Promise.all(body.map(handleOne))).filter(Boolean)
+      // Batch: najwyżej MAX_BATCH wywołań, wykonywanych po kolei (SEC-12) —
+      // jedno żądanie nie zrównolegli setek zapytań do bazy.
+      if (body.length > MAX_BATCH) {
+        return response.status(400).json({
+          jsonrpc: '2.0',
+          id: null,
+          error: { code: -32600, message: `Batch too large (max ${MAX_BATCH} calls)` },
+        })
+      }
+      const results: unknown[] = []
+      for (const message of body) {
+        const result = await handleOne(message as JsonRpcRequest)
+        if (result) results.push(result)
+      }
       return results.length ? response.json(results) : response.status(202).send('')
     }
     const result = await handleOne(body as JsonRpcRequest)

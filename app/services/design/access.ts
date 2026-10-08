@@ -2,6 +2,7 @@ import Board from '#models/board'
 import DesignDoc from '#models/design_doc'
 import { renderExport, type ExportFormat } from '#services/design/exports'
 import { boardAccess, memberBoardIds } from '#services/board_access'
+import { entitlementsFor } from '#services/billing/plans'
 
 /**
  * Odczyt tablic i dokumentów dla klientów zewnętrznych (REST v1, MCP) —
@@ -37,6 +38,20 @@ export async function listBoards(userId: number) {
   })
 }
 
+/**
+ * Czy wersja mieści się w limicie historii planu właściciela tablicy. Jedna
+ * reguła dla UI, REST v1 i MCP (SEC-12) — starsze wersje są ukryte wszędzie.
+ */
+export async function versionVisible(ownerId: number, boardId: number, version: number) {
+  const { limits } = await entitlementsFor(ownerId)
+  if (limits.versionsKept == null) return true
+  const newer = await DesignDoc.query()
+    .where('board_id', boardId)
+    .where('version', '>', version)
+    .count('* as total')
+  return Number(newer[0].$extras.total) < limits.versionsKept
+}
+
 export async function readyDoc(userId: number, boardId: number, version?: number) {
   const board = (await boardAccess(userId, boardId, 'view'))?.board
   if (!board) return { board: null, doc: null }
@@ -44,6 +59,9 @@ export async function readyDoc(userId: number, boardId: number, version?: number
   const doc = version
     ? await query.where('version', version).first()
     : await query.orderBy('version', 'desc').first()
+  if (doc && !(await versionVisible(board.userId, board.id, doc.version))) {
+    return { board, doc: null }
+  }
   return { board, doc }
 }
 

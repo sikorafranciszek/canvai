@@ -27,6 +27,7 @@ import ApiToken from '#models/api_token'
 import { createApiToken } from '#services/api_tokens'
 import mail from '@adonisjs/mail/services/main'
 import Asset from '#models/asset'
+import BoardMember from '#models/board_member'
 import PortalFeedback from '#models/portal_feedback'
 import { pruneOrphanAssets } from '#services/assets_service'
 import { safeFetchTesting } from '#services/safe_fetch'
@@ -825,6 +826,62 @@ test.group('Billing', (group) => {
     // Odwołany token przestaje działać.
     await ApiToken.query().where('user_id', user.id).update({ revoked_at: DateTime.utc().toSQL() })
     ;(await client.get('/api/v1/boards').headers(auth)).assertStatus(401)
+  })
+
+  test('API v1 i MCP: limit historii planu właściciela, batch ograniczony (SEC-12)', async ({
+    client,
+    assert,
+  }) => {
+    // Właściciel na planie Free (2 ostatnie wersje), członek z płatnym planem i tokenem API.
+    const owner = await makeUser('owner')
+    const board = await createBoard(owner, 'Wspólna')
+    for (let v = 1; v <= 3; v++) {
+      await DesignDoc.create({ boardId: board.id, version: v, status: 'ready', contentMd: `# v${v}` })
+    }
+    const member = await makeUser('member')
+    await BoardMember.create({
+      boardId: board.id,
+      userId: member.id,
+      email: member.email,
+      role: 'viewer',
+      token: `t${member.id}${Date.now()}`,
+      acceptedAt: DateTime.utc(),
+    })
+    ;(
+      await webhook(client, orderPayload(member, `ord-sec12-${member.id}`, VARIANTS.pack_s))
+    ).assertStatus(202)
+    const { token } = await createApiToken(member, 'test')
+    const auth = { authorization: `Bearer ${token}` }
+
+    const v3 = await client.get(`/api/v1/boards/${board.id}/design-md`).headers(auth)
+    v3.assertStatus(200)
+    assert.include(v3.text(), '# v3')
+    ;(
+      await client.get(`/api/v1/boards/${board.id}/design-md?version=1`).headers(auth)
+    ).assertStatus(404)
+
+    const rpc = (body: unknown) =>
+      client
+        .post('/mcp')
+        .headers({ ...auth, accept: 'application/json, text/event-stream' })
+        .json(body)
+    const hidden = await rpc({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/call',
+      params: { name: 'get_design_md', arguments: { board_id: board.id, version: 1 } },
+    })
+    assert.isTrue(hidden.body().result.isError)
+
+    const call = (id: number) => ({ jsonrpc: '2.0', id, method: 'tools/list' })
+    const ok = await rpc(Array.from({ length: 20 }, (_, i) => call(i + 1)))
+    ok.assertStatus(200)
+    assert.lengthOf(ok.body(), 20)
+    assert.deepEqual(
+      ok.body().map((r: { id: number }) => r.id),
+      Array.from({ length: 20 }, (_, i) => i + 1)
+    )
+    ;(await rpc(Array.from({ length: 21 }, (_, i) => call(i + 1)))).assertStatus(400)
   })
 
   test('ustawienia: utworzenie i odwołanie tokenu API', async ({ client, assert }) => {

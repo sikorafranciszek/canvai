@@ -1,3 +1,4 @@
+import { versionVisible } from '#services/design/access'
 import type { HttpContext } from '@adonisjs/core/http'
 import DesignDoc from '#models/design_doc'
 import Job from '#models/job'
@@ -399,15 +400,9 @@ export default class DesignDocsController {
     )
   }
 
-  /** Czy wersja mieści się w limicie historii planu. */
-  private async versionVisible(userId: number, boardId: number, version: number) {
-    const { limits } = await entitlementsFor(userId)
-    if (limits.versionsKept == null) return true
-    const newer = await DesignDoc.query()
-      .where('board_id', boardId)
-      .where('version', '>', version)
-      .count('* as total')
-    return Number(newer[0].$extras.total) < limits.versionsKept
+  /** Czy wersja mieści się w limicie historii planu (wspólna reguła z API/MCP). */
+  private versionVisible(userId: number, boardId: number, version: number) {
+    return versionVisible(userId, boardId, version)
   }
 
   /**
