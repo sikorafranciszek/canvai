@@ -151,7 +151,7 @@ export const en: Record<MessageKey, string> = {
   'auth.field.workEmail': 'Work email',
   'auth.field.emailPlaceholder': 'you@company.com',
   'auth.field.password': 'Password',
-  'auth.field.passwordHint': '8 to 32 characters.',
+  'auth.field.passwordHint': '8 to 128 characters.',
   'auth.field.passwordConfirmation': 'Confirm password',
 
   'error.404.title': 'Page not found',

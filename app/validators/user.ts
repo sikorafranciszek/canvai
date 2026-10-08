@@ -3,8 +3,10 @@ import vine from '@vinejs/vine'
 /**
  * Shared rules for email and password.
  */
-const email = () => vine.string().email().maxLength(254)
-const password = () => vine.string().minLength(8).maxLength(32)
+// SEC-13: adres zawsze małymi literami (bez kont różniących się wielkością liter),
+// hasło do 128 znaków (menedżery haseł generują dłuższe).
+const email = () => vine.string().trim().toLowerCase().email().maxLength(254)
+const password = () => vine.string().minLength(8).maxLength(128)
 
 /**
  * Validator to use when performing self-signup.

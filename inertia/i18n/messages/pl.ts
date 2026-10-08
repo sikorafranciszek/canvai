@@ -157,7 +157,7 @@ export const pl = {
   'auth.field.workEmail': 'E-mail służbowy',
   'auth.field.emailPlaceholder': 'ty@firma.pl',
   'auth.field.password': 'Hasło',
-  'auth.field.passwordHint': 'Od 8 do 32 znaków.',
+  'auth.field.passwordHint': 'Od 8 do 128 znaków.',
   'auth.field.passwordConfirmation': 'Powtórz hasło',
 
   // Błędy stron

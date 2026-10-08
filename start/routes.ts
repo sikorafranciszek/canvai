@@ -12,6 +12,11 @@ import { controllers } from '#generated/controllers'
 import router from '@adonisjs/core/services/router'
 import { crm } from '#config/analytics'
 
+// SEC-13: identyfikatory w trasach tylko liczbowe — `/api/assets/abc` daje 404, nie 500.
+for (const param of ['id', 'memberId', 'noteId', 'previewId', 'userId']) {
+  router.where(param, /^\d{1,10}$/)
+}
+
 /** Healthcheck dla Coolify / load balancera: proces żyje i baza odpowiada. */
 router.get('/health', async ({ response }) => {
   const { default: db } = await import('@adonisjs/lucid/services/db')
