@@ -2,6 +2,8 @@ import { DateTime } from 'luxon'
 import Asset from '#models/asset'
 import Board from '#models/board'
 import DesignDoc from '#models/design_doc'
+import db from '@adonisjs/lucid/services/db'
+import { lockBoard } from '#services/design/board_lock'
 import { normalizeHex } from '#services/ai/schemas'
 import { whiteLabelName, withPlanFooter } from '#services/design/generator'
 import { renderDesignMd } from '#services/design/renderer'
@@ -94,46 +96,60 @@ export async function createEditedVersion(base: DesignDoc, edits: SpecEdits): Pr
   if (changes === 0) throw new SpecEditError('Nothing changed')
 
   const board = await Board.findOrFail(base.boardId)
-  const latest = await DesignDoc.query()
-    .where('board_id', board.id)
-    .orderBy('version', 'desc')
-    .firstOrFail()
   const ids = (base.sources ?? []).map((s) => s.assetId)
   const rows = new Map(
     (ids.length ? await Asset.query().whereIn('id', ids) : []).map((a) => [a.id, a])
   )
   const generatedAt = DateTime.utc()
-  const version = latest.version + 1
-  const { markdown, sources } = renderDesignMd(
-    spec,
-    (base.sources ?? []).map((s) => ({
-      id: s.assetId,
-      filename: s.filename,
-      kind: s.kind,
-      userNote: rows.get(s.assetId)?.userNote ?? null,
-      usage: rows.get(s.assetId)?.usage,
-    })),
-    {
-      boardTitle: board.title,
-      version,
-      generatedAt: generatedAt.toFormat("yyyy-MM-dd HH:mm 'UTC'"),
-      preparedBy: await whiteLabelName(board.userId),
-    }
-  )
+  const preparedBy = await whiteLabelName(board.userId)
 
-  return DesignDoc.create({
-    boardId: board.id,
-    version,
-    status: 'ready',
-    contentMd: await withPlanFooter(markdown, board.userId),
-    spec,
-    sources,
-    model: base.model,
-    promptVersion: base.promptVersion,
-    inputFingerprint: base.inputFingerprint,
-    proMode: base.proMode,
-    creditsCharged: 0,
-    generatedAt,
-    editedFromVersion: base.version,
+  // Numer wersji pod blokadą tablicy (DAT-2) — równoległa generacja albo druga
+  // edycja nie dostaną tego samego numeru.
+  return db.transaction(async (trx) => {
+    await lockBoard(trx, board.id)
+    const busy = await DesignDoc.query({ client: trx })
+      .where('board_id', board.id)
+      .whereIn('status', ['queued', 'running'])
+      .first()
+    if (busy) throw new SpecEditError('Generation in progress')
+    const top = await DesignDoc.query({ client: trx })
+      .where('board_id', board.id)
+      .max('version as v')
+    const version = Number(top[0].$extras.v ?? 0) + 1
+    const { markdown, sources } = renderDesignMd(
+      spec,
+      (base.sources ?? []).map((s) => ({
+        id: s.assetId,
+        filename: s.filename,
+        kind: s.kind,
+        userNote: rows.get(s.assetId)?.userNote ?? null,
+        usage: rows.get(s.assetId)?.usage,
+      })),
+      {
+        boardTitle: board.title,
+        version,
+        generatedAt: generatedAt.toFormat("yyyy-MM-dd HH:mm 'UTC'"),
+        preparedBy,
+      }
+    )
+
+    return DesignDoc.create(
+      {
+        boardId: board.id,
+        version,
+        status: 'ready',
+        contentMd: await withPlanFooter(markdown, board.userId),
+        spec,
+        sources,
+        model: base.model,
+        promptVersion: base.promptVersion,
+        inputFingerprint: base.inputFingerprint,
+        proMode: base.proMode,
+        creditsCharged: 0,
+        generatedAt,
+        editedFromVersion: base.version,
+      },
+      { client: trx }
+    )
   })
 }

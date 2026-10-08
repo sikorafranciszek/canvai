@@ -192,10 +192,14 @@ export async function ensureAutomaticGrants(userId: number): Promise<void> {
 export async function reserveCredits(
   userId: number,
   amount: number,
-  ref: CreditRef
+  ref: CreditRef,
+  outer?: TransactionClientContract
 ): Promise<void> {
   if (amount <= 0) return
-  await db.transaction(async (trx) => {
+  // W transakcji wołającego (start generacji) albo we własnej.
+  const run = (fn: (trx: TransactionClientContract) => Promise<void>) =>
+    outer ? fn(outer) : db.transaction(fn)
+  await run(async (trx) => {
     await lockKey(trx, LOCK_USER, userId)
     const grants = await activeGrants(userId, trx)
       .forUpdate()

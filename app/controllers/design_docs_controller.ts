@@ -23,6 +23,8 @@ import {
 import { estimateGeneration } from '#services/billing/estimate'
 import { renderExport } from '#services/design/exports'
 import { assessQuality } from '#services/design/quality'
+import db from '@adonisjs/lucid/services/db'
+import { lockBoard } from '#services/design/board_lock'
 import { printBrand } from '#services/portal'
 import { boardAccess, type BoardAction } from '#services/board_access'
 import { publish } from '#services/board_events'
@@ -218,38 +220,76 @@ export default class DesignDocsController {
       }
     }
 
-    const doc = await DesignDoc.create({
-      boardId: board.id,
-      version: (latest?.version ?? 0) + 1,
-      status: 'queued',
-      inputFingerprint: input.fingerprint,
-      proMode,
-    })
-    if (estimate) {
-      try {
-        await reserveCredits(board.userId, estimate.credits, { designDocId: doc.id })
-      } catch (error) {
-        await doc.delete()
-        if (error instanceof InsufficientCreditsError) {
-          await releaseGenerationSlot(user.id)
-          return response.status(402).json({
-            message: error.message,
-            code: 'E_INSUFFICIENT_CREDITS',
-            needed: error.needed,
-            balance: error.balance,
-          })
+    // Utworzenie wersji, rezerwacja kredytów i zadanie w JEDNEJ transakcji pod
+    // blokadą tablicy (DAT-2): podwójne kliknięcie lub dwóch współpracowników nie
+    // da dwóch generacji, a awaria w środku nie zostawi wersji bez zadania.
+    let outcome:
+      | { kind: 'ok'; doc: DesignDoc }
+      | { kind: 'busy'; doc: DesignDoc }
+      | { kind: 'credits'; error: InsufficientCreditsError }
+    try {
+      outcome = await db.transaction(async (trx) => {
+        await lockBoard(trx, board.id)
+        const running = await DesignDoc.query({ client: trx })
+          .where('board_id', board.id)
+          .whereIn('status', ['queued', 'running'])
+          .first()
+        if (running) return { kind: 'busy' as const, doc: running }
+        const top = await DesignDoc.query({ client: trx })
+          .where('board_id', board.id)
+          .max('version as v')
+        const created = await DesignDoc.create(
+          {
+            boardId: board.id,
+            version: Number(top[0].$extras.v ?? 0) + 1,
+            status: 'queued',
+            inputFingerprint: input.fingerprint,
+            proMode,
+          },
+          { client: trx }
+        )
+        if (estimate) {
+          await reserveCredits(board.userId, estimate.credits, { designDocId: created.id }, trx)
         }
+        const job = await enqueue(
+          JOB_GENERATE_DESIGN_DOC,
+          {
+            designDocId: created.id,
+            boardId: board.id,
+            // Język użytkownika — komunikaty generacji w tle mówią tym samym językiem.
+            locale: currentLocale(),
+          },
+          trx
+        )
+        created.jobId = job.id
+        await created.save()
+        return { kind: 'ok' as const, doc: created }
+      })
+    } catch (error) {
+      if (!(error instanceof InsufficientCreditsError)) {
+        await releaseGenerationSlot(user.id)
         throw error
       }
+      outcome = { kind: 'credits', error }
     }
-    const job = await enqueue(JOB_GENERATE_DESIGN_DOC, {
-      designDocId: doc.id,
-      boardId: board.id,
-      // Język użytkownika — komunikaty generacji w tle mówią tym samym językiem.
-      locale: currentLocale(),
-    })
-    doc.jobId = job.id
-    await doc.save()
+    if (outcome.kind === 'credits') {
+      await releaseGenerationSlot(user.id)
+      return response.status(402).json({
+        message: outcome.error.message,
+        code: 'E_INSUFFICIENT_CREDITS',
+        needed: outcome.error.needed,
+        balance: outcome.error.balance,
+      })
+    }
+    if (outcome.kind === 'busy') {
+      await releaseGenerationSlot(user.id)
+      return response.status(409).json({
+        message: t('doc.inProgress'),
+        code: 'E_DESIGN_DOC_IN_PROGRESS',
+        data: await this.serialize(outcome.doc, false),
+      })
+    }
+    const doc = outcome.doc
     trackFor(
       ctx,
       'design_doc_requested',

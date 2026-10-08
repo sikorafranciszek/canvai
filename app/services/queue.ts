@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
+import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import logger from '@adonisjs/core/services/logger'
 import { limits } from '#config/ai'
 import DesignDoc from '#models/design_doc'
@@ -53,10 +54,14 @@ const handlers: Record<string, JobHandler> = {
       const docId = job.payload.designDocId as number
       await DesignDoc.query().where('id', docId).update({ status: 'failed', error: message })
       const board = await Board.find(job.payload.boardId as number)
-      track('design_doc_failed', { error: message.slice(0, 300), attempts: job.attempts }, {
-        userId: board?.userId ?? null,
-        boardId: board?.id ?? null,
-      })
+      track(
+        'design_doc_failed',
+        { error: message.slice(0, 300), attempts: job.attempts },
+        {
+          userId: board?.userId ?? null,
+          boardId: board?.id ?? null,
+        }
+      )
       // Nieudana generacja nic nie kosztuje — rezerwacja wraca w całości.
       await releaseAll({ designDocId: docId })
       raiseAlert('design_doc_failed', `DESIGN.md generation failed (doc ${docId}): ${message}`)
@@ -75,12 +80,18 @@ const handlers: Record<string, JobHandler> = {
     },
     async onFailed(job, message) {
       const previewId = job.payload.previewId as number
-      await DesignPreview.query().where('id', previewId).update({ status: 'failed', error: message })
+      await DesignPreview.query()
+        .where('id', previewId)
+        .update({ status: 'failed', error: message })
       const board = await Board.find(job.payload.boardId as number)
-      track('preview_failed', { error: message.slice(0, 300) }, {
-        userId: board?.userId ?? null,
-        boardId: board?.id ?? null,
-      })
+      track(
+        'preview_failed',
+        { error: message.slice(0, 300) },
+        {
+          userId: board?.userId ?? null,
+          boardId: board?.id ?? null,
+        }
+      )
       await releaseAll({ designPreviewId: previewId }, 'preview failed')
       raiseAlert('preview_failed', `UI preview failed (preview ${previewId}): ${message}`)
     },
@@ -96,9 +107,16 @@ function sqlTime(dt: DateTime): string {
   return dt.toUTC().toFormat(db.connection().dialect.dateTimeFormat)
 }
 
-export async function enqueue(type: string, payload: Record<string, unknown>): Promise<Job> {
+export async function enqueue(
+  type: string,
+  payload: Record<string, unknown>,
+  trx?: TransactionClientContract
+): Promise<Job> {
   if (!handlers[type]) throw new Error(`Nieznany typ zadania: ${type}`)
-  return Job.create({ type, payload, status: 'queued', attempts: 0, runAt: null, lockedAt: null })
+  return Job.create(
+    { type, payload, status: 'queued', attempts: 0, runAt: null, lockedAt: null },
+    trx ? { client: trx } : undefined
+  )
 }
 
 export async function claimNext(): Promise<Job | null> {
