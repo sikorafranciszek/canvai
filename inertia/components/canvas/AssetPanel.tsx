@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { useBoardStore, useCanEdit, useCanvasAssets } from '~/lib/board/session'
 import { formatBytes } from '@shared/asset-utils'
+import { shortcut } from '~/lib/keys'
 import { useT, type MessageKey } from '~/i18n'
 import { ASSET_ASPECTS, type AssetRole, type AssetUsage } from '@shared/asset-usage'
 import type { AssetDto } from '~/lib/board/api'
@@ -153,7 +154,7 @@ export function AssetPanel() {
             <div style={{ color: 'var(--color-ink)', fontWeight: 500 }}>
               {t('assets.empty.title')}
             </div>
-            <p>{t('assets.empty.body', { keys: 'Ctrl+V' })}</p>
+            <p>{t('assets.empty.body', { keys: shortcut('V') })}</p>
           </div>
         ) : visible.length === 0 ? (
           <div className="panel-empty">{t('assets.noMatch', { query })}</div>

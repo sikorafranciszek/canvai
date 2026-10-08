@@ -15,7 +15,8 @@
   --color-sidebar: #f4f1ec;
   --color-warm-mist: #d1d1cd;
   --color-hairline: #e6e3dd;
-  --color-ash: #92918b;
+  /* ≥ 4,5:1 na papierze i tle paneli (UX-9) — używany do drobnego tekstu pomocniczego. */
+  --color-ash: #6f6e69;
   --color-graphite: #72706b;
   --color-ink: #27251e;
   --color-ink-hover: #3b3830;

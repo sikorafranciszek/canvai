@@ -14,6 +14,9 @@ export const pl = {
   'common.copy': 'Kopiuj',
   'common.download': 'Pobierz',
   'common.retry': 'Spróbuj ponownie',
+  'view.group': 'Widok',
+  'comments.threadLabel': 'Wątek komentarzy: {name}',
+  'comments.newThread': 'Nowy komentarz',
   'common.name': 'Nazwa',
   'common.language': 'Język',
 
@@ -802,6 +805,9 @@ export const en: Record<MessageKey, string> = {
   'common.copy': 'Copy',
   'common.download': 'Download',
   'common.retry': 'Try again',
+  'view.group': 'View',
+  'comments.threadLabel': 'Comment thread: {name}',
+  'comments.newThread': 'New comment',
   'common.name': 'Name',
   'common.language': 'Language',
 

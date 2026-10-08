@@ -191,10 +191,25 @@ function CommentBody({ c }: { c: BoardCommentDto }) {
 function ThreadPopover({ root, replies }: { root: BoardCommentDto; replies: BoardCommentDto[] }) {
   const { reply, resolve, open } = useCommentsStore.getState()
   const { t } = useT()
+  const ref = useRef<HTMLDivElement>(null)
+  // Okienko wątku jest dialogiem (UX-9): fokus przy otwarciu, Esc zamyka.
+  useEffect(() => {
+    ref.current?.focus()
+  }, [root.id])
   return (
     <div
+      ref={ref}
       className="comment-popover"
       data-testid="comment-thread"
+      role="dialog"
+      aria-label={t('comments.threadLabel', { name: root.author?.name ?? '' })}
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.stopPropagation()
+          open(null)
+        }
+      }}
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="comment-popover__head">
@@ -294,7 +309,18 @@ export function CommentsLayer({ boardId }: { boardId: number }) {
           <span className="comment-pin comment-pin--draft">
             <MessageSquarePlus size={14} />
           </span>
-          <div className="comment-popover" onPointerDown={(e) => e.stopPropagation()}>
+          <div
+            className="comment-popover"
+            role="dialog"
+            aria-label={t('comments.newThread')}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.stopPropagation()
+                useCommentsStore.getState().setDraft(null)
+              }
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
             <Composer
               placeholder={t('comments.placeholder')}
               onSubmit={(body) => useCommentsStore.getState().create(body)}
@@ -330,6 +356,7 @@ export function CommentsButton() {
         type="button"
         className="btn btn--quiet btn--sm"
         aria-pressed={placing}
+        aria-label={open ? `${t('comments.addTip')} (${open})` : t('comments.addTip')}
         onClick={() => useCommentsStore.getState().setPlacing(!placing)}
         data-tip={t('comments.addTip')}
         data-testid="comments-add"

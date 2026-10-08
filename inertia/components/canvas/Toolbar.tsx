@@ -32,6 +32,7 @@ import { TOOLS, toolTestId, type Tool } from '@shared/tools'
 import { useSceneStore } from '~/lib/scene/store'
 import { getElementBounds } from '~/lib/scene/geometry'
 import { FILL_COLORS, STICKY_COLORS, STROKE_COLORS } from '~/lib/scene/palette'
+import { shortcut } from '~/lib/keys'
 import { useT, type MessageKey } from '~/i18n'
 
 const TOOL_ICONS: Record<Tool, React.ComponentType> = {
@@ -125,7 +126,9 @@ export function Toolbar() {
               data-testid={toolTestId(def.id)}
               aria-label={t(`tool.${def.id}`)}
               aria-pressed={tool === def.id}
-              data-tip={def.shortcut ? `${t(`tool.${def.id}`)} · ${def.shortcut}` : t(`tool.${def.id}`)}
+              data-tip={
+                def.shortcut ? `${t(`tool.${def.id}`)} · ${def.shortcut}` : t(`tool.${def.id}`)
+              }
               onClick={() => setTool(def.id)}
             >
               <Icon />
@@ -141,7 +144,7 @@ export function Toolbar() {
           onClick={undo}
           disabled={!canUndo}
           aria-label={t('tools.undo')}
-          data-tip={`${t('tools.undo')} · Ctrl+Z`}
+          data-tip={`${t('tools.undo')} · ${shortcut('Z')}`}
         >
           <Undo2 />
         </button>
@@ -152,7 +155,7 @@ export function Toolbar() {
           onClick={redo}
           disabled={!canRedo}
           aria-label={t('tools.redo')}
-          data-tip={`${t('tools.redo')} · Ctrl+Shift+Z`}
+          data-tip={`${t('tools.redo')} · ${shortcut('Shift', 'Z')}`}
         >
           <Redo2 />
         </button>
@@ -160,7 +163,7 @@ export function Toolbar() {
 
       <SelectionBar />
 
-      <div className="float float--zoom" role="group" aria-label="Widok">
+      <div className="float float--zoom" role="group" aria-label={t('view.group')}>
         <button
           type="button"
           className="tool-btn"
@@ -408,7 +411,9 @@ function SelectionBar() {
         </span>
       ))}
       {groups.length ? <span className="float__sep" aria-hidden /> : null}
-      <span className="props-label">{selected.length > 1 ? t('props.selected', { n: selected.length }) : ''}</span>
+      <span className="props-label">
+        {selected.length > 1 ? t('props.selected', { n: selected.length }) : ''}
+      </span>
       <button
         type="button"
         className="tool-btn"
@@ -432,7 +437,7 @@ function SelectionBar() {
         className="tool-btn"
         onClick={() => store.duplicateSelection()}
         aria-label={t('props.duplicate')}
-        data-tip={`${t('props.duplicate')} · Ctrl+D`}
+        data-tip={`${t('props.duplicate')} · ${shortcut('D')}`}
         data-testid="props-duplicate"
       >
         <Copy />

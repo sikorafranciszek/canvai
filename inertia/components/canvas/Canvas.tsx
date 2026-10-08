@@ -20,6 +20,7 @@ import { SiteImportButton } from './SiteImportDialog'
 import { FigmaImportButton } from './FigmaImportDialog'
 import { ClipboardPaste, MousePointer2, Upload, UploadCloud } from 'lucide-react'
 import { GRAPHITE, INK, SELECTION, SELECTION_TINT } from '~/lib/scene/palette'
+import { MOD } from '~/lib/keys'
 import { useT } from '~/i18n'
 
 const MIN_SCALE = 0.1
@@ -861,7 +862,7 @@ export function Canvas({ boardId, readOnly = false }: { boardId: number; readOnl
                   <ClipboardPaste />
                 </span>
                 <span>
-                  {t('canvas.empty.paste')} <span className="kbd">Ctrl</span>{' '}
+                  {t('canvas.empty.paste')} <span className="kbd">{MOD}</span>{' '}
                   <span className="kbd">V</span>
                 </span>
               </div>
