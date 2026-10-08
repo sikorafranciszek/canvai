@@ -45,6 +45,7 @@ import {
   userActivity,
 } from '#services/crm/metrics'
 import env from '#start/env'
+import { disconnectUser } from '#services/board_events'
 
 const PAGE_SIZE = 25
 
@@ -489,6 +490,7 @@ export default class CrmController {
     }
     user.disabledAt = disable ? DateTime.utc() : null
     await user.save()
+    if (disable) disconnectUser(user.id)
     this.audit(ctx, disable ? 'disable' : 'enable', user.id)
     ctx.session.flash('success', disable ? 'crm.flash.disabled' : 'crm.flash.enabled')
     return ctx.response.redirect().back()

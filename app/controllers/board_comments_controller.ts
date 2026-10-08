@@ -99,7 +99,7 @@ export default class BoardCommentsController {
       body: input.body,
       resolvedAt: null,
     })
-    publish(access.board.id, 'comments', {}, request.header('x-client-id'))
+    publish(access.board.id, 'comments', {}, request.header('x-client-id'), auth.user!.id)
     trackFor(ctx, 'comment_added', { reply: Boolean(parentId) }, { boardId: access.board.id })
     const [data] = await this.serialize([comment], auth.user!.id, access.board.userId)
     return response.status(201).json({ data })
@@ -128,7 +128,7 @@ export default class BoardCommentsController {
       comment.resolvedAt = input.resolved ? DateTime.utc() : null
     }
     await comment.save()
-    publish(comment.boardId, 'comments', {}, request.header('x-client-id'))
+    publish(comment.boardId, 'comments', {}, request.header('x-client-id'), auth.user!.id)
     const [data] = await this.serialize([comment], auth.user!.id, access.board.userId)
     return response.json({ data })
   }
@@ -140,7 +140,7 @@ export default class BoardCommentsController {
     const { comment, access } = found
     if (comment.userId !== auth.user!.id && access.role !== 'owner') return response.forbidden()
     await comment.delete()
-    publish(comment.boardId, 'comments', {}, request.header('x-client-id'))
+    publish(comment.boardId, 'comments', {}, request.header('x-client-id'), auth.user!.id)
     return response.noContent()
   }
 }

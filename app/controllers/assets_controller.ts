@@ -84,7 +84,7 @@ export default class AssetsController {
         await asset.save()
       }
       trackFor(ctx, 'assets_added', { count: 1, kinds: ['link'], source }, { boardId: board.id })
-      publish(board.id, 'assets', {}, request.header('x-client-id'))
+      publish(board.id, 'assets', {}, request.header('x-client-id'), auth.user!.id)
       return response.status(201).json({ data: [serializeAsset(asset)] })
     }
 
@@ -100,7 +100,7 @@ export default class AssetsController {
       { count: assets.length, kinds: [...new Set(assets.map((a) => a.kind))], source },
       { boardId: board.id }
     )
-    publish(board.id, 'assets', {}, request.header('x-client-id'))
+    publish(board.id, 'assets', {}, request.header('x-client-id'), auth.user!.id)
     return response.status(201).json({ data: assets.map(serializeAsset) })
   }
 
@@ -117,7 +117,7 @@ export default class AssetsController {
       asset.usageAspects = usage.role === 'avoid' ? [] : [...new Set(usage.aspects)]
     }
     await asset.save()
-    publish(asset.boardId, 'assets', {}, request.header('x-client-id'))
+    publish(asset.boardId, 'assets', {}, request.header('x-client-id'), auth.user!.id)
 
     return response.json({ data: serializeAsset(asset) })
   }
@@ -129,7 +129,7 @@ export default class AssetsController {
 
     await deleteAssetFiles(asset)
     await asset.delete()
-    publish(asset.boardId, 'assets', {}, request.header('x-client-id'))
+    publish(asset.boardId, 'assets', {}, request.header('x-client-id'), auth.user!.id)
 
     return response.status(204)
   }

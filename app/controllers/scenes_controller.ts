@@ -74,7 +74,8 @@ export default class ScenesController {
         board.id,
         'scene',
         { version: row.version, by: user.id },
-        request.header('x-client-id')
+        request.header('x-client-id'),
+        auth.user!.id
       )
     }
 

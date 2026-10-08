@@ -196,7 +196,7 @@ test.group('Współpraca: członkowie, uprawnienia, komentarze, zdarzenia', (gro
     const chunks: { a: string; b: string } = { a: '', b: '' }
     a.stream.on('data', (c) => (chunks.a += c.toString()))
     b.stream.on('data', (c) => (chunks.b += c.toString()))
-    publish(999001, 'scene', { version: 7 }, 'client-aaaa')
+    publish(999001, 'scene', { version: 7 }, 'client-aaaa', 1)
     await new Promise((r) => setTimeout(r, 20))
     assert.include(chunks.b, 'event: scene\ndata: {"version":7}')
     assert.notInclude(chunks.a, 'event: scene')

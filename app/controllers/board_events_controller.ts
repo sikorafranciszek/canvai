@@ -45,7 +45,7 @@ export default class BoardEventsController {
     const access = await boardAccess(auth.user!.id, params.id, 'view')
     if (!access) return response.notFound()
     const { clientId, x, y } = await request.validateUsing(cursorValidator)
-    moveCursor(access.board.id, clientId, Math.round(x), Math.round(y))
+    moveCursor(access.board.id, clientId, auth.user!.id, Math.round(x), Math.round(y))
     return response.noContent()
   }
 }

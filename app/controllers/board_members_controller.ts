@@ -4,7 +4,7 @@ import logger from '@adonisjs/core/services/logger'
 import mail from '@adonisjs/mail/services/main'
 import vine from '@vinejs/vine'
 import { DateTime } from 'luxon'
-import Board from '#models/board'
+import type Board from '#models/board'
 import BoardMember from '#models/board_member'
 import User from '#models/user'
 import { boardAccess, boardAccessOrStatus } from '#services/board_access'
@@ -12,7 +12,7 @@ import { entitlementsFor } from '#services/billing/plans'
 import { appUrl } from '#services/lifecycle_mail'
 import { currentLocale, t } from '#services/i18n'
 import { trackFor } from '#services/analytics/events'
-import { publish } from '#services/board_events'
+import { disconnectUser, publish } from '#services/board_events'
 
 const inviteValidator = vine.compile(
   vine.object({
@@ -155,6 +155,8 @@ export default class BoardMembersController {
     if (!member) return response.notFound()
     member.role = (await request.validateUsing(roleValidator)).role
     await member.save()
+    // Strumień trzyma rolę z chwili połączenia — klient połączy się ponownie z nową.
+    if (member.userId) disconnectUser(member.userId, access.board.id)
     publish(access.board.id, 'members', {})
     return response.json({ data: await this.payload(access.board, auth.user!.id) })
   }
@@ -171,6 +173,8 @@ export default class BoardMembersController {
     const self = member.userId === auth.user!.id
     if (access.role !== 'owner' && !self) return response.forbidden()
     await member.delete()
+    // Usunięty członek przestaje dostawać zdarzenia tablicy od razu (SEC-6).
+    if (member.userId) disconnectUser(member.userId, access.board.id)
     publish(access.board.id, 'members', {})
     return response.json({
       data:

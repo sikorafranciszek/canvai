@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { PassThrough } from 'node:stream'
 
 /**
@@ -25,7 +26,15 @@ export interface Participant {
 interface Connection extends Participant {
   stream: PassThrough
   lastCursorAt: number
+  openedAt: number
+  close: () => void
 }
+
+/** Limity połączeń (SEC-6): na użytkownika (wszystkie tablice) i na tablicę. */
+export const LIMITS = { perUser: 10, perBoard: 100 }
+/** Bufor wolnego klienta: powyżej — bez kursorów, powyżej MAX — rozłączenie. */
+const SOFT_BUFFER = 256 * 1024
+const MAX_BUFFER = 2 * 1024 * 1024
 
 const COLORS = [
   '#c0622d',
@@ -41,26 +50,38 @@ const COLORS = [
 const g = globalThis as unknown as { __canvaiBoardHub?: Map<number, Map<string, Connection>> }
 const boards: Map<number, Map<string, Connection>> = (g.__canvaiBoardHub ??= new Map())
 
-function write(stream: PassThrough, event: string, data: unknown) {
-  stream.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+function write(conn: Connection, event: string, data: unknown) {
+  const buffered = conn.stream.writableLength
+  if (buffered > MAX_BUFFER) {
+    // Klient nie odbiera (zawieszona karta, wolne łącze) — rozłączamy, wróci przez retry.
+    conn.close()
+    return
+  }
+  if (event === 'cursor' && buffered > SOFT_BUFFER) return
+  conn.stream.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
 }
 
 export function colorFor(userId: number): string {
   return COLORS[userId % COLORS.length]
 }
 
-/** Wysyła zdarzenie do wszystkich uczestników tablicy (poza nadawcą). */
+/**
+ * Wysyła zdarzenie do wszystkich uczestników tablicy poza nadawcą. Nadawca jest
+ * pomijany TYLKO, gdy podany clientId należy do tego samego użytkownika —
+ * cudzy X-Client-Id nie wyłączy nikomu powiadomień (SEC-6).
+ */
 export function publish(
   boardId: number,
   event: string,
   data: Record<string, unknown>,
-  exceptClientId?: string | null
+  exceptClientId?: string | null,
+  senderUserId?: number | null
 ) {
   const conns = boards.get(boardId)
   if (!conns) return
-  for (const conn of conns.values()) {
-    if (exceptClientId && conn.clientId === exceptClientId) continue
-    write(conn.stream, event, data)
+  for (const conn of [...conns.values()]) {
+    if (exceptClientId && conn.clientId === exceptClientId && conn.userId === senderUserId) continue
+    write(conn, event, data)
   }
 }
 
@@ -86,27 +107,46 @@ function broadcastPresence(boardId: number) {
   publish(boardId, 'presence', { participants: participants(boardId) })
 }
 
+function connectionsOf(userId: number): Connection[] {
+  const out: Connection[] = []
+  for (const conns of boards.values())
+    for (const c of conns.values()) if (c.userId === userId) out.push(c)
+  return out
+}
+
 /** Rejestruje połączenie SSE; zwraca strumień do wysłania i funkcję sprzątającą. */
-export function connect(boardId: number, participant: Participant) {
+export function connect(boardId: number, requested: Participant) {
   const stream = new PassThrough()
   let conns = boards.get(boardId)
   if (!conns) {
     conns = new Map()
     boards.set(boardId, conns)
   }
-  // Ponowne połączenie z tym samym clientId zastępuje stare.
-  conns.get(participant.clientId)?.stream.end()
-  conns.set(participant.clientId, { ...participant, stream, lastCursorAt: 0 })
+  // clientId innego użytkownika nie przejmuje jego połączenia — dostajemy nowy.
+  const taken = conns.get(requested.clientId)
+  const participant =
+    taken && taken.userId !== requested.userId
+      ? { ...requested, clientId: randomUUID() }
+      : requested
+  // Ponowne połączenie tego samego klienta zastępuje stare.
+  conns.get(participant.clientId)?.close()
 
-  stream.write('retry: 3000\n\n')
-  write(stream, 'hello', { clientId: participant.clientId, participants: participants(boardId) })
-  broadcastPresence(boardId)
+  // Limity: najstarsze połączenia użytkownika ustępują nowym; pełna tablica odmawia.
+  const mine = connectionsOf(participant.userId).sort((a, b) => a.openedAt - b.openedAt)
+  while (mine.length >= LIMITS.perUser) mine.shift()!.close()
+  if ((boards.get(boardId)?.size ?? 0) >= LIMITS.perBoard) {
+    stream.end('retry: 30000\n\n')
+    return { stream, close: () => {}, clientId: participant.clientId }
+  }
+  conns = boards.get(boardId) ?? new Map()
+  boards.set(boardId, conns)
 
-  // Komentarz co 25 s — proxy nie zamyka bezczynnego połączenia.
+  let closed = false
   const heartbeat = setInterval(() => stream.write(': ping\n\n'), 25_000)
   heartbeat.unref()
-
   const close = () => {
+    if (closed) return
+    closed = true
     clearInterval(heartbeat)
     const current = boards.get(boardId)
     if (current?.get(participant.clientId)?.stream === stream) {
@@ -116,13 +156,40 @@ export function connect(boardId: number, participant: Participant) {
     }
     stream.end()
   }
-  return { stream, close }
+  const conn: Connection = { ...participant, stream, lastCursorAt: 0, openedAt: Date.now(), close }
+  conns.set(participant.clientId, conn)
+
+  stream.write('retry: 3000\n\n')
+  write(conn, 'hello', { clientId: participant.clientId, participants: participants(boardId) })
+  broadcastPresence(boardId)
+  return { stream, close, clientId: participant.clientId }
+}
+
+/** Zamyka strumienie użytkownika (usunięcie z tablicy, blokada konta) — SEC-6. */
+export function disconnectUser(userId: number, boardId?: number): number {
+  let n = 0
+  for (const [id, conns] of boards) {
+    if (boardId != null && id !== boardId) continue
+    for (const c of [...conns.values()]) {
+      if (c.userId !== userId) continue
+      c.close()
+      n++
+    }
+  }
+  return n
 }
 
 /** Kursor uczestnika (ograniczenie do ~20/s na klienta). */
-export function moveCursor(boardId: number, clientId: string, x: number, y: number): boolean {
+export function moveCursor(
+  boardId: number,
+  clientId: string,
+  userId: number,
+  x: number,
+  y: number
+): boolean {
   const conn = boards.get(boardId)?.get(clientId)
-  if (!conn) return false
+  // Kursor tylko z własnego połączenia — nie da się poruszać cudzym (SEC-6).
+  if (!conn || conn.userId !== userId) return false
   const now = Date.now()
   if (now - conn.lastCursorAt < 45) return true
   conn.lastCursorAt = now
@@ -130,7 +197,8 @@ export function moveCursor(boardId: number, clientId: string, x: number, y: numb
     boardId,
     'cursor',
     { clientId, userId: conn.userId, name: conn.name, color: conn.color, x, y },
-    clientId
+    clientId,
+    userId
   )
   return true
 }
