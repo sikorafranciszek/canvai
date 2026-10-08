@@ -37,6 +37,23 @@ import { aiBudgetDenial, claimGenerationSlot, releaseGenerationSlot } from '#ser
  * DESIGN.md tablicy: zlecanie generacji, status, wersje, pobieranie.
  * Wszystko wyłącznie dla właściciela tablicy (obcy dostaje 404).
  */
+/** Kolumny listy wersji — bez `content_md` i `spec` (duże). */
+const DESIGN_DOC_LIST_COLUMNS = [
+  'id',
+  'board_id',
+  'version',
+  'status',
+  'error',
+  'usage',
+  'credits_charged',
+  'pro_mode',
+  'sources',
+  'created_at',
+  'generated_at',
+  'job_id',
+  'edited_from_version',
+]
+
 export default class DesignDocsController {
   /** Tablica, do której użytkownik ma dostęp (`view` albo `edit`). Rozliczenia — konto właściciela. */
   private async findBoard(userId: number, boardId: string | number, action: BoardAction = 'view') {
@@ -57,7 +74,7 @@ export default class DesignDocsController {
       usage: doc.usage,
       creditsCharged: doc.creditsCharged,
       proMode: doc.proMode,
-      hasSpec: doc.spec != null,
+      hasSpec: (doc.$extras.has_spec as boolean | undefined) ?? doc.spec != null,
       sources: doc.sources,
       createdAt: doc.createdAt?.toISO() ?? null,
       generatedAt: doc.generatedAt?.toISO() ?? null,
@@ -336,12 +353,20 @@ export default class DesignDocsController {
     if (!board) return response.notFound()
 
     const { limits } = await entitlementsFor(board.userId)
-    const all = await DesignDoc.query().where('board_id', board.id).orderBy('version', 'desc')
     // Plan Free: widać tylko ostatnie wersje; starsze czekają na przejście na płatny plan.
-    const docs = limits.versionsKept == null ? all : all.slice(0, limits.versionsKept)
+    // Limit i liczba w SQL, bez treści i specyfikacji (ARC-2).
+    const query = DesignDoc.query()
+      .where('board_id', board.id)
+      .select(...DESIGN_DOC_LIST_COLUMNS, db.raw('(spec is not null) as has_spec'))
+      .orderBy('version', 'desc')
+    if (limits.versionsKept != null) query.limit(limits.versionsKept)
+    const [docs, total] = await Promise.all([
+      query,
+      DesignDoc.query().where('board_id', board.id).count('* as total'),
+    ])
     return response.json({
       data: await Promise.all(docs.map((d) => this.serialize(d, false))),
-      meta: { hiddenVersions: all.length - docs.length },
+      meta: { hiddenVersions: Number(total[0].$extras.total) - docs.length },
     })
   }
 

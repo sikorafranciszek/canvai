@@ -1,8 +1,8 @@
-import { type DateTime } from 'luxon'
+import { DateTime } from 'luxon'
+import db from '@adonisjs/lucid/services/db'
 import Asset from '#models/asset'
 import Board from '#models/board'
 import BoardScene from '#models/board_scene'
-import DesignDoc from '#models/design_doc'
 import { createBoardValidator, updateBoardValidator } from '#validators/board'
 import type { HttpContext } from '@adonisjs/core/http'
 import { entitlementsFor } from '#services/billing/plans'
@@ -31,15 +31,43 @@ export default class BoardController {
     const ownerIds = [...new Set(boards.map((b) => b.userId).filter((id) => id !== user.id))]
     const owners = ownerIds.length ? await User.query().whereIn('id', ownerIds) : []
 
-    // Dane kart: liczba assetów, okładka (pierwszy obraz z miniaturą),
-    // ostatni DESIGN.md i czas ostatniej edycji sceny.
-    const [assets, docs, scenes] = ids.length
+    // Dane kart (ARC-2): agregaty SQL zamiast ładowania wszystkich materiałów,
+    // wersji dokumentów (z treścią) i pełnych scen — tylko liczby i daty.
+    const [counts, covers, docs, scenes] = ids.length
       ? await Promise.all([
-          Asset.query().whereIn('board_id', ids).orderBy('id', 'asc'),
-          DesignDoc.query().whereIn('board_id', ids).orderBy('version', 'desc'),
-          BoardScene.query().whereIn('board_id', ids),
+          db
+            .from('assets')
+            .whereIn('board_id', ids)
+            .groupBy('board_id')
+            .select('board_id')
+            .count('* as total'),
+          db
+            .from('assets')
+            .whereIn('board_id', ids)
+            .where('kind', 'image')
+            .whereNotNull('thumb_key')
+            .distinctOn('board_id')
+            .orderBy([{ column: 'board_id' }, { column: 'id', order: 'asc' }])
+            .select('board_id', 'id'),
+          db
+            .from('design_docs')
+            .whereIn('board_id', ids)
+            .distinctOn('board_id')
+            .orderBy([{ column: 'board_id' }, { column: 'version', order: 'desc' }])
+            .select('board_id', 'version', 'status', 'generated_at'),
+          db.from('board_scenes').whereIn('board_id', ids).select('board_id', 'updated_at'),
         ])
-      : [[], [], []]
+      : [[], [], [], []]
+    const byBoard = <T extends { board_id: number }>(rows: T[]) =>
+      new Map(rows.map((r) => [Number(r.board_id), r]))
+    const countOf = byBoard(counts as { board_id: number; total: string }[])
+    const coverOf = byBoard(covers as { board_id: number; id: number }[])
+    const docOf = byBoard(
+      docs as { board_id: number; version: number; status: string; generated_at: Date | null }[]
+    )
+    const sceneOf = byBoard(scenes as { board_id: number; updated_at: Date | null }[])
+    const fromDate = (d: Date | string | null | undefined) =>
+      d ? DateTime.fromJSDate(new Date(d)).toUTC() : null
 
     const toIso = (value: DateTime | null | undefined) => value?.toISO() ?? null
 
@@ -47,11 +75,10 @@ export default class BoardController {
       'boards/index' as any,
       {
         boards: boards.map((b) => {
-          const boardAssets = assets.filter((a) => a.boardId === b.id)
-          const cover = boardAssets.find((a) => a.kind === 'image' && a.thumbKey)
-          const doc = docs.find((d) => d.boardId === b.id)
-          const scene = scenes.find((sc) => sc.boardId === b.id)
-          const edited = [b.updatedAt, scene?.updatedAt, b.createdAt]
+          const cover = coverOf.get(b.id)
+          const doc = docOf.get(b.id)
+          const sceneEdited = fromDate(sceneOf.get(b.id)?.updated_at)
+          const edited = [b.updatedAt, sceneEdited, b.createdAt]
             .filter((d): d is DateTime => Boolean(d))
             .sort((x, y) => y.toMillis() - x.toMillis())[0]
           return {
@@ -70,10 +97,14 @@ export default class BoardController {
             createdAt: toIso(b.createdAt),
             updatedAt: toIso(b.updatedAt),
             editedAt: toIso(edited),
-            assetsCount: boardAssets.length,
+            assetsCount: Number(countOf.get(b.id)?.total ?? 0),
             coverUrl: cover ? `/api/assets/${cover.id}/thumb` : null,
             designDoc: doc
-              ? { version: doc.version, status: doc.status, generatedAt: toIso(doc.generatedAt) }
+              ? {
+                  version: Number(doc.version),
+                  status: doc.status,
+                  generatedAt: toIso(fromDate(doc.generated_at)),
+                }
               : null,
           }
         }),
